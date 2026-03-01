@@ -1,8 +1,7 @@
 """Embedding functions for ChromaDB vector stores.
 
-Provides cloud-based embeddings using Azure OpenAI instead of
-slow local sentence-transformers. This significantly improves
-knowledge base search latency from ~30s to ~1-2s.
+Supports multiple providers: Azure OpenAI, OpenAI, FutureProof proxy,
+Ollama (local), and ChromaDB's default sentence-transformers fallback.
 
 Usage:
     from futureproof.memory.embeddings import get_embedding_function
@@ -25,13 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
-    """ChromaDB embedding function using Azure OpenAI.
-
-    Uses text-embedding-3-small/large models which are:
-    - Fast (cloud-based)
-    - High quality (supports dimension reduction)
-    - Covered by Azure free credits ($200)
-    """
+    """ChromaDB embedding function using Azure OpenAI."""
 
     def __init__(
         self,
@@ -65,7 +58,9 @@ class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
 
     def _truncate(self, texts: list[str]) -> list[str]:
         """Truncate texts that exceed the model's context limit."""
-        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
+        return [
+            t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts
+        ]
 
     def __call__(self, input: Documents) -> Embeddings:
         """Generate embeddings for a list of documents."""
@@ -84,36 +79,117 @@ class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
             raise
 
 
-class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
-    """Wrapper that adds in-memory caching to any embedding function.
+class OpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
+    """ChromaDB embedding function using OpenAI or OpenAI-compatible API."""
 
-    Useful for reducing API calls when the same text is embedded multiple times.
-    """
+    def __init__(
+        self,
+        api_key: str = "",
+        base_url: str | None = None,
+        model: str = "text-embedding-3-small",
+    ) -> None:
+        self._api_key = api_key
+        self._base_url = base_url
+        self._model = model
+        self._client: Any = None
+
+    @property
+    def client(self) -> Any:
+        """Lazy-load the OpenAI client."""
+        if self._client is None:
+            from openai import OpenAI
+
+            kwargs: dict[str, Any] = {"api_key": self._api_key}
+            if self._base_url:
+                kwargs["base_url"] = self._base_url
+            self._client = OpenAI(**kwargs)
+            logger.debug("OpenAI embedding client initialized")
+        return self._client
+
+    MAX_CHARS = 15000
+
+    def _truncate(self, texts: list[str]) -> list[str]:
+        return [
+            t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts
+        ]
+
+    def __call__(self, input: Documents) -> Embeddings:
+        """Generate embeddings for a list of documents."""
+        if not input:
+            return []
+
+        try:
+            docs: list[str] = list(input) if isinstance(input, list) else [input]
+            response = self.client.embeddings.create(
+                input=self._truncate(docs),
+                model=self._model,
+            )
+            return [item.embedding for item in response.data]
+        except Exception as e:
+            logger.error("OpenAI embedding failed: %s", e)
+            raise
+
+
+class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
+    """ChromaDB embedding function using Ollama local models."""
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434",
+        model: str = "nomic-embed-text",
+    ) -> None:
+        self._base_url = base_url
+        self._model = model
+        self._client: Any = None
+
+    @property
+    def client(self) -> Any:
+        """Lazy-load the Ollama client."""
+        if self._client is None:
+            import httpx
+
+            self._client = httpx.Client(
+                base_url=self._base_url, timeout=60.0
+            )
+            logger.debug("Ollama embedding client initialized")
+        return self._client
+
+    def __call__(self, input: Documents) -> Embeddings:
+        """Generate embeddings for a list of documents."""
+        if not input:
+            return []
+
+        try:
+            docs: list[str] = list(input) if isinstance(input, list) else [input]
+            embeddings: list[list[float]] = []
+            for doc in docs:
+                response = self.client.post(
+                    "/api/embed",
+                    json={"model": self._model, "input": doc},
+                )
+                response.raise_for_status()
+                data = response.json()
+                embeddings.append(data["embeddings"][0])
+            return embeddings  # type: ignore[return-value]
+        except Exception as e:
+            logger.error("Ollama embedding failed: %s", e)
+            raise
+
+
+class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
+    """Wrapper that adds in-memory caching to any embedding function."""
 
     def __init__(
         self,
         base_function: EmbeddingFunction[Documents],
         max_cache_size: int = 1000,
     ) -> None:
-        """Initialize the cached embedding function.
-
-        Args:
-            base_function: The underlying embedding function to cache
-            max_cache_size: Maximum number of embeddings to cache
-        """
         self._base = base_function
         self._cache: dict[str, Any] = {}  # Can be list[float] or numpy array
         self._max_size = max_cache_size
 
     def __call__(self, input: Documents) -> Embeddings:
-        """Generate embeddings with caching.
-
-        Args:
-            input: List of text documents to embed
-
-        Returns:
-            List of embedding vectors
-        """
+        """Generate embeddings with caching."""
         if not input:
             return []
 
@@ -135,12 +211,13 @@ class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
             new_embeddings = self._base(uncached_docs)
 
             # Update results and cache
-            for idx, doc, emb in zip(uncached_indices, uncached_docs, new_embeddings):
+            for idx, doc, emb in zip(
+                uncached_indices, uncached_docs, new_embeddings
+            ):
                 results[idx] = emb
 
                 # Add to cache (evict oldest if full)
                 if len(self._cache) >= self._max_size:
-                    # Simple eviction: remove first item
                     first_key = next(iter(self._cache))
                     del self._cache[first_key]
 
@@ -156,27 +233,54 @@ _embedding_function: EmbeddingFunction[Documents] | None = None
 def get_embedding_function() -> EmbeddingFunction[Documents]:
     """Get the configured embedding function for ChromaDB.
 
-    Returns Azure OpenAI embeddings wrapped with caching if configured,
-    otherwise falls back to ChromaDB's default (sentence-transformers).
-
-    Returns:
-        ChromaDB-compatible embedding function
+    Auto-detects the active provider and returns the appropriate
+    embedding function wrapped with caching. Falls back to ChromaDB's
+    default (sentence-transformers) if no provider is configured.
     """
     global _embedding_function
 
     if _embedding_function is not None:
         return _embedding_function
 
-    if settings.azure_openai_api_key and settings.azure_embedding_deployment:
+    provider = settings.active_provider
+    model = settings.embedding_model
+    base: EmbeddingFunction[Documents] | None = None
+
+    if provider == "azure" and settings.azure_embedding_deployment:
         logger.info("Using Azure OpenAI embeddings")
-        base: EmbeddingFunction[Documents] = AzureOpenAIEmbeddingFunction()
-        _embedding_function = CachedEmbeddingFunction(base)
-    else:
-        logger.warning(
-            "No embedding API configured. Using default embeddings (slow, local). "
-            "Set AZURE_OPENAI_API_KEY and AZURE_EMBEDDING_DEPLOYMENT for faster performance."
+        base = AzureOpenAIEmbeddingFunction()
+
+    elif provider in ("openai", "futureproof"):
+        api_key = (
+            settings.futureproof_proxy_key
+            if provider == "futureproof"
+            else settings.openai_api_key
         )
-        # Return None to let ChromaDB use its default
+        base_url = (
+            settings.futureproof_proxy_url
+            if provider == "futureproof"
+            else None
+        )
+        logger.info("Using %s embeddings", provider)
+        base = OpenAIEmbeddingFunction(
+            api_key=api_key,
+            base_url=base_url,
+            model=model or "text-embedding-3-small",
+        )
+
+    elif provider == "ollama":
+        logger.info("Using Ollama local embeddings")
+        base = OllamaEmbeddingFunction(
+            base_url=settings.ollama_base_url,
+            model=model or "nomic-embed-text",
+        )
+
+    if base is None:
+        logger.warning(
+            "No embedding provider configured. Using default embeddings "
+            "(slow, local). Set an LLM provider for faster performance."
+        )
         return None  # type: ignore[return-value]
 
+    _embedding_function = CachedEmbeddingFunction(base)
     return _embedding_function

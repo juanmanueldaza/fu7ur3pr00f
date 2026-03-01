@@ -4,12 +4,20 @@ from futureproof.config import Settings
 
 
 def make_settings(**overrides) -> Settings:
-    """Create a Settings instance with test defaults."""
-    defaults = {
-        "azure_openai_api_key": "test",
-        "azure_openai_endpoint": "https://test.openai.azure.com/",
+    """Create a Settings instance isolated from .env and env vars."""
+    defaults: dict[str, str] = {
+        "futureproof_proxy_key": "",
+        "openai_api_key": "",
+        "anthropic_api_key": "",
+        "google_api_key": "",
+        "azure_openai_api_key": "",
+        "azure_openai_endpoint": "",
+        "ollama_base_url": "",
+        "llm_provider": "",
     }
-    return Settings(**(defaults | overrides))  # type: ignore[arg-type]
+    merged = defaults | overrides
+    # _env_file=None prevents reading from .env
+    return Settings(_env_file=None, **merged)  # type: ignore[arg-type]
 
 
 class TestSettings:
@@ -17,33 +25,33 @@ class TestSettings:
 
     def test_default_values(self) -> None:
         """Test that settings have expected defaults."""
-        settings = make_settings(azure_openai_api_key="test-key")
-        assert settings.azure_openai_api_key == "test-key"
+        s = make_settings(azure_openai_api_key="test-key")
+        assert s.azure_openai_api_key == "test-key"
 
     def test_directory_paths_are_paths(self) -> None:
         """Test computed directory paths return Path objects."""
         from pathlib import Path
 
-        settings = make_settings()
-        assert isinstance(settings.data_dir, Path)
-        assert isinstance(settings.raw_dir, Path)
-        assert isinstance(settings.processed_dir, Path)
-        assert isinstance(settings.output_dir, Path)
+        s = make_settings()
+        assert isinstance(s.data_dir, Path)
+        assert isinstance(s.raw_dir, Path)
+        assert isinstance(s.processed_dir, Path)
+        assert isinstance(s.output_dir, Path)
 
     def test_directory_paths_structure(self) -> None:
         """Test directory paths have correct names."""
-        settings = make_settings()
-        assert settings.data_dir.name == "data"
-        assert settings.raw_dir.name == "raw"
-        assert settings.processed_dir.name == "processed"
-        assert settings.output_dir.name == "output"
+        s = make_settings()
+        assert s.data_dir.name == "data"
+        assert s.raw_dir.name == "raw"
+        assert s.processed_dir.name == "processed"
+        assert s.output_dir.name == "output"
 
     def test_directory_hierarchy(self) -> None:
         """Test directory paths are correctly nested."""
-        settings = make_settings()
-        assert settings.raw_dir.parent == settings.data_dir
-        assert settings.processed_dir.parent == settings.data_dir
-        assert settings.output_dir.parent == settings.data_dir
+        s = make_settings()
+        assert s.raw_dir.parent == s.data_dir
+        assert s.processed_dir.parent == s.data_dir
+        assert s.output_dir.parent == s.data_dir
 
     def test_ensure_directories_creates_dirs(self, tmp_path) -> None:
         """Test ensure_directories creates required directories."""
@@ -65,6 +73,66 @@ class TestSettings:
 
     def test_portfolio_url_default(self) -> None:
         """Test portfolio_url has a default value."""
-        settings = make_settings()
-        assert settings.portfolio_url
-        assert settings.portfolio_url.startswith("http")
+        s = make_settings()
+        assert s.portfolio_url
+        assert s.portfolio_url.startswith("http")
+
+
+class TestProviderDetection:
+    """Test active_provider auto-detection from available API keys."""
+
+    def test_no_provider_configured(self) -> None:
+        """No keys set → empty string."""
+        s = make_settings()
+        assert s.active_provider == ""
+
+    def test_explicit_provider_overrides_auto(self) -> None:
+        """Explicit LLM_PROVIDER takes priority over all keys."""
+        s = make_settings(
+            llm_provider="google",
+            openai_api_key="sk-test",
+            futureproof_proxy_key="fp-test",
+        )
+        assert s.active_provider == "google"
+
+    def test_proxy_is_default_when_configured(self) -> None:
+        """FutureProof proxy wins when both proxy and BYOK keys are set."""
+        s = make_settings(
+            futureproof_proxy_key="fp-test",
+            openai_api_key="sk-test",
+        )
+        assert s.active_provider == "futureproof"
+
+    def test_azure_before_openai(self) -> None:
+        """Azure takes priority over OpenAI."""
+        s = make_settings(
+            azure_openai_api_key="az-test",
+            azure_openai_endpoint="https://test.openai.azure.com/",
+            openai_api_key="sk-test",
+        )
+        assert s.active_provider == "azure"
+
+    def test_openai_detected(self) -> None:
+        s = make_settings(openai_api_key="sk-test")
+        assert s.active_provider == "openai"
+
+    def test_anthropic_detected(self) -> None:
+        s = make_settings(anthropic_api_key="sk-ant-test")
+        assert s.active_provider == "anthropic"
+
+    def test_google_detected(self) -> None:
+        s = make_settings(google_api_key="AIza-test")
+        assert s.active_provider == "google"
+
+    def test_ollama_is_last_resort(self) -> None:
+        """Ollama (always available) is lowest priority."""
+        s = make_settings(ollama_base_url="http://localhost:11434")
+        assert s.active_provider == "ollama"
+
+    def test_has_properties(self) -> None:
+        """Test individual has_* properties."""
+        s = make_settings(openai_api_key="sk-test")
+        assert s.has_openai is True
+        assert s.has_anthropic is False
+        assert s.has_proxy is False
+        assert s.has_azure is False

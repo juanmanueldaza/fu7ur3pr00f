@@ -14,6 +14,22 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # LLM Provider (auto-detected from available keys if empty)
+    llm_provider: str = ""  # "futureproof", "openai", "anthropic", "google", "azure", "ollama"
+
+    # FutureProof Proxy (default for new users — zero-config with starter tokens)
+    futureproof_proxy_url: str = "https://llm.futureproof.dev"
+    futureproof_proxy_key: str = ""
+
+    # OpenAI
+    openai_api_key: str = ""
+
+    # Anthropic
+    anthropic_api_key: str = ""
+
+    # Google Gemini
+    google_api_key: str = ""
+
     # Azure OpenAI / AI Foundry
     azure_openai_api_key: str = ""  # https://ai.azure.com/
     azure_openai_endpoint: str = ""  # e.g. https://your-resource.openai.azure.com/
@@ -21,11 +37,21 @@ class Settings(BaseSettings):
     azure_chat_deployment: str = ""  # e.g. "gpt-4.1"
     azure_embedding_deployment: str = ""  # e.g. "text-embedding-3-small"
 
-    # Purpose-specific model deployments (optional, empty = use default chain)
-    azure_agent_deployment: str = ""  # Tool calling (e.g. "gpt-5-mini")
-    azure_analysis_deployment: str = ""  # Analysis/CV generation (e.g. "gpt-4.1")
-    azure_summary_deployment: str = ""  # Summarization (e.g. "gpt-4.1-mini")
-    azure_synthesis_deployment: str = ""  # Synthesis after analysis (e.g. "o4-mini")
+    # Ollama (local models)
+    ollama_base_url: str = "http://localhost:11434"
+
+    # Purpose-specific models (provider-agnostic, optional)
+    agent_model: str = ""      # e.g. "gpt-5-mini", "claude-sonnet-4-20250514"
+    analysis_model: str = ""   # e.g. "gpt-4.1", "claude-sonnet-4-20250514"
+    summary_model: str = ""    # e.g. "gpt-4o-mini", "claude-haiku-4-5-20251001"
+    synthesis_model: str = ""  # e.g. "o4-mini"
+    embedding_model: str = ""  # e.g. "text-embedding-3-small", "nomic-embed-text"
+
+    # Legacy Azure purpose-specific deployments (backward compat, prefer above)
+    azure_agent_deployment: str = ""
+    azure_analysis_deployment: str = ""
+    azure_summary_deployment: str = ""
+    azure_synthesis_deployment: str = ""
 
     # User profiles
     portfolio_url: str = "https://daza.ar"
@@ -81,9 +107,57 @@ class Settings(BaseSettings):
         return bool(self.github_mcp_token_resolved)
 
     @property
+    def has_proxy(self) -> bool:
+        """Check if FutureProof proxy is configured."""
+        return bool(self.futureproof_proxy_key)
+
+    @property
+    def has_openai(self) -> bool:
+        """Check if OpenAI is configured."""
+        return bool(self.openai_api_key)
+
+    @property
+    def has_anthropic(self) -> bool:
+        """Check if Anthropic is configured."""
+        return bool(self.anthropic_api_key)
+
+    @property
+    def has_google(self) -> bool:
+        """Check if Google Gemini is configured."""
+        return bool(self.google_api_key)
+
+    @property
     def has_azure(self) -> bool:
         """Check if Azure OpenAI is configured."""
         return bool(self.azure_openai_api_key and self.azure_openai_endpoint)
+
+    @property
+    def has_ollama(self) -> bool:
+        """Check if Ollama is configured."""
+        return bool(self.ollama_base_url)
+
+    @property
+    def active_provider(self) -> str:
+        """Determine the active LLM provider.
+
+        Priority: explicit setting > proxy > Azure > OpenAI >
+        Anthropic > Google > Ollama.
+        """
+        if self.llm_provider:
+            return self.llm_provider
+        if self.has_proxy:
+            return "futureproof"
+        if self.has_azure:
+            return "azure"
+        if self.has_openai:
+            return "openai"
+        if self.has_anthropic:
+            return "anthropic"
+        if self.has_google:
+            return "google"
+        if self.has_ollama:
+            return "ollama"
+        return ""
 
     @property
     def has_tavily_mcp(self) -> bool:

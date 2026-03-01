@@ -34,7 +34,7 @@ src/futureproof/
 ├── chat/                    # Streaming client, HITL loop, Rich UI
 ├── gatherers/               # LinkedIn CSV, CliftonStrengths PDF, portfolio scraper, market data
 ├── generators/              # CV generation (Markdown + PDF via WeasyPrint)
-├── llm/                     # FallbackLLMManager, 5-model Azure chain, purpose routing
+├── llm/                     # FallbackLLMManager, multi-provider fallback, purpose routing
 ├── memory/                  # ChromaDB stores (knowledge + episodic), chunker, profile, embeddings
 ├── mcp/                     # 12 clients: GitHub, Tavily, job boards, HN, financial, content
 ├── prompts/                 # System + analysis + CV prompt templates (markdown files)
@@ -48,7 +48,7 @@ src/futureproof/
 - **4 middlewares** (in order): `build_dynamic_prompt` (injects live profile + knowledge stats), `ToolCallRepairMiddleware` (fixes orphaned tool_calls after HITL), `AnalysisSynthesisMiddleware` (two-pass: masks tool results, replaces generic response with focused synthesis), `SummarizationMiddleware` (32k token trigger, cheaper model)
 - **Data flow**: Gatherers return `list[Section]` → `index_sections()` → ChromaDB → search/retrieval via `KnowledgeService`
 - **HITL**: `interrupt()` on `generate_cv`, `gather_all_career_data`, `clear_career_knowledge`
-- **LLM**: Azure OpenAI only. `FallbackLLMManager` with 5-model chain (GPT-4.1 → GPT-5 Mini → GPT-4o → GPT-4.1 Mini → GPT-4o Mini). Purpose-based routing: `agent`, `analysis`, `summary`, `synthesis` — each can use a different deployment
+- **LLM**: Multi-provider via `FallbackLLMManager`. Supports FutureProof proxy (default), OpenAI, Anthropic, Google, Azure, Ollama. Auto-detects provider from available API keys. Purpose-based routing: `agent`, `analysis`, `summary`, `synthesis` — each can use a different model
 - **Orchestrator**: LangGraph Functional API (`@entrypoint`/`@task`) for analysis workflows
 - **Memory**: ChromaDB for career knowledge RAG + episodic memory (decisions, applications). SQLite checkpointer for conversations.
 
@@ -60,6 +60,14 @@ src/futureproof/
 - Dependency injection for testability
 - Sync tool functions with `run_async()` helper for async service calls
 - `KnowledgeSource` is an enum — convert string → `KnowledgeSource(source)` in tools
+
+## Design Principles
+
+All code, plans, and architecture docs must pass a DRY/KISS/YAGNI audit:
+
+- **DRY**: Single source of truth. No duplicated logic, config, or documentation. Cross-reference instead of copy.
+- **KISS**: Simplest solution that works. No speculative abstractions, premature optimization, or unactionable detail.
+- **YAGNI**: Only build what's needed now. Don't spec, scaffold, or plan for features without validated demand.
 
 ## Git Commits
 

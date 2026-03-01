@@ -41,6 +41,16 @@ dependencies = [
     "chromadb>=1.4.1",
 ]
 
+[project.optional-dependencies]
+anthropic = ["langchain-anthropic>=0.3"]
+google = ["langchain-google-genai>=2"]
+ollama = ["langchain-ollama>=0.3"]
+all-providers = [
+    "futureproof[anthropic]",
+    "futureproof[google]",
+    "futureproof[ollama]",
+]
+
 [project.urls]
 Homepage = "https://github.com/juanmanueldaza/futureproof"
 Repository = "https://github.com/juanmanueldaza/futureproof"

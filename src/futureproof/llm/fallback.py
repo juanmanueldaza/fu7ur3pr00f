@@ -160,6 +160,12 @@ class FallbackLLMManager:
 
     def _is_fallback_error(self, error: Exception) -> bool:
         """Check if an exception should trigger a fallback to another model."""
+        # Prefer structured status_code (present on most SDK exceptions)
+        status_code = getattr(error, "status_code", None)
+        if status_code in (429, 413, 404):
+            return True
+
+        # Fall back to string scanning for non-HTTP errors
         error_str = str(error).lower()
         return any(
             indicator in error_str for indicator in self.FALLBACK_ERROR_INDICATORS

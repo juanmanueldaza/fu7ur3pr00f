@@ -65,12 +65,14 @@ def search_career_knowledge(
         )
 
     result_parts = [f"Found {len(results)} relevant results for '{query}':"]
+    result_parts.append("<search_results>")
     for i, result in enumerate(results, 1):
         source = result.get("source", "unknown")
         section = result.get("section", "")
         content = result.get("content", "")[:2000]
         result_parts.append(f"\n**{i}. [{source}] {section}**")
         result_parts.append(content)
+    result_parts.append("</search_results>")
 
     output = "\n".join(result_parts)
     if len(output) > 8000:

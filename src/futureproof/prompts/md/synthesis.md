@@ -50,4 +50,6 @@ End with one specific, exciting possibility that connects their unique combinati
 
 ## Tool Results
 
+<tool_results>
 {tool_results}
+</tool_results>

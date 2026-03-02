@@ -58,4 +58,27 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
         flags=re.IGNORECASE,
     )
 
+    # SSN (US Social Security Number) — dashed, spaced, or contiguous
+    result = re.sub(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "[SSN]", result)
+
+    # Date of birth (only labeled — bare dates preserved as they may be employment dates)
+    # Captures: "DOB: 1990-01-15", "Date of Birth: January 1, 1990", "Born: 01/15/1990"
+    result = re.sub(
+        r"\b(?:DOB|Date of Birth|Born|Birthday)[:\s]+\S+(?:[,\s]+\d{1,2}[,\s]+\d{4})?",
+        "[DOB]",
+        result,
+        flags=re.IGNORECASE,
+    )
+
+    # Street addresses without apartment/unit (negative lookahead avoids
+    # double-matching addresses already caught by the apt/unit pattern above)
+    result = re.sub(
+        r"\b\d{1,5}\s+[\w\s]{1,40}"
+        r"(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl)"
+        r"\.?(?!\s*,?\s*(?:Apt|Suite|Unit|#))",
+        "[ADDRESS]",
+        result,
+        flags=re.IGNORECASE,
+    )
+
     return result

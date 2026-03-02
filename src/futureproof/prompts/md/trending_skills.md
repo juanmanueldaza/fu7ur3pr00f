@@ -3,10 +3,14 @@ Analyze current technology trends and recommend skills for long-term career posi
 Focus: strategic trends for 6-18 month positioning. List only trends with supporting evidence in the provided market data.
 
 CURRENT PROFILE:
+<career_data>
 {career_data}
+</career_data>
 
 MARKET TRENDS:
+<market_data>
 {market_data}
+</market_data>
 
 Identify:
 

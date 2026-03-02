@@ -1,8 +1,12 @@
 """Analysis tools for the career agent."""
 
+import logging
+
 from langchain_core.tools import tool
 
 from futureproof.memory.profile import load_profile
+
+logger = logging.getLogger(__name__)
 
 
 @tool
@@ -27,6 +31,7 @@ def analyze_skill_gaps(target_role: str) -> str:
             return f"Could not complete gap analysis: {result.error}"
 
     except Exception as e:
+        logger.exception("Skill gap analysis failed for '%s'", target_role)
         # Fallback to profile-based analysis
         profile = load_profile()
         current_skills = profile.technical_skills + profile.soft_skills
@@ -41,7 +46,7 @@ def analyze_skill_gaps(target_role: str) -> str:
             f"Skill gap analysis for '{target_role}':\n\n"
             f"Your current skills: {', '.join(current_skills)}\n\n"
             f"Note: Full AI-powered gap analysis requires gathered career data. "
-            f"Error: {e}"
+            f"Error: {type(e).__name__}. Check logs for details."
         )
 
 
@@ -61,7 +66,11 @@ def analyze_career_alignment() -> str:
             return f"Career alignment analysis:\n\n{result.content}"
         return f"Could not complete analysis: {result.error}"
     except Exception as e:
-        return f"Career alignment analysis encountered an error: {e}"
+        logger.exception("Career alignment analysis failed")
+        return (
+            "Career alignment analysis encountered an error"
+            f" ({type(e).__name__}). Check logs for details."
+        )
 
 
 @tool
@@ -80,4 +89,8 @@ def get_career_advice(target: str) -> str:
         advice = service.get_advice(target)
         return f"Career advice for '{target}':\n\n{advice}"
     except Exception as e:
-        return f"Career advice for '{target}' encountered an error: {e}"
+        logger.exception("Career advice failed for '%s'", target)
+        return (
+            f"Career advice for '{target}' encountered an error"
+            f" ({type(e).__name__}). Check logs for details."
+        )

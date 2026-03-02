@@ -266,3 +266,92 @@ class TestUpdateSettingTool:
 
         overlap = _AGENT_CONFIGURABLE.keys() & _SENSITIVE_KEYS
         assert not overlap, f"Sensitive keys in whitelist: {overlap}"
+
+    @patch("futureproof.agents.tools.settings.write_user_setting")
+    @patch("futureproof.agents.tools.settings.reload_settings")
+    def test_rejects_invalid_temperature(self, mock_reload, mock_write) -> None:
+        from futureproof.agents.tools.settings import update_setting
+
+        result = update_setting.invoke({"key": "llm_temperature", "value": "5.0"})
+        assert "Invalid" in result
+        mock_write.assert_not_called()
+
+    @patch("futureproof.agents.tools.settings.write_user_setting")
+    @patch("futureproof.agents.tools.settings.reload_settings")
+    def test_rejects_non_numeric_temperature(self, mock_reload, mock_write) -> None:
+        from futureproof.agents.tools.settings import update_setting
+
+        result = update_setting.invoke({"key": "llm_temperature", "value": "hot"})
+        assert "Invalid" in result
+        mock_write.assert_not_called()
+
+    @patch("futureproof.agents.tools.settings.write_user_setting")
+    @patch("futureproof.agents.tools.settings.reload_settings")
+    def test_rejects_zero_cache_hours(self, mock_reload, mock_write) -> None:
+        from futureproof.agents.tools.settings import update_setting
+
+        result = update_setting.invoke({"key": "market_cache_hours", "value": "0"})
+        assert "Invalid" in result
+        mock_write.assert_not_called()
+
+    @patch("futureproof.agents.tools.settings.write_user_setting")
+    @patch("futureproof.agents.tools.settings.reload_settings")
+    def test_rejects_invalid_bool(self, mock_reload, mock_write) -> None:
+        from futureproof.agents.tools.settings import update_setting
+
+        result = update_setting.invoke({"key": "jobspy_enabled", "value": "maybe"})
+        assert "Invalid" in result
+        mock_write.assert_not_called()
+
+    @patch("futureproof.agents.tools.settings.write_user_setting")
+    @patch("futureproof.agents.tools.settings.reload_settings")
+    def test_rejects_unknown_provider(self, mock_reload, mock_write) -> None:
+        from futureproof.agents.tools.settings import update_setting
+
+        result = update_setting.invoke({"key": "llm_provider", "value": "grok"})
+        assert "Invalid" in result
+        mock_write.assert_not_called()
+
+
+class TestSettingValidation:
+    """Tests for _validate_setting_value."""
+
+    def test_accepts_valid_temperature(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("llm_temperature", "0.7") is None
+
+    def test_rejects_negative_temperature(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("llm_temperature", "-0.5") is not None
+
+    def test_rejects_over_max_temperature(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("cv_temperature", "3.0") is not None
+
+    def test_accepts_valid_cache_hours(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("market_cache_hours", "24") is None
+
+    def test_accepts_empty_provider(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("llm_provider", "") is None
+
+    def test_accepts_valid_provider(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("llm_provider", "openai") is None
+
+    def test_accepts_freeform_model_name(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("agent_model", "anything-goes") is None
+
+    def test_accepts_freeform_portfolio_url(self) -> None:
+        from futureproof.agents.tools.settings import _validate_setting_value
+
+        assert _validate_setting_value("portfolio_url", "https://example.com") is None

@@ -55,4 +55,8 @@ def invoke_llm(
                 continue
             break
 
-    return {"error": f"{error_prefix} failed: {last_error}"}
+    logger.exception("%s failed after %d attempts", error_prefix, _MAX_ATTEMPTS)
+    return {
+        "error": f"{error_prefix} failed ({type(last_error).__name__})."
+        " Check logs for details.",
+    }

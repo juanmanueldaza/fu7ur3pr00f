@@ -3,6 +3,7 @@
 Single Responsibility: Fetch content from URLs with proper headers/timeouts.
 """
 
+import contextlib
 import socket
 from dataclasses import dataclass
 from ipaddress import ip_address
@@ -13,6 +14,34 @@ import httpx
 from ...utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+@contextlib.contextmanager
+def _pinned_dns(hostname: str, addrinfo: list[tuple]):
+    """Pin DNS for hostname to pre-validated results during fetch.
+
+    Prevents DNS rebinding (TOCTOU) by ensuring httpx connects to the
+    same addresses that passed SSRF validation, not a fresh resolution
+    that an attacker could point at a private IP.
+    """
+    orig = socket.getaddrinfo
+
+    def _getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        if host != hostname:
+            return orig(host, port, family, type, proto, flags)
+        int_port = port if isinstance(port, int) else 0
+        results = [
+            (fam, typ, pr, cn, (sa[0], int_port, *sa[2:]))
+            for fam, typ, pr, cn, sa in addrinfo
+            if (not family or fam == family) and (not type or typ == type)
+        ]
+        return results or orig(host, port, family, type, proto, flags)
+
+    socket.getaddrinfo = _getaddrinfo
+    try:
+        yield
+    finally:
+        socket.getaddrinfo = orig
 
 
 @dataclass
@@ -59,56 +88,59 @@ class PortfolioFetcher:
             self._client.close()
             self._client = None
 
-    def _is_safe_url(self, url: str) -> bool:
-        """Check if URL is safe to fetch (SSRF protection).
+    def _validate_url(self, url: str) -> list[tuple] | None:
+        """Validate URL is safe to fetch (SSRF protection).
 
-        Uses ipaddress.is_private which covers all RFC 1918 ranges,
-        loopback, link-local, Carrier-Grade NAT, and IPv6 equivalents.
+        Checks scheme and resolves ALL IPs (IPv4 + IPv6) via getaddrinfo,
+        blocking any that fall in private ranges. Returns resolved
+        addrinfo for DNS pinning (prevents TOCTOU / DNS rebinding).
 
         Args:
             url: URL to validate
 
         Returns:
-            True if URL is safe, False otherwise
+            Resolved addrinfo list for hostname URLs (used to pin DNS),
+            or None for literal-IP URLs (no pinning needed).
+
+        Raises:
+            ValueError: If URL is unsafe (private IP, bad scheme, etc.)
         """
+        parsed = urlparse(url)
+
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Blocked non-HTTP scheme: {parsed.scheme}")
+
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("URL has no hostname")
+
+        # Check if hostname is a literal IP address
         try:
-            parsed = urlparse(url)
+            if ip_address(hostname).is_private:
+                raise ValueError(f"Blocked private IP: {hostname}")
+            return None  # Public literal IP — no DNS to pin
+        except ValueError as exc:
+            if "Blocked" in str(exc):
+                raise
+            # Not a literal IP — resolve DNS below
 
-            # Only allow http/https schemes
-            if parsed.scheme not in ("http", "https"):
-                logger.warning("Blocked non-HTTP scheme: %s", parsed.scheme)
-                return False
+        # Resolve hostname and check ALL addresses (IPv4 + IPv6)
+        try:
+            addrinfo = socket.getaddrinfo(
+                hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM,
+            )
+        except socket.gaierror:
+            raise ValueError(f"DNS resolution failed for {hostname}")
 
-            hostname = parsed.hostname
-            if not hostname:
-                return False
+        for _family, _type, _proto, _canonname, sockaddr in addrinfo:
+            addr = sockaddr[0]
+            if ip_address(addr).is_private:
+                raise ValueError(
+                    f"Blocked hostname resolving to private IP: "
+                    f"{hostname} -> {addr}"
+                )
 
-            # Check if hostname is an IP address
-            try:
-                ip = ip_address(hostname)
-                if ip.is_private:
-                    logger.warning("Blocked private IP: %s", hostname)
-                    return False
-            except ValueError:
-                # Not an IP, resolve hostname and check resolved address
-                try:
-                    resolved = socket.gethostbyname(hostname)
-                    ip = ip_address(resolved)
-                    if ip.is_private:
-                        logger.warning(
-                            "Blocked hostname resolving to private IP: %s -> %s",
-                            hostname,
-                            resolved,
-                        )
-                        return False
-                except socket.gaierror:
-                    # DNS resolution failed, let httpx handle it
-                    pass
-
-            return True
-        except Exception as e:
-            logger.warning("URL validation error: %s", e)
-            return False
+        return addrinfo
 
     def fetch(self, url: str) -> FetchResult:
         """Fetch content from URL.
@@ -131,12 +163,16 @@ class PortfolioFetcher:
         if not urlparse(url).scheme:
             url = f"https://{url}"
 
-        # SSRF protection
-        if not self._is_safe_url(url):
-            raise ValueError(f"URL blocked by security policy: {url}")
+        # SSRF protection — validate and pin DNS to prevent rebinding
+        addrinfo = self._validate_url(url)
 
         logger.debug("Fetching: %s", url)
-        response = self._client.get(url)
+        if addrinfo:
+            hostname = urlparse(url).hostname
+            with _pinned_dns(hostname, addrinfo):
+                response = self._client.get(url)
+        else:
+            response = self._client.get(url)
         response.raise_for_status()
 
         logger.debug("Fetched %d bytes from %s", len(response.text), url)

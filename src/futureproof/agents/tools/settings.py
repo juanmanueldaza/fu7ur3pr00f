@@ -54,6 +54,53 @@ _SENSITIVE_KEYS = {
     "github_personal_access_token", "github_mcp_token", "tavily_api_key",
 }
 
+# Known valid LLM providers.
+_VALID_PROVIDERS = {"futureproof", "openai", "anthropic", "google", "azure", "ollama", ""}
+
+
+def _validate_setting_value(key: str, value: str) -> str | None:
+    """Validate a setting value for type and range. Returns error or None."""
+    try:
+        if key in ("llm_temperature", "cv_temperature"):
+            v = float(value)
+            if not (0.0 <= v <= 2.0):
+                return f"{key} must be between 0.0 and 2.0, got {value}"
+
+        elif key in (
+            "market_cache_hours", "job_cache_hours",
+            "content_cache_hours", "forex_cache_hours",
+        ):
+            v = int(value)
+            if v < 1:
+                return f"{key} must be >= 1, got {value}"
+
+        elif key == "knowledge_chunk_max_tokens":
+            v = int(value)
+            if v < 50:
+                return f"{key} must be >= 50, got {value}"
+
+        elif key == "knowledge_chunk_min_tokens":
+            v = int(value)
+            if v < 10:
+                return f"{key} must be >= 10, got {value}"
+
+        elif key in ("jobspy_enabled", "hn_mcp_enabled", "knowledge_auto_index"):
+            if value.lower() not in ("true", "false", "1", "0", "yes", "no"):
+                return f"{key} must be true or false, got '{value}'"
+
+        elif key == "llm_provider":
+            if value.lower() not in _VALID_PROVIDERS:
+                valid = ", ".join(sorted(_VALID_PROVIDERS - {""}))
+                return (
+                    f"Unknown provider '{value}'. "
+                    f"Valid: {valid} (or empty to auto-detect)"
+                )
+
+    except (ValueError, TypeError):
+        return f"Invalid value for {key}: '{value}'"
+
+    return None
+
 
 @tool
 def get_current_config() -> str:
@@ -165,6 +212,11 @@ def update_setting(key: str, value: str) -> str:
     if key not in _AGENT_CONFIGURABLE:
         available = ", ".join(sorted(_AGENT_CONFIGURABLE))
         return f"Unknown setting: '{key}'. Available settings: {available}"
+
+    # Validate value type and range
+    error = _validate_setting_value(key, value)
+    if error:
+        return f"Invalid value: {error}"
 
     env_key = key.upper()
     write_user_setting(env_key, value)

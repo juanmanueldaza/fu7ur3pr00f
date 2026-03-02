@@ -2,7 +2,9 @@ Identify gaps between stated career goals and actual professional activities.
 
 Base analysis only on provided data. If information is missing, state what's absent rather than speculating.
 
+<career_data>
 {career_data}
+</career_data>
 
 **Keep total output under 600 words.** Use bullet points, not paragraphs. Every bullet must cite specific evidence from the data.
 

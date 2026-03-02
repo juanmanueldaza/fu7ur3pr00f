@@ -141,6 +141,12 @@ class TestFallbackManager:
         assert manager._is_fallback_error(Exception("404 does not exist"))
         assert not manager._is_fallback_error(ValueError("bad input"))
 
+    def test_is_fallback_error_status_code(self) -> None:
+        manager = FallbackLLMManager(fallback_chain=[])
+        err = Exception("opaque error message")
+        err.status_code = 429  # type: ignore[attr-defined]
+        assert manager._is_fallback_error(err)
+
     def test_get_status(self) -> None:
         chain = [
             ModelConfig("openai", "gpt-4.1", "GPT-4.1"),

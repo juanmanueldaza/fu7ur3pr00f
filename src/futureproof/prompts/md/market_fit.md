@@ -3,10 +3,14 @@ Compare this professional's profile against current market data to assess their 
 Focus: current positioning and opportunities. For every market claim, cite evidence from the provided market data.
 
 CAREER DATA:
+<career_data>
 {career_data}
+</career_data>
 
 MARKET DATA:
+<market_data>
 {market_data}
+</market_data>
 
 Analyze and provide:
 

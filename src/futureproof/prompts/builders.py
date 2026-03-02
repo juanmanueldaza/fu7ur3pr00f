@@ -43,7 +43,7 @@ class PromptBuilder:
             return load_prompt(name).format(career_data=career_data)
 
         # Default: full analysis
-        return f"{load_prompt('analyze_career')}\n\n{career_data}"
+        return f"{load_prompt('analyze_career')}\n\n<career_data>\n{career_data}\n</career_data>"
 
     def build_market_context(self, state: dict[str, Any]) -> str:
         """Build market context string from state.
@@ -110,7 +110,9 @@ class PromptBuilder:
 TARGET GOAL: {target}
 
 CAREER DATA:
+<career_data>
 {data_section}
+</career_data>
 
 Provide strategic, actionable advice for achieving the target goal."""
 

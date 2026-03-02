@@ -75,7 +75,7 @@ class TestInvokeLLMFallback:
         result = invoke_llm("prompt", "analysis", "Analysis")
 
         assert "error" in result
-        assert "invalid prompt" in result["error"]
+        assert "ValueError" in result["error"]
         assert model.invoke.call_count == 1
 
     @patch(_PATCH_GET_FALLBACK)
@@ -99,7 +99,7 @@ class TestInvokeLLMFallback:
         result = invoke_llm("prompt", "analysis", "Analysis")
 
         assert "error" in result
-        assert "gpt-4o-mini" in result["error"]
+        assert "Exception" in result["error"]
         assert manager.handle_error.call_count == 4
 
     @patch(_PATCH_GET_FALLBACK)

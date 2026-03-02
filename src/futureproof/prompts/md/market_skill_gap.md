@@ -3,10 +3,14 @@ Identify skill gaps that would improve market competitiveness.
 Focus: tactical skill gaps addressable in 3-6 months. For each gap, cite evidence from the market data (frequency in job postings, salary impact, adoption trends).
 
 CAREER PROFILE:
+<career_data>
 {career_data}
+</career_data>
 
 CURRENT MARKET DEMAND:
+<market_data>
 {market_data}
+</market_data>
 
 Provide:
 

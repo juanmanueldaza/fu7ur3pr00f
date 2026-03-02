@@ -307,7 +307,11 @@ def display_help() -> None:
 | `/setup` | Configure LLM providers and API keys |
 | `/profile` | View your career profile |
 | `/goals` | View your career goals |
-| `/clear` | Clear conversation history |
+| `/thread [name]` | Show or switch conversation thread |
+| `/threads` | List all conversation threads |
+| `/memory` | Show memory and profile stats |
+| `/clear` | Clear current thread history |
+| `/reset` | Factory reset (delete all generated data) |
 | `/quit` or `/q` | Exit chat |
 
 ## Tips

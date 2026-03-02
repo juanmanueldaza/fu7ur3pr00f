@@ -5,12 +5,9 @@ Career intelligence system: AI agent gathers professional data (LinkedIn, portfo
 ## Commands
 
 ```bash
-futureproof chat                    # Interactive chat
-futureproof chat --debug            # With debug logs
-futureproof chat --thread work      # Named thread
-futureproof ask "question"          # One-off question
-futureproof memory --threads        # List threads
-futureproof memory --clear          # Clear history
+futureproof                         # Launch chat (single entry point)
+futureproof --debug                 # With debug logs
+futureproof --thread work           # Named thread
 
 pytest tests/ -q                    # Unit tests
 pytest tests/eval/ -m eval          # Eval tests (need Azure creds)
@@ -18,6 +15,8 @@ pyright src/futureproof             # Type check
 ruff check .                        # Lint
 ruff check . --fix                  # Auto-fix
 ```
+
+In-chat slash commands: `/help`, `/setup`, `/profile`, `/goals`, `/thread`, `/threads`, `/memory`, `/clear`, `/reset`, `/quit`
 
 ## Project Structure
 

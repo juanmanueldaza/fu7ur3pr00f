@@ -166,16 +166,19 @@ def get_history_path() -> Path:
     return get_data_dir() / "chat_history"
 
 
-def handle_command(command: str) -> bool:
+def handle_command(command: str, *, chat_state: dict) -> bool:
     """Handle slash commands.
 
     Args:
         command: The command string (including leading /)
+        chat_state: Mutable dict with ``thread_id`` (updated by /thread)
 
     Returns:
         True if the chat should exit, False otherwise
     """
-    cmd = command.lower().strip()
+    parts = command.strip().split(maxsplit=1)
+    cmd = parts[0].lower()
+    arg = parts[1].strip() if len(parts) > 1 else ""
 
     if cmd in ("/quit", "/q", "/exit"):
         console.print("[#415a77]Goodbye! Your conversation is saved.[/#415a77]")
@@ -196,9 +199,109 @@ def handle_command(command: str) -> bool:
     if cmd == "/clear":
         from futureproof.memory.checkpointer import clear_thread_history
 
-        clear_thread_history("main")
+        clear_thread_history(chat_state["thread_id"])
         console.print("[#415a77]Conversation history cleared.[/#415a77]")
         return False
+
+    if cmd == "/thread":
+        if not arg:
+            console.print(
+                f"[#415a77]Current thread: [bold]{chat_state['thread_id']}[/bold][/#415a77]"
+            )
+        else:
+            chat_state["thread_id"] = arg
+            chat_state["config"] = get_agent_config(thread_id=arg)
+            console.print(f"[#10b981]Switched to thread: [bold]{arg}[/bold][/#10b981]")
+        return False
+
+    if cmd == "/threads":
+        from futureproof.memory.checkpointer import list_threads
+
+        thread_list = list_threads()
+        if thread_list:
+            console.print("[bold #e0d8c0]Conversation threads:[/bold #e0d8c0]")
+            for t in thread_list:
+                marker = " (active)" if t == chat_state["thread_id"] else ""
+                console.print(f"  - {t}[bold #ffd700]{marker}[/bold #ffd700]")
+        else:
+            console.print("[#415a77]No conversation threads found.[/#415a77]")
+        return False
+
+    if cmd == "/memory":
+        from futureproof.memory.checkpointer import get_data_dir, list_threads
+        from futureproof.memory.profile import load_profile
+
+        data_dir = get_data_dir()
+        profile = load_profile()
+        thread_list = list_threads()
+
+        console.print("[bold #5bc0be]Memory Status[/bold #5bc0be]\n")
+        console.print(f"  Data directory: {data_dir}")
+        console.print(f"  Conversation threads: {len(thread_list)}")
+        console.print(f"  Profile configured: {'Yes' if profile.name else 'No'}")
+        if profile.goals:
+            console.print(f"  Career goals: {len(profile.goals)}")
+        console.print()
+        return False
+
+    if cmd == "/reset":
+        import shutil
+
+        from futureproof.memory.checkpointer import get_data_dir
+
+        home_dir = get_data_dir()
+        data_dir = settings.data_dir
+
+        targets = [
+            ("Conversations & checkpoints", home_dir / "memory.db"),
+            ("User profile", home_dir / "profile.yaml"),
+            ("Knowledge base & episodic memory", home_dir / "episodic"),
+            ("Log file", home_dir / "futureproof.log"),
+            ("Generated CVs", data_dir / "output"),
+            ("Processed data", data_dir / "processed"),
+            ("Market cache", data_dir / "cache"),
+        ]
+
+        console.print("[bold #ff6b6b]Factory Reset[/bold #ff6b6b]\n")
+        console.print("This will delete:")
+        for label, path in targets:
+            exists = path.exists()
+            status = "" if exists else " [dim](not found)[/dim]"
+            console.print(f"  - {label}: {path}{status}")
+        console.print("\n[#10b981]Preserved:[/#10b981] data/raw/ (LinkedIn ZIPs, PDFs)")
+
+        try:
+            confirm = chat_state["session"].prompt("\nProceed? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            confirm = ""
+
+        if confirm not in ("y", "yes"):
+            console.print("[#415a77]Reset cancelled.[/#415a77]")
+            return False
+
+        deleted = 0
+        for _label, path in targets:
+            if not path.exists():
+                continue
+            if path.is_dir():
+                if path.name in ("output", "processed"):
+                    for item in path.iterdir():
+                        if item.name == ".gitkeep":
+                            continue
+                        if item.is_dir():
+                            shutil.rmtree(item, ignore_errors=True)
+                        else:
+                            item.unlink()
+                else:
+                    shutil.rmtree(path, ignore_errors=True)
+            else:
+                path.unlink()
+            deleted += 1
+
+        settings.ensure_directories()
+        console.print(f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items.")
+        console.print("[#415a77]Restart FutureProof to start fresh.[/#415a77]")
+        return True
 
     console.print(f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]")
     return False
@@ -413,6 +516,13 @@ def run_chat(thread_id: str = "main") -> None:
         display_error(f"Failed to initialize agent: {e}")
         return
 
+    # Mutable state shared with handle_command for /thread switching
+    chat_state: dict = {
+        "thread_id": thread_id,
+        "config": config,
+        "session": session,
+    }
+
     while True:
         try:
             # Get user input
@@ -434,8 +544,10 @@ def run_chat(thread_id: str = "main") -> None:
                         if model_name:
                             display_model_info(model_name)
                     continue
-                if handle_command(user_input):
+                if handle_command(user_input, chat_state=chat_state):
                     break
+                # Pick up thread changes from /thread command
+                config = chat_state["config"]
                 continue
 
             # Send to agent and stream response
@@ -511,29 +623,3 @@ def run_chat(thread_id: str = "main") -> None:
             continue
 
 
-def ask(question: str, thread_id: str = "main") -> str:
-    """Ask a single question and get a response.
-
-    This is for one-shot queries without entering the full chat loop.
-
-    Args:
-        question: The question to ask
-        thread_id: Conversation thread for context
-
-    Returns:
-        The agent's response as a string
-    """
-    agent = create_career_agent()
-    config = get_agent_config(thread_id=thread_id)
-
-    input_message = _make_input(question)
-    acc = _ChunkAccumulator()
-
-    stream_iter = agent.stream(
-        cast(Any, input_message),
-        cast(RunnableConfig, config),
-        stream_mode="messages",
-    )
-    _stream_to_live(stream_iter, acc, console)
-
-    return _strip_summary_echo(acc.full_response) or acc.full_response

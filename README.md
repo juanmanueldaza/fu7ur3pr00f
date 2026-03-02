@@ -63,12 +63,10 @@ pip install -r requirements.txt && pip install -e .
 ```
 
 ```bash
-futureproof chat                    # Interactive session — /setup runs on first launch
-futureproof ask "Analyze my gaps"   # One-off question
-futureproof memory --threads        # List conversation threads
+futureproof                         # Launch — /setup runs on first launch
 ```
 
-On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.futureproof/.env`. Run `/setup` again any time to reconfigure.
+On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.futureproof/.env`. Everything happens inside the chat — use `/help` to see all commands.
 
 ## Project Structure
 

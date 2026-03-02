@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 app = typer.Typer(
     name="futureproof",
     help="Career Intelligence System - chat with your career agent",
-    no_args_is_help=True,
 )
 
 
@@ -25,12 +24,21 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: Annotated[
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
     ] = None,
+    thread: Annotated[
+        str,
+        typer.Option("--thread", "-t", help="Conversation thread ID"),
+    ] = "main",
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="Show debug-level logs in terminal"),
+    ] = False,
 ) -> None:
     """FutureProof - Know thyself through your data."""
     settings.ensure_directories()
@@ -44,41 +52,12 @@ def main(
         console_level="WARNING",
     )
 
+    # If a subcommand was invoked, let it handle things
+    if ctx.invoked_subcommand is not None:
+        return
 
-# ============================================================================
-# CHAT COMMANDS - Conversational interface
-# ============================================================================
-
-
-@app.command("chat")
-def chat_command(
-    thread: Annotated[
-        str,
-        typer.Option("--thread", "-t", help="Conversation thread ID for persistence"),
-    ] = "main",
-    debug: Annotated[
-        bool,
-        typer.Option("--debug", help="Show debug-level logs in terminal"),
-    ] = False,
-) -> None:
-    """Start an interactive chat session with the career intelligence agent.
-
-    This is the primary way to interact with FutureProof. The agent can:
-    - Gather data from GitHub, GitLab, LinkedIn, portfolio, and CliftonStrengths
-    - Analyze your skills, identify gaps, and assess market fit
-    - Search for job opportunities and salary data
-    - Generate tailored CVs and cover letters
-    - Index and search your career knowledge base
-    - Provide strategic career advice
-    - Remember your goals and preferences
-
-    Your conversation is automatically saved and persists across sessions.
-
-    Use --debug to also show debug-level logs in the terminal.
-    """
+    # No subcommand → launch chat
     if debug:
-        import logging
-
         fp_logger = logging.getLogger("futureproof")
         for handler in fp_logger.handlers:
             if isinstance(handler, logging.StreamHandler) and not isinstance(
@@ -95,148 +74,6 @@ def chat_command(
     except Exception as e:
         console.print(f"[red]Chat error: {e}[/red]")
         raise typer.Exit(code=1)
-
-
-@app.command("ask")
-def ask_command(
-    question: Annotated[
-        str,
-        typer.Argument(help="Question to ask the career agent"),
-    ],
-    thread: Annotated[
-        str,
-        typer.Option("--thread", "-t", help="Conversation thread ID"),
-    ] = "main",
-) -> None:
-    """Ask a single question to the career agent.
-
-    This is for quick one-off queries without entering the full chat interface.
-    The response still maintains context from previous conversations in the thread.
-
-    Examples:
-        futureproof ask "What are my top skills?"
-        futureproof ask "Analyze my gaps for ML Engineer role"
-    """
-    from .chat.client import ask
-
-    try:
-        ask(question, thread_id=thread)
-    except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(code=1)
-
-
-@app.command("memory")
-def memory_command(
-    clear: Annotated[
-        bool,
-        typer.Option("--clear", help="Clear all conversation history"),
-    ] = False,
-    threads: Annotated[
-        bool,
-        typer.Option("--threads", help="List all conversation threads"),
-    ] = False,
-) -> None:
-    """Manage conversation memory and history.
-
-    View memory stats, list conversation threads, or clear history.
-    """
-    from .memory.checkpointer import clear_thread_history, get_data_dir, list_threads
-    from .memory.profile import load_profile
-
-    if clear:
-        for thread_id in list_threads():
-            clear_thread_history(thread_id)
-        console.print("[green]All conversation history cleared.[/green]")
-        return
-
-    if threads:
-        thread_list = list_threads()
-        if thread_list:
-            console.print("[bold]Conversation threads:[/bold]")
-            for t in thread_list:
-                console.print(f"  - {t}")
-        else:
-            console.print("[dim]No conversation threads found.[/dim]")
-        return
-
-    # Show memory stats
-    data_dir = get_data_dir()
-    profile = load_profile()
-    thread_list = list_threads()
-
-    console.print("[bold cyan]Memory Status[/bold cyan]\n")
-    console.print(f"Data directory: {data_dir}")
-    console.print(f"Conversation threads: {len(thread_list)}")
-    console.print(f"Profile configured: {'Yes' if profile.name else 'No'}")
-    if profile.goals:
-        console.print(f"Career goals: {len(profile.goals)}")
-
-
-@app.command("reset")
-def reset_command(
-    yes: Annotated[
-        bool,
-        typer.Option("--yes", "-y", help="Skip confirmation prompt"),
-    ] = False,
-) -> None:
-    """Factory reset — delete all generated data, keep raw input files.
-
-    Removes conversations, profile, knowledge base, episodic memory,
-    generated CVs, market cache, and logs. Raw input files in data/raw/
-    (LinkedIn ZIPs, CliftonStrengths PDFs) are preserved.
-    """
-    import shutil
-
-    from .memory.checkpointer import get_data_dir
-
-    home_dir = get_data_dir()  # ~/.futureproof
-    data_dir = settings.data_dir  # <project>/data
-
-    targets = [
-        ("Conversations & checkpoints", home_dir / "memory.db"),
-        ("User profile", home_dir / "profile.yaml"),
-        ("Knowledge base & episodic memory", home_dir / "episodic"),
-        ("Log file (home)", home_dir / "futureproof.log"),
-        ("Generated CVs", data_dir / "output"),
-        ("Processed data", data_dir / "processed"),
-        ("Market cache", data_dir / "cache"),
-        ("Log file (data)", data_dir / "futureproof.log"),
-    ]
-
-    console.print("[bold red]Factory Reset[/bold red]\n")
-    console.print("This will delete:")
-    for label, path in targets:
-        exists = path.exists()
-        status = "" if exists else " [dim](not found)[/dim]"
-        console.print(f"  - {label}: {path}{status}")
-    console.print("\n[green]Preserved:[/green] data/raw/ (LinkedIn ZIPs, PDFs)")
-
-    if not yes:
-        typer.confirm("\nProceed with factory reset?", abort=True)
-
-    deleted = 0
-    for label, path in targets:
-        if not path.exists():
-            continue
-        if path.is_dir():
-            # For output/ and processed/, keep .gitkeep files
-            if path.name in ("output", "processed"):
-                for item in path.iterdir():
-                    if item.name == ".gitkeep":
-                        continue
-                    if item.is_dir():
-                        shutil.rmtree(item, ignore_errors=True)
-                    else:
-                        item.unlink()
-            else:
-                shutil.rmtree(path, ignore_errors=True)
-        else:
-            path.unlink()
-        deleted += 1
-
-    settings.ensure_directories()
-    console.print(f"\n[green]Factory reset complete.[/green] Cleared {deleted} items.")
 
 
 if __name__ == "__main__":

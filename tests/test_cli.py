@@ -11,7 +11,7 @@ class TestCLIBasics:
     """Test basic CLI functionality."""
 
     def test_app_shows_help(self) -> None:
-        """Test app shows help when no args provided."""
+        """Test app shows help with --help flag."""
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "Career Intelligence System" in result.output
@@ -22,24 +22,14 @@ class TestCLIBasics:
         assert result.exit_code == 0
         assert "FutureProof" in result.output
 
-
-class TestChatCommands:
-    """Test chat-related commands."""
-
-    def test_chat_help(self) -> None:
-        """Test chat shows help."""
-        result = runner.invoke(app, ["chat", "--help"])
+    def test_thread_option_in_help(self) -> None:
+        """Test --thread option appears in help."""
+        result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "interactive chat session" in result.output
+        assert "--thread" in result.output
 
-    def test_ask_help(self) -> None:
-        """Test ask shows help."""
-        result = runner.invoke(app, ["ask", "--help"])
+    def test_debug_option_in_help(self) -> None:
+        """Test --debug option appears in help."""
+        result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "single question" in result.output
-
-    def test_memory_help(self) -> None:
-        """Test memory shows help."""
-        result = runner.invoke(app, ["memory", "--help"])
-        assert result.exit_code == 0
-        assert "memory" in result.output
+        assert "--debug" in result.output

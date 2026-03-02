@@ -446,7 +446,11 @@ def _stream_response(
             console.print(f"[#415a77]{details}[/#415a77]")
 
         answer = (
-            session.prompt(HTML("<prompt>[Y/n]: </prompt>"), style=_PROMPT_STYLE).strip().lower()
+            session.prompt(
+                HTML("<prompt>[Y/n]: </prompt>"),
+                style=_PROMPT_STYLE,
+                is_password=False,
+            ).strip().lower()
         )
         approved = answer in ("", "y", "yes")
 
@@ -526,7 +530,9 @@ def run_chat(thread_id: str = "main") -> None:
     while True:
         try:
             # Get user input
-            user_input = session.prompt(_PROMPT_MSG, style=_PROMPT_STYLE).strip()
+            user_input = session.prompt(
+                _PROMPT_MSG, style=_PROMPT_STYLE, is_password=False,
+            ).strip()
 
             if not user_input:
                 continue

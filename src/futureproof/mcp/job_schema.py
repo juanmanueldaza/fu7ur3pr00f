@@ -26,7 +26,7 @@ def generate_job_id(source: str, identifier: str) -> str:
         12-character hex ID
     """
     unique_str = f"{source}:{identifier}"
-    return hashlib.md5(unique_str.encode()).hexdigest()[:12]
+    return hashlib.md5(unique_str.encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 def clean_html_description(html: str, max_length: int = 500) -> str:

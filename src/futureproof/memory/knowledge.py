@@ -144,7 +144,10 @@ class CareerKnowledgeStore(ChromaDBStore):
 
         def _sort_key(pair: tuple) -> int:
             idx = pair[1].get("chunk_index", 0)
-            return int(idx) if isinstance(idx, (int, float, str)) else 0
+            try:
+                return int(idx)
+            except (ValueError, TypeError):
+                return 0
 
         pairs.sort(key=_sort_key)
         return "\n\n".join(doc for doc, _ in pairs)

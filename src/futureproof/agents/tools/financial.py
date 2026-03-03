@@ -1,5 +1,7 @@
 """Financial tools for currency conversion and PPP comparison."""
 
+import math
+
 from langchain_core.tools import tool
 
 from futureproof.mcp.pool import call_mcp
@@ -28,6 +30,9 @@ def convert_currency(
     tool. Supports 170+ currencies including ARS, BRL, MXN,
     CLP, COP, PEN.
     """
+    if not math.isfinite(amount) or amount <= 0:
+        return "Invalid amount: must be a positive finite number."
+
     data = _financial(
         "convert_currency",
         {
@@ -75,6 +80,9 @@ def compare_salary_ppp(
     salary comparison — it reveals the real value of a salary beyond
     just the exchange rate.
     """
+    if not math.isfinite(salary) or salary <= 0:
+        return "Invalid salary: must be a positive finite number."
+
     targets = target_countries or ["United States"]
 
     # Step 1: Convert to USD

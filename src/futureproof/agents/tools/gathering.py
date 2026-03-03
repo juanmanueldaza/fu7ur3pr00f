@@ -176,9 +176,13 @@ def gather_linkedin_data(zip_path: str) -> str:
 
     from futureproof.services import GathererService
 
+    resolved = Path(zip_path).expanduser().resolve()
+    if not resolved.is_relative_to(Path.home()):
+        return "Access denied: path must be within your home directory."
+
     service = GathererService()
     try:
-        service.gather_linkedin(Path(zip_path))
+        service.gather_linkedin(resolved)
     except FileNotFoundError:
         return f"LinkedIn export not found at '{zip_path}'. Please check the path."
     return "LinkedIn data processed and indexed to knowledge base."
@@ -199,8 +203,13 @@ def gather_assessment_data(input_dir: str = "") -> str:
 
     from futureproof.services import GathererService
 
+    dir_path: Path | None = None
+    if input_dir:
+        dir_path = Path(input_dir).expanduser().resolve()
+        if not dir_path.is_relative_to(Path.home()):
+            return "Access denied: path must be within your home directory."
+
     service = GathererService()
-    dir_path = Path(input_dir) if input_dir else None
     try:
         service.gather_assessment(dir_path)
     except FileNotFoundError:

@@ -392,15 +392,17 @@ def _stream_to_live(
             if acc.accumulate(chunk):
                 buf = acc.msg_buf
                 if _might_be_summary_start(buf):
-                    # Potential echo — only strip once we have complete lines
-                    display_text = _strip_summary_echo(buf) if "\n" in buf else ""
-                    if not display_text:
-                        live.update(Markdown(""))  # Clear partial header
-                        continue
-                else:
-                    display_text = buf
-                if display_text:
-                    live.update(Markdown(display_text))
+                    if "\n" in buf:
+                        stripped = _strip_summary_echo(buf)
+                        # Strip returns buf unchanged when preamble is
+                        # detected but section headers haven't arrived —
+                        # still in echo territory, suppress display.
+                        if stripped and stripped != buf:
+                            live.update(Markdown(stripped))
+                            continue
+                    live.update(Markdown(""))
+                    continue
+                live.update(Markdown(buf))
     display_timing(time.monotonic() - start)
 
 

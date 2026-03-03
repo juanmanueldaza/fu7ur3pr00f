@@ -16,16 +16,20 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install dependencies
-        run: |
-          pip install -e ".[all-providers]"
-          pip install pyright pytest ruff
+        run: uv sync --frozen --all-extras
 
       - name: Lint
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Type check
-        run: pyright src/futureproof
+        run: uv run pyright src/futureproof
 
       - name: Test
-        run: pytest tests/ -q --ignore=tests/eval/
+        run: uv run pytest tests/ -q --ignore=tests/eval/
+
+      - name: Audit dependencies
+        run: uv pip install pip-audit && uv run pip-audit

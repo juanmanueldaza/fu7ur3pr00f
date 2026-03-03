@@ -9,7 +9,7 @@ RSS feeds provide structured data including:
 - Salary info embedded in descriptions
 """
 
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from html import unescape
 from typing import Any
 

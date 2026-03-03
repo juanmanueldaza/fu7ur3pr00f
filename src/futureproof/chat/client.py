@@ -67,6 +67,17 @@ _SUMMARY_SECTIONS = (
 # Matches ".I " (pronoun), ".The", ".However", etc.
 _CONCAT_RE = re.compile(r"\.([A-Z](?:[a-z]| ))")
 
+# Patterns that might leak API keys or tokens in error messages
+_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9]{8})[A-Za-z0-9]+")
+_BEARER_RE = re.compile(r"(Bearer\s+)[^\s\"']+", re.IGNORECASE)
+
+
+def _sanitize_error(msg: str) -> str:
+    """Redact API keys and bearer tokens from error messages."""
+    msg = _SECRET_RE.sub(r"\1...", msg)
+    msg = _BEARER_RE.sub(r"\1[REDACTED]", msg)
+    return msg
+
 
 def _is_tool_call_state_error(error: Exception) -> bool:
     """Check if error is caused by orphaned tool_calls in state.
@@ -505,7 +516,7 @@ def run_chat(thread_id: str = "main") -> None:
         if model_name:
             display_model_info(model_name)
     except Exception as e:
-        display_error(f"Failed to initialize agent: {e}")
+        display_error(_sanitize_error(f"Failed to initialize agent: {e}"))
         return
 
     # Mutable state shared with handle_command for /thread switching
@@ -595,7 +606,7 @@ def run_chat(thread_id: str = "main") -> None:
                         continue
                     else:
                         logger.exception("Unrecoverable agent error")
-                        display_error(f"Agent error: {e}")
+                        display_error(_sanitize_error(f"Agent error: {e}"))
                         break
 
         except KeyboardInterrupt:
@@ -609,7 +620,7 @@ def run_chat(thread_id: str = "main") -> None:
             # to prevent the chat from crashing
             logger.exception("Unhandled error in chat loop")
             if str(e):
-                display_error(f"Unexpected error: {e}")
+                display_error(_sanitize_error(f"Unexpected error: {e}"))
             else:
                 # Bare Exception() with no message — typically from
                 # nest_asyncio/prompt_toolkit event loop conflicts

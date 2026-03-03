@@ -30,6 +30,7 @@ dependencies = [
     # Data gathering
     "httpx>=0.28",
     "beautifulsoup4>=4",
+    "defusedxml>=0.7",
     # MCP (Model Context Protocol)
     "mcp>=1.26",
     # Generation

@@ -71,7 +71,7 @@ class MarketGatherer(ABC):
             Path to cache file
         """
         # Hash the key to avoid filesystem issues with special characters
-        key_hash = hashlib.md5(cache_key.encode()).hexdigest()[:16]
+        key_hash = hashlib.md5(cache_key.encode(), usedforsecurity=False).hexdigest()[:16]
         return self._cache_dir / f"{self.__class__.__name__}_{key_hash}.json"
 
     def _is_cache_valid(self, cache_path: Path) -> bool:

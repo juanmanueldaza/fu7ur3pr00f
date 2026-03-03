@@ -5,15 +5,23 @@ Single Responsibility: Fetch content from URLs with proper headers/timeouts.
 
 import contextlib
 import socket
+import threading
 from dataclasses import dataclass
-from ipaddress import ip_address
-from urllib.parse import urlparse
+from ipaddress import ip_address, ip_network
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
 from ...utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# CGNAT (RFC 6598) — not covered by Python's is_private
+_CGNAT_RANGE = ip_network("100.64.0.0/10")
+
+_dns_lock = threading.Lock()
+
+_MAX_REDIRECTS = 5
 
 
 @contextlib.contextmanager
@@ -23,6 +31,8 @@ def _pinned_dns(hostname: str, addrinfo: list[tuple]):
     Prevents DNS rebinding (TOCTOU) by ensuring httpx connects to the
     same addresses that passed SSRF validation, not a fresh resolution
     that an attacker could point at a private IP.
+
+    Thread-safe: acquires a lock before monkey-patching socket.getaddrinfo.
     """
     orig = socket.getaddrinfo
 
@@ -37,11 +47,12 @@ def _pinned_dns(hostname: str, addrinfo: list[tuple]):
         ]
         return results or orig(host, port, family, type, proto, flags)
 
-    socket.getaddrinfo = _getaddrinfo
-    try:
-        yield
-    finally:
-        socket.getaddrinfo = orig
+    with _dns_lock:
+        socket.getaddrinfo = _getaddrinfo
+        try:
+            yield
+        finally:
+            socket.getaddrinfo = orig
 
 
 @dataclass
@@ -50,6 +61,12 @@ class FetchResult:
 
     url: str
     content: str
+
+
+def _is_blocked_ip(addr_str: str) -> bool:
+    """Check if an IP address is private or in CGNAT range."""
+    addr = ip_address(addr_str)
+    return addr.is_private or addr in _CGNAT_RANGE
 
 
 class PortfolioFetcher:
@@ -75,9 +92,8 @@ class PortfolioFetcher:
         """Enter context manager, create HTTP client."""
         self._client = httpx.Client(
             timeout=self.timeout,
-            follow_redirects=True,
-            max_redirects=5,  # Limit redirects to prevent loops
-            verify=True,  # Explicitly enable SSL verification
+            follow_redirects=False,  # Manual redirect handling for SSRF safety
+            verify=True,
             headers={"User-Agent": self.USER_AGENT},
         )
         return self
@@ -92,7 +108,7 @@ class PortfolioFetcher:
         """Validate URL is safe to fetch (SSRF protection).
 
         Checks scheme and resolves ALL IPs (IPv4 + IPv6) via getaddrinfo,
-        blocking any that fall in private ranges. Returns resolved
+        blocking any that fall in private or CGNAT ranges. Returns resolved
         addrinfo for DNS pinning (prevents TOCTOU / DNS rebinding).
 
         Args:
@@ -116,8 +132,8 @@ class PortfolioFetcher:
 
         # Check if hostname is a literal IP address
         try:
-            if ip_address(hostname).is_private:
-                raise ValueError(f"Blocked private IP: {hostname}")
+            if _is_blocked_ip(hostname):
+                raise ValueError(f"Blocked private/CGNAT IP: {hostname}")
             return None  # Public literal IP — no DNS to pin
         except ValueError as exc:
             if "Blocked" in str(exc):
@@ -134,16 +150,27 @@ class PortfolioFetcher:
 
         for _family, _type, _proto, _canonname, sockaddr in addrinfo:
             addr = sockaddr[0]
-            if ip_address(addr).is_private:
+            if _is_blocked_ip(addr):
                 raise ValueError(
-                    f"Blocked hostname resolving to private IP: "
+                    f"Blocked hostname resolving to private/CGNAT IP: "
                     f"{hostname} -> {addr}"
                 )
 
         return addrinfo
 
+    def _get_with_pinning(self, url: str, addrinfo: list[tuple] | None) -> httpx.Response:
+        """Send GET request with optional DNS pinning."""
+        if addrinfo:
+            hostname = urlparse(url).hostname
+            with _pinned_dns(hostname, addrinfo):
+                return self._client.get(url)
+        return self._client.get(url)
+
     def fetch(self, url: str) -> FetchResult:
-        """Fetch content from URL.
+        """Fetch content from URL with per-hop SSRF validation.
+
+        Each redirect is re-validated against SSRF rules before following,
+        preventing attackers from using open redirects to reach internal IPs.
 
         Args:
             url: URL to fetch
@@ -153,7 +180,7 @@ class PortfolioFetcher:
 
         Raises:
             RuntimeError: If fetcher not used as context manager
-            ValueError: If URL fails SSRF protection checks
+            ValueError: If URL fails SSRF protection checks or too many redirects
             httpx.HTTPError: On network/HTTP errors
         """
         if not self._client:
@@ -163,21 +190,22 @@ class PortfolioFetcher:
         if not urlparse(url).scheme:
             url = f"https://{url}"
 
-        # SSRF protection — validate and pin DNS to prevent rebinding
-        addrinfo = self._validate_url(url)
+        for _ in range(_MAX_REDIRECTS):
+            addrinfo = self._validate_url(url)
 
-        logger.debug("Fetching: %s", url)
-        if addrinfo:
-            hostname = urlparse(url).hostname
-            with _pinned_dns(hostname, addrinfo):
-                response = self._client.get(url)
-        else:
-            response = self._client.get(url)
-        response.raise_for_status()
+            logger.debug("Fetching: %s", url)
+            response = self._get_with_pinning(url, addrinfo)
 
-        logger.debug("Fetched %d bytes from %s", len(response.text), url)
+            if response.is_redirect:
+                location = response.headers.get("location", "")
+                if not location:
+                    raise ValueError("Redirect with no Location header")
+                url = urljoin(url, location)
+                continue
 
-        return FetchResult(
-            url=url,
-            content=response.text,
-        )
+            response.raise_for_status()
+
+            logger.debug("Fetched %d bytes from %s", len(response.text), url)
+            return FetchResult(url=url, content=response.text)
+
+        raise ValueError(f"Too many redirects (>{_MAX_REDIRECTS})")

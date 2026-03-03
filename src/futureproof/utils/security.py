@@ -92,7 +92,7 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
 @contextlib.contextmanager
 def secure_open(
     path: str | Path, mode: str = "w", *, file_mode: int = 0o600,
-) -> Generator[object, None, None]:
+) -> Generator[object]:
     """Open file for writing with atomic restrictive permissions.
 
     Uses ``os.open()`` so the file is *never* world-readable, even for a

@@ -9,9 +9,10 @@ RSS feeds provide structured data including:
 - Salary info embedded in descriptions
 """
 
-import defusedxml.ElementTree as ET
 from html import unescape
 from typing import Any
+
+import defusedxml.ElementTree as ET
 
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient

@@ -6,8 +6,9 @@ https://jobicy.com/ - Remote jobs with detailed information.
 The RSS feed provides salary data that the API doesn't include.
 """
 
-import defusedxml.ElementTree as ET
 from typing import Any
+
+import defusedxml.ElementTree as ET
 
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient

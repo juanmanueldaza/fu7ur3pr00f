@@ -1,10 +1,7 @@
 """Tests for security utilities."""
 
-import os
 import stat
 from pathlib import Path
-
-import pytest
 
 from futureproof.utils.security import (
     anonymize_career_data,

@@ -216,7 +216,8 @@ class TestAnalysisSynthesisMiddleware:
             system_message=SystemMessage(content="system"),
         )
         # Patch synthesis to avoid real LLM call
-        with patch.object(self.middleware, "_synthesize", return_value=ModelResponse(result=[AIMessage(content="synth")])):
+        synth_response = ModelResponse(result=[AIMessage(content="synth")])
+        with patch.object(self.middleware, "_synthesize", return_value=synth_response):
             self.middleware.wrap_model_call(request, handler)
         return captured["messages"]
 
@@ -325,7 +326,9 @@ class TestAnalysisSynthesisMiddleware:
                 ],
             ),
             ToolMessage(content="Profile data", tool_call_id="c1", name="get_user_profile"),
-            ToolMessage(content="Career analysis...", tool_call_id="c2", name="analyze_career_alignment"),
+            ToolMessage(
+                content="Career analysis...", tool_call_id="c2", name="analyze_career_alignment",
+            ),
             ToolMessage(content="Skill gaps...", tool_call_id="c3", name="analyze_skill_gaps"),
             ToolMessage(content="Salary data...", tool_call_id="c4", name="get_salary_insights"),
         ]
@@ -461,7 +464,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c2", "name": "search_career_knowledge", "args": {}}],
             ),
-            ToolMessage(content="Profile: Juan...", tool_call_id="c2", name="search_career_knowledge"),
+            ToolMessage(
+                content="Profile: Juan...", tool_call_id="c2", name="search_career_knowledge",
+            ),
         ]
         handler, _ = self._make_handler(AIMessage(content="Your LinkedIn looks strong."))
         request = ModelRequest(
@@ -527,8 +532,12 @@ class TestAnalysisSynthesisMiddleware:
                     {"id": "c2", "name": "analyze_career_alignment", "args": {}},
                 ],
             ),
-            ToolMessage(content="Salary: $150K-$200K", tool_call_id="c1", name="get_salary_insights"),
-            ToolMessage(content="Alignment: 85/100", tool_call_id="c2", name="analyze_career_alignment"),
+            ToolMessage(
+                content="Salary: $150K-$200K", tool_call_id="c1", name="get_salary_insights",
+            ),
+            ToolMessage(
+                content="Alignment: 85/100", tool_call_id="c2", name="analyze_career_alignment",
+            ),
         ]
         analysis_results = {"analyze_career_alignment": "Alignment: 85/100"}
 

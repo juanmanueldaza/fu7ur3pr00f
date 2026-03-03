@@ -4,6 +4,7 @@ Uses stdio transport with Docker or native binary to communicate
 with the official GitHub MCP server.
 """
 
+import contextlib
 import logging
 from typing import Any
 
@@ -100,17 +101,13 @@ class GitHubMCPClient(MCPClient):
     async def disconnect(self) -> None:
         """Disconnect from GitHub MCP server."""
         if self._session is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._session.__aexit__(None, None, None)
-            except Exception:
-                pass
             self._session = None
 
         if self._stdio_context is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._stdio_context.__aexit__(None, None, None)
-            except Exception:
-                pass
             self._stdio_context = None
 
         self._read_stream = None

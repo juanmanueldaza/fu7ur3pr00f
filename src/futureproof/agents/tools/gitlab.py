@@ -1,7 +1,8 @@
 """GitLab tools for live queries via glab CLI."""
 
 import re
-import subprocess
+import shutil
+import subprocess  # nosec B404 — required for glab CLI interaction
 
 from langchain_core.tools import tool
 
@@ -26,9 +27,14 @@ def _validate_gitlab_input(
 
 def _glab(args: list[str], timeout: int = 30) -> str:
     """Run a glab CLI command and return output."""
+    glab_path = shutil.which("glab")
+    if not glab_path:
+        return (
+            "GitLab CLI (glab) is not installed. Install it from https://gitlab.com/gitlab-org/cli"
+        )
     try:
-        result = subprocess.run(
-            ["glab", *args],
+        result = subprocess.run(  # nosec B603 — args are validated, glab resolved via which()
+            [glab_path, *args],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -37,10 +43,6 @@ def _glab(args: list[str], timeout: int = 30) -> str:
             error = result.stderr.strip() or result.stdout.strip()
             return f"GitLab CLI error: {error}"
         return result.stdout.strip()
-    except FileNotFoundError:
-        return (
-            "GitLab CLI (glab) is not installed. Install it from https://gitlab.com/gitlab-org/cli"
-        )
     except subprocess.TimeoutExpired:
         return "GitLab CLI timed out."
 

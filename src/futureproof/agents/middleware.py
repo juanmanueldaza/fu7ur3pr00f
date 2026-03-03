@@ -1,5 +1,6 @@
 """Agent middleware for state repair and dynamic prompt injection."""
 
+import contextlib
 import logging
 import threading
 import time
@@ -74,7 +75,7 @@ def _build_prompt_uncached() -> str:
     # Auto-populate profile if data exists but profile is empty
     if summary == "No profile information available.":
         if stats.get("total_chunks", 0) > 0:
-            try:
+            with contextlib.suppress(Exception):
                 from futureproof.agents.tools.gathering import (
                     _auto_populate_profile,
                 )
@@ -82,8 +83,6 @@ def _build_prompt_uncached() -> str:
                 _auto_populate_profile()
                 profile = load_profile()
                 summary = profile.summary()
-            except Exception:
-                pass  # Best-effort; don't break the prompt
 
     from futureproof.utils.security import anonymize_career_data, sanitize_for_prompt
 

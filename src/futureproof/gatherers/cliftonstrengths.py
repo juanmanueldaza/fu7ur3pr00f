@@ -12,7 +12,8 @@ Supports multiple report types:
 
 import logging
 import re
-import subprocess
+import shutil
+import subprocess  # nosec B404 — required for pdftotext CLI
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -202,9 +203,13 @@ class CliftonStrengthsGatherer:
 
     def _extract_text(self, pdf_path: Path) -> str:
         """Extract text from PDF using pdftotext."""
+        pdftotext_path = shutil.which("pdftotext")
+        if not pdftotext_path:
+            logger.error("pdftotext not found. Install poppler-utils.")
+            return ""
         try:
-            result = subprocess.run(
-                ["pdftotext", "-layout", str(pdf_path), "-"],
+            result = subprocess.run(  # nosec B603 — pdftotext resolved via which()
+                [pdftotext_path, "-layout", str(pdf_path), "-"],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -214,9 +219,6 @@ class CliftonStrengthsGatherer:
             else:
                 logger.warning(f"pdftotext failed for {pdf_path}: {result.stderr}")
                 return ""
-        except FileNotFoundError:
-            logger.error("pdftotext not found. Install poppler-utils.")
-            raise
         except subprocess.TimeoutExpired:
             logger.error(f"Timeout extracting text from {pdf_path}")
             return ""

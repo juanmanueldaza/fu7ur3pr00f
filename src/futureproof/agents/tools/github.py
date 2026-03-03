@@ -1,5 +1,6 @@
 """GitHub tools for live queries via MCP server."""
 
+import contextlib
 import json
 
 from langchain_core.tools import tool
@@ -15,10 +16,8 @@ def _save_github_username(username: str) -> None:
         if not profile.github_username:
             profile.github_username = username
 
-    try:
+    with contextlib.suppress(Exception):
         edit_profile(_set)
-    except Exception:
-        pass  # Best-effort — don't break tool call
 
 
 def _github(tool_name: str, args: dict) -> str:

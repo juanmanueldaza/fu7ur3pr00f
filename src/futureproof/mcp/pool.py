@@ -15,6 +15,7 @@ Architecture:
 
 import asyncio
 import atexit
+import contextlib
 import logging
 import threading
 from typing import Any
@@ -74,10 +75,8 @@ async def _call(
             # Reconnect once on failure
             old = _clients.pop(server_type, None)
             if old:
-                try:
+                with contextlib.suppress(Exception):
                     await old.disconnect()
-                except Exception:
-                    pass
             client = await _get_or_connect(server_type)
             return await client.call_tool(tool_name, args)
 

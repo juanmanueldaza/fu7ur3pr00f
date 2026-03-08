@@ -27,6 +27,9 @@ dependencies = [
     "langchain>=0.3",
     "langgraph>=0.3",
     "langchain-openai>=0.3",
+    "langchain-anthropic>=0.3",
+    "langchain-google-genai>=2",
+    "langchain-ollama>=0.3",
     # Data gathering
     "httpx>=0.28",
     "beautifulsoup4>=4",
@@ -40,16 +43,6 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=3.0.3",
     "prompt-toolkit>=3.0.52",
     "chromadb>=1.4.1",
-]
-
-[project.optional-dependencies]
-anthropic = ["langchain-anthropic>=0.3"]
-google = ["langchain-google-genai>=2"]
-ollama = ["langchain-ollama>=0.3"]
-all-providers = [
-    "futureproof[anthropic]",
-    "futureproof[google]",
-    "futureproof[ollama]",
 ]
 
 [project.urls]

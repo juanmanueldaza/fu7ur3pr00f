@@ -56,17 +56,17 @@ graph LR
 ## Quick Start
 
 ```bash
-git clone https://github.com/juanmanueldaza/futureproof.git
-cd futureproof
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt && pip install -e .
-```
-
-```bash
-futureproof                         # Launch — /setup runs on first launch
+pip install futureproof
+futureproof
 ```
 
 On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.futureproof/.env`. Everything happens inside the chat — use `/help` to see all commands.
+
+> **PDF generation** (CVs) requires system libraries for text rendering. Without them the app works fine — you just get Markdown output instead of PDF.
+>
+> Ubuntu/Debian: `sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libfontconfig1 libgdk-pixbuf-2.0-0 poppler-utils`
+>
+> macOS: `brew install pango cairo gdk-pixbuf poppler`
 
 ## Project Structure
 
@@ -92,7 +92,10 @@ src/futureproof/
 ## Development
 
 ```bash
-pip install -r requirements-dev.txt
+git clone https://github.com/juanmanueldaza/futureproof.git
+cd futureproof
+pip install -e .
+pip install pyright pytest ruff    # dev tools
 
 pytest tests/ -q              # Unit tests
 pytest tests/eval/ -m eval    # Eval tests (need Azure credentials)

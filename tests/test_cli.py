@@ -4,7 +4,7 @@ from typer.testing import CliRunner
 
 from futureproof.cli import app
 
-runner = CliRunner()
+runner = CliRunner(color=False)
 
 
 class TestCLIBasics:

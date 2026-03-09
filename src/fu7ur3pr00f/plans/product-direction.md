@@ -15,7 +15,7 @@ The core architecture is unchanged. Multi-provider LLM support is fully implemen
 ```
 CLI (Typer)
   └─ Chat Client (prompt_toolkit, Rich UI, streaming)
-       └─ LangGraph Agent (create_agent, 41 tools, 4 middlewares)
+       └─ LangGraph Agent (create_agent, 40 tools, 4 middlewares)
             ├─ Multi-Provider LLM (FutureProof proxy / BYOK / Ollama)
             ├─ ChromaDB PersistentClient (~/.futureproof/episodic/)
             ├─ SqliteSaver checkpointer (~/.futureproof/memory.db)
@@ -38,7 +38,7 @@ Users shouldn't be locked to Azure OpenAI. FutureProof supports multiple LLM pro
 | 2 | **BYOK cloud** — OpenAI, Anthropic, Google, Azure | User provides API keys in `.env` | User pays provider directly |
 | 3 | **Ollama** (local) | Install Ollama, pull a model | Free, offline, private |
 
-Multi-provider LLM support is implemented in `src/futureproof/llm/fallback.py` and `src/futureproof/config.py`.
+Multi-provider LLM support is implemented in `src/fu7ur3pr00f/llm/fallback.py` and `src/fu7ur3pr00f/config.py`.
 
 ---
 
@@ -164,4 +164,4 @@ Default to requiring users to configure their own API keys. **Rejected**: create
 $15/month for a credit pool of LLM usage. **Rejected**: pass-through + markup is simpler, more honest, and avoids the sticker shock that caused Cursor's backlash. Users see exactly what they consume.
 
 ### Multi-agent architecture
-Split 41 tools across specialized agents with a router. **Rejected**: the single-agent with middleware stack already works. Multi-agent adds latency and handoff complexity for no proven benefit.
+Split 40 tools across specialized agents with a router. **Rejected**: the single-agent with middleware stack already works. Multi-agent adds latency and handoff complexity for no proven benefit.

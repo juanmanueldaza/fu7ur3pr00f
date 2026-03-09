@@ -21,14 +21,14 @@ You:   Generate my CV targeting that Staff Engineer role
 Agent: [generates ATS-optimized CV in Markdown + PDF]
 ```
 
-One agent, 41 tools, 12 MCP clients. Data sources: LinkedIn CSV export, GitHub (live MCP), GitLab (glab CLI), portfolio websites, CliftonStrengths PDF, 7 job boards, Hacker News, Dev.to, Stack Overflow, Tavily search.
+One agent, 40 tools, 12 MCP clients. Data sources: LinkedIn CSV export, GitHub (live MCP), GitLab (glab CLI), portfolio websites, CliftonStrengths PDF, 7 job boards, Hacker News, Dev.to, Stack Overflow, Tavily search.
 
 ## Architecture
 
 ```mermaid
 graph LR
     User <-->|Rich UI, HITL| Chat[Chat Client]
-    Chat <--> Agent[Single Agent<br/>41 tools]
+    Chat <--> Agent[Single Agent<br/>40 tools]
 
     Agent --> Gather[Gatherers]
     Agent --> MCP[12 MCP Clients]
@@ -56,7 +56,7 @@ graph LR
 ## Quick Start
 
 ```bash
-pip install futureproof
+pip install fu7ur3pr00f
 futureproof
 ```
 
@@ -71,19 +71,19 @@ On first launch, the `/setup` wizard prompts you to configure an LLM provider. S
 ## Project Structure
 
 ```
-src/futureproof/
+src/fu7ur3pr00f/
 ├── agents/
 │   ├── career_agent.py     # Single agent: create_agent(), 4 middlewares, singleton cache
 │   ├── middleware.py        # Dynamic prompt, synthesis, tool repair, summarization
 │   ├── orchestrator.py      # LangGraph Functional API for analysis workflows
 │   ├── helpers/             # Orchestrator support (data pipeline, LLM invoker)
-│   └── tools/              # 41 tools by domain (profile, gathering, analysis, market, settings)
+│   └── tools/              # 40 tools by domain (profile, gathering, analysis, market, settings)
 ├── chat/                   # Streaming client, HITL interrupt loop, Rich UI, /setup wizard
 ├── gatherers/              # LinkedIn CSV, CliftonStrengths PDF, portfolio scraper, market data
 ├── generators/             # CV generation (Markdown + PDF via WeasyPrint)
 ├── llm/                    # FallbackLLMManager: multi-provider fallback, purpose-based routing
 ├── memory/                 # ChromaDB (knowledge RAG + episodic), chunker, profile, embeddings
-├── mcp/                    # 12 MCP clients: GitHub, Tavily, 6 job boards, HN, financial, content
+├── mcp/                    # 12 MCP clients: GitHub, Tavily, financial, 7 job boards (incl. HN), Dev.to, SO
 ├── prompts/                # System + analysis + CV prompt templates
 ├── services/               # GathererService, AnalysisService, KnowledgeService
 └── utils/                  # PII anonymization, data loading, logging
@@ -93,13 +93,12 @@ src/futureproof/
 
 ```bash
 git clone https://github.com/juanmanueldaza/fu7ur3pr00f.git
-cd futureproof
+cd fu7ur3pr00f
 pip install -e .
 pip install pyright pytest ruff    # dev tools
 
 pytest tests/ -q              # Unit tests
-pytest tests/eval/ -m eval    # Eval tests (need Azure credentials)
-pyright src/futureproof       # Type checking
+pyright src/fu7ur3pr00f       # Type checking
 ruff check .                  # Lint
 ```
 

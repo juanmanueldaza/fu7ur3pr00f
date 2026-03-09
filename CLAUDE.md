@@ -10,8 +10,7 @@ futureproof --debug                 # With debug logs
 futureproof --thread work           # Named thread
 
 pytest tests/ -q                    # Unit tests
-pytest tests/eval/ -m eval          # Eval tests (need Azure creds)
-pyright src/futureproof             # Type check
+pyright src/fu7ur3pr00f             # Type check
 ruff check .                        # Lint
 ruff check . --fix                  # Auto-fix
 ```
@@ -21,21 +20,23 @@ In-chat slash commands: `/help`, `/setup`, `/profile`, `/goals`, `/thread`, `/th
 ## Project Structure
 
 ```
-src/futureproof/
+src/fu7ur3pr00f/
 ├── agents/
 │   ├── career_agent.py     # create_agent(), singleton, 4 middlewares
-│   ├── middleware.py        # dynamic_prompt, repair, synthesis, summarization
+│   ├── middleware.py        # dynamic_prompt, repair, synthesis
 │   ├── orchestrator.py      # LangGraph Functional API for analysis workflows
 │   ├── state.py             # TypedDict state definitions
 │   ├── helpers/             # Orchestrator support (data_pipeline, llm_invoker, result_mapper)
-│   └── tools/               # 41 tools: profile, gathering, github, gitlab, knowledge,
+│   └── tools/               # 40 tools: profile, gathering, github, gitlab, knowledge,
 │                            #   analysis, generation, market, financial, memory, settings
 ├── chat/                    # Streaming client, HITL loop, Rich UI, /setup wizard
 ├── gatherers/               # LinkedIn CSV, CliftonStrengths PDF, portfolio scraper, market data
 ├── generators/              # CV generation (Markdown + PDF via WeasyPrint)
 ├── llm/                     # FallbackLLMManager, multi-provider fallback, purpose routing
 ├── memory/                  # ChromaDB stores (knowledge + episodic), chunker, profile, embeddings
-├── mcp/                     # 13 clients: GitHub, Tavily, job boards, HN, financial, content
+├── mcp/                     # 12 clients: GitHub, Tavily, financial, 7 job boards (incl. HN),
+│                            #   Dev.to, Stack Overflow
+├── plans/                   # Product direction and strategy
 ├── prompts/                 # System + analysis + CV prompt templates (markdown files)
 ├── services/                # GathererService, AnalysisService, KnowledgeService
 └── utils/                   # PII anonymization, data loading, logging
@@ -43,8 +44,8 @@ src/futureproof/
 
 ## Architecture
 
-- **Single agent** with `create_agent()` — all 41 tools, no multi-agent handoffs
-- **4 middlewares** (in order): `build_dynamic_prompt` (injects live profile + knowledge stats), `ToolCallRepairMiddleware` (fixes orphaned tool_calls after HITL), `AnalysisSynthesisMiddleware` (two-pass: masks tool results, replaces generic response with focused synthesis), `SummarizationMiddleware` (32k token trigger, cheaper model)
+- **Single agent** with `create_agent()` — all 40 tools, no multi-agent handoffs
+- **4 middlewares** (in order): `build_dynamic_prompt` (injects live profile + knowledge stats), `ToolCallRepairMiddleware` (fixes orphaned tool_calls after HITL), `AnalysisSynthesisMiddleware` (two-pass: masks tool results, replaces generic response with focused synthesis), `SummarizationMiddleware` (from langchain; 16k token trigger, cheaper model)
 - **Data flow**: Gatherers return `list[Section]` → `index_sections()` → ChromaDB → search/retrieval via `KnowledgeService`
 - **HITL**: `interrupt()` on `generate_cv`, `gather_all_career_data`, `clear_career_knowledge`
 - **LLM**: Multi-provider via `FallbackLLMManager`. Supports FutureProof proxy (default), OpenAI, Anthropic, Google, Azure, Ollama. Auto-detects provider from available API keys. Purpose-based routing: `agent`, `analysis`, `summary`, `synthesis` — each can use a different model
@@ -77,7 +78,7 @@ All code, plans, and architecture docs must pass a DRY/KISS/YAGNI audit:
 ## Testing
 
 - Mock external services (LLM, HTTP, ChromaDB) — no real API calls in unit tests
-- Eval tests (`tests/eval/`) require Azure credentials and use `@pytest.mark.eval`
+- Eval tests (`tests/eval/`, not yet created) would require Azure credentials and `@pytest.mark.eval`
 - Fixtures in `conftest.py` for common test data
 
 ## Security

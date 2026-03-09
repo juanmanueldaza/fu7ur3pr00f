@@ -115,7 +115,7 @@ __all__ = [t.name for t in _ALL_TOOLS] + ["get_all_tools"]
 def get_all_tools() -> list:
     """Get all career intelligence tools for the agent.
 
-    Returns all 41 tools: profile, gathering, github, gitlab, analysis,
+    Returns all 40 tools: profile, gathering, github, gitlab, analysis,
     market, financial, generation, knowledge, memory, and settings.
     """
     return list(_ALL_TOOLS)

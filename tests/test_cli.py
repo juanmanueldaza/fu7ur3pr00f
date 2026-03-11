@@ -4,7 +4,7 @@ from typer.testing import CliRunner
 
 from fu7ur3pr00f.cli import app
 
-runner = CliRunner(color=False)
+runner = CliRunner()
 
 
 class TestCLIBasics:

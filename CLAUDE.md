@@ -5,9 +5,9 @@ Career intelligence system: AI agent gathers professional data (LinkedIn, portfo
 ## Commands
 
 ```bash
-futureproof                         # Launch chat (single entry point)
-futureproof --debug                 # With debug logs
-futureproof --thread work           # Named thread
+fu7ur3pr00f                         # Launch chat (single entry point)
+fu7ur3pr00f --debug                 # With debug logs
+fu7ur3pr00f --thread work           # Named thread
 
 pytest tests/ -q                    # Unit tests
 pyright src/fu7ur3pr00f             # Type check
@@ -86,5 +86,5 @@ All code, plans, and architecture docs must pass a DRY/KISS/YAGNI audit:
 - PII anonymization (`utils/security.py`) before sending career data to LLMs
 - SSRF protection in portfolio fetcher (blocks private IPs)
 - `subprocess.run()` with list args, no `shell=True`, 30s timeout
-- Sensitive files (CVs, profile, `~/.futureproof/.env`) created with `0o600` permissions
+- Sensitive files (CVs, profile, `~/.fu7ur3pr00f/.env`) created with `0o600` permissions
 - API keys entered via `/setup` terminal prompt — never pass through the LLM agent

@@ -6,7 +6,7 @@ from fu7ur3pr00f.config import Settings
 def make_settings(**overrides) -> Settings:
     """Create a Settings instance isolated from .env and env vars."""
     defaults: dict[str, str] = {
-        "futureproof_proxy_key": "",
+        "fu7ur3pr00f_proxy_key": "",
         "openai_api_key": "",
         "anthropic_api_key": "",
         "google_api_key": "",
@@ -91,17 +91,17 @@ class TestProviderDetection:
         s = make_settings(
             llm_provider="google",
             openai_api_key="sk-test",
-            futureproof_proxy_key="fp-test",
+            fu7ur3pr00f_proxy_key="fp-test",
         )
         assert s.active_provider == "google"
 
     def test_proxy_is_default_when_configured(self) -> None:
         """FutureProof proxy wins when both proxy and BYOK keys are set."""
         s = make_settings(
-            futureproof_proxy_key="fp-test",
+            fu7ur3pr00f_proxy_key="fp-test",
             openai_api_key="sk-test",
         )
-        assert s.active_provider == "futureproof"
+        assert s.active_provider == "fu7ur3pr00f"
 
     def test_azure_before_openai(self) -> None:
         """Azure takes priority over OpenAI."""

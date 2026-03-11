@@ -260,15 +260,15 @@ def get_embedding_function() -> EmbeddingFunction[Documents]:
             logger.info("Using Azure OpenAI embeddings")
             base = AzureOpenAIEmbeddingFunction()
 
-        elif provider in ("openai", "futureproof"):
+        elif provider in ("openai", "fu7ur3pr00f"):
             api_key = (
-                settings.futureproof_proxy_key
-                if provider == "futureproof"
+                settings.fu7ur3pr00f_proxy_key
+                if provider == "fu7ur3pr00f"
                 else settings.openai_api_key
             )
             base_url = (
-                settings.futureproof_proxy_url
-                if provider == "futureproof"
+                settings.fu7ur3pr00f_proxy_url
+                if provider == "fu7ur3pr00f"
                 else None
             )
             logger.info("Using %s embeddings", provider)

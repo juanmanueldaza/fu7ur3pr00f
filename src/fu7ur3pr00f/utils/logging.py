@@ -23,7 +23,7 @@ def setup_logging(
     Returns:
         Configured root logger instance
     """
-    logger = logging.getLogger("futureproof")
+    logger = logging.getLogger("fu7ur3pr00f")
     logger.setLevel(getattr(logging, level))
 
     # Clear existing handlers
@@ -50,10 +50,10 @@ def setup_logging(
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a named logger under the futureproof namespace.
+    """Get a named logger under the fu7ur3pr00f namespace.
 
     Args:
-        name: Logger name (will be prefixed with 'futureproof.')
+        name: Logger name (will be prefixed with 'fu7ur3pr00f.')
 
     Returns:
         Logger instance

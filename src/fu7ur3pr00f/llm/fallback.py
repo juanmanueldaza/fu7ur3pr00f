@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class ModelConfig:
     """Configuration for a single model in the fallback chain."""
 
-    provider: str  # "futureproof", "openai", "anthropic", "google", "azure", "ollama"
+    provider: str  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
     model: str
     description: str
     reasoning: bool = False  # Reasoning models don't support temperature
@@ -32,7 +32,7 @@ _REASONING_PREFIXES = ("o1", "o3", "o4")
 
 # LangChain model_provider strings for each provider
 _PROVIDER_MAP: dict[str, str] = {
-    "futureproof": "openai",  # Proxy is OpenAI-compatible
+    "fu7ur3pr00f": "openai",  # Proxy is OpenAI-compatible
     "openai": "openai",
     "anthropic": "anthropic",
     "google": "google_genai",
@@ -42,11 +42,11 @@ _PROVIDER_MAP: dict[str, str] = {
 
 # Default fallback chains per provider
 _PROVIDER_CHAINS: dict[str, list[ModelConfig]] = {
-    "futureproof": [
-        ModelConfig("futureproof", "gpt-4.1", "FutureProof GPT-4.1"),
-        ModelConfig("futureproof", "gpt-5-mini", "FutureProof GPT-5 Mini"),
-        ModelConfig("futureproof", "gpt-4o", "FutureProof GPT-4o"),
-        ModelConfig("futureproof", "gpt-4o-mini", "FutureProof GPT-4o Mini"),
+    "fu7ur3pr00f": [
+        ModelConfig("fu7ur3pr00f", "gpt-4.1", "FutureProof GPT-4.1"),
+        ModelConfig("fu7ur3pr00f", "gpt-5-mini", "FutureProof GPT-5 Mini"),
+        ModelConfig("fu7ur3pr00f", "gpt-4o", "FutureProof GPT-4o"),
+        ModelConfig("fu7ur3pr00f", "gpt-4o-mini", "FutureProof GPT-4o Mini"),
     ],
     "openai": [
         ModelConfig("openai", "gpt-4.1", "OpenAI GPT-4.1"),
@@ -91,9 +91,9 @@ def _build_provider_kwargs(config: ModelConfig) -> dict[str, Any]:
         kwargs["azure_endpoint"] = settings.azure_openai_endpoint
         kwargs["api_version"] = settings.azure_openai_api_version
         kwargs["api_key"] = settings.azure_openai_api_key
-    elif provider == "futureproof":
-        kwargs["api_key"] = settings.futureproof_proxy_key
-        kwargs["base_url"] = settings.futureproof_proxy_url
+    elif provider == "fu7ur3pr00f":
+        kwargs["api_key"] = settings.fu7ur3pr00f_proxy_key
+        kwargs["base_url"] = settings.fu7ur3pr00f_proxy_url
     elif provider == "openai":
         kwargs["api_key"] = settings.openai_api_key
     elif provider == "anthropic":
@@ -261,7 +261,7 @@ class FallbackLLMManager:
         if not available:
             raise RuntimeError(
                 "No LLM provider configured. Sign up for free tokens at "
-                "https://futureproof.dev/signup, or set OPENAI_API_KEY, "
+                "https://fu7ur3pr00f.dev/signup, or set OPENAI_API_KEY, "
                 "ANTHROPIC_API_KEY, or install Ollama for local models."
             )
 

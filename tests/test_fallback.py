@@ -61,13 +61,13 @@ class TestBuildProviderKwargs:
         assert "base_url" not in kwargs
 
     @patch("fu7ur3pr00f.llm.fallback.settings")
-    def test_futureproof_proxy_kwargs(self, mock_settings) -> None:
-        mock_settings.futureproof_proxy_key = "fp-key"
-        mock_settings.futureproof_proxy_url = "https://llm.futureproof.dev"
-        config = ModelConfig("futureproof", "gpt-4.1", "FP GPT-4.1")
+    def test_fu7ur3pr00f_proxy_kwargs(self, mock_settings) -> None:
+        mock_settings.fu7ur3pr00f_proxy_key = "fp-key"
+        mock_settings.fu7ur3pr00f_proxy_url = "https://llm.fu7ur3pr00f.dev"
+        config = ModelConfig("fu7ur3pr00f", "gpt-4.1", "FP GPT-4.1")
         kwargs = _build_provider_kwargs(config)
         assert kwargs["api_key"] == "fp-key"
-        assert kwargs["base_url"] == "https://llm.futureproof.dev"
+        assert kwargs["base_url"] == "https://llm.fu7ur3pr00f.dev"
 
     @patch("fu7ur3pr00f.llm.fallback.settings")
     def test_anthropic_kwargs(self, mock_settings) -> None:

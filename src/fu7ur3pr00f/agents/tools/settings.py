@@ -46,15 +46,15 @@ _RESTART_KEYS = {
 
 # Sensitive keys that must go through /setup.
 _SENSITIVE_KEYS = {
-    "futureproof_proxy_key", "openai_api_key", "anthropic_api_key",
+    "fu7ur3pr00f_proxy_key", "openai_api_key", "anthropic_api_key",
     "google_api_key", "azure_openai_api_key", "azure_openai_endpoint",
     "azure_embedding_deployment",
     "github_personal_access_token", "github_mcp_token", "tavily_api_key",
-    "portfolio_url", "futureproof_proxy_url", "ollama_base_url",
+    "portfolio_url", "fu7ur3pr00f_proxy_url", "ollama_base_url",
 }
 
 # Known valid LLM providers.
-_VALID_PROVIDERS = {"futureproof", "openai", "anthropic", "google", "azure", "ollama", ""}
+_VALID_PROVIDERS = {"fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama", ""}
 
 
 def _validate_setting_value(key: str, value: str) -> str | None:
@@ -120,7 +120,7 @@ def get_current_config() -> str:
     # Provider availability
     providers = []
     if settings.has_proxy:
-        providers.append("futureproof")
+        providers.append("fu7ur3pr00f")
     if settings.has_azure:
         providers.append("azure")
     if settings.has_openai:

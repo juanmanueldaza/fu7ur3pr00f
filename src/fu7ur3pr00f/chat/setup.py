@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ── Provider and integration definitions ────────────────────────────────
 
 _PROVIDERS: dict[str, dict] = {
-    "futureproof": {
+    "fu7ur3pr00f": {
         "name": "FutureProof Proxy",
         "description": "Zero-config, free starter tokens (not available yet)",
         "keys": [
@@ -86,11 +86,11 @@ _INTEGRATIONS: dict[str, dict] = {
 }
 
 # Ordered lists for menu display
-_PROVIDER_ORDER = ["azure", "futureproof", "openai", "anthropic", "google", "ollama"]
+_PROVIDER_ORDER = ["azure", "fu7ur3pr00f", "openai", "anthropic", "google", "ollama"]
 _INTEGRATION_ORDER = ["github", "tavily"]
 
 # Providers not yet available for selection
-_LOCKED_PROVIDERS = {"futureproof", "openai", "anthropic", "google", "ollama"}
+_LOCKED_PROVIDERS = {"fu7ur3pr00f", "openai", "anthropic", "google", "ollama"}
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -350,7 +350,7 @@ def run_setup(
                 ("An LLM provider is required to start. ", "#e0d8c0"),
                 ("Let's set one up.\n", "#e0d8c0"),
                 ("Your keys are stored locally at ", "#415a77"),
-                ("~/.futureproof/.env", "bold #415a77"),
+                ("~/.fu7ur3pr00f/.env", "bold #415a77"),
                 (" and never sent to the agent.", "#415a77"),
             ),
             border_style="#ffd700",

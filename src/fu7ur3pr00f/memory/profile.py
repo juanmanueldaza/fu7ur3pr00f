@@ -1,7 +1,7 @@
 """User profile management for FutureProof.
 
 Provides YAML-based storage for user identity, goals, and preferences.
-The profile is human-readable and editable, stored at ~/.futureproof/profile.yaml.
+The profile is human-readable and editable, stored at ~/.fu7ur3pr00f/profile.yaml.
 
 This is the "semantic memory" layer - persistent facts about the user that
 should be available across all conversations.

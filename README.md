@@ -56,11 +56,13 @@ graph LR
 ## Quick Start
 
 ```bash
-pip install fu7ur3pr00f
-futureproof
+pipx install fu7ur3pr00f
+fu7ur3pr00f
 ```
 
-On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.futureproof/.env`. Everything happens inside the chat — use `/help` to see all commands.
+If `fu7ur3pr00f` is not found, run `pipx ensurepath` and restart your shell.
+
+On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.fu7ur3pr00f/.env`. Everything happens inside the chat — use `/help` to see all commands.
 
 > **PDF generation** (CVs) requires system libraries for text rendering. Without them the app works fine — you just get Markdown output instead of PDF.
 >
@@ -100,6 +102,15 @@ pip install pyright pytest ruff    # dev tools
 pytest tests/ -q              # Unit tests
 pyright src/fu7ur3pr00f       # Type checking
 ruff check .                  # Lint
+```
+
+## Fresh Install Connectivity Check
+
+Use this to validate a clean pipx install plus MCP/LLM connectivity from a temporary HOME.
+
+```bash
+scripts/fresh_install_check.sh --source local --config-from .env
+scripts/fresh_install_check.sh --source pypi --config-from .env
 ```
 
 ## Tech Stack

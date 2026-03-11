@@ -31,7 +31,7 @@ def get_data_dir() -> Path:
     """Get or create the FutureProof data directory."""
     from fu7ur3pr00f.utils.security import secure_mkdir
 
-    data_dir = Path.home() / ".futureproof"
+    data_dir = Path.home() / ".fu7ur3pr00f"
     secure_mkdir(data_dir)
     return data_dir
 
@@ -40,7 +40,7 @@ def get_checkpointer() -> SqliteSaver:
     """Get a synchronous SqliteSaver checkpointer (cached singleton).
 
     Returns:
-        SqliteSaver instance connected to ~/.futureproof/memory.db
+        SqliteSaver instance connected to ~/.fu7ur3pr00f/memory.db
 
     Note:
         The SqliteSaver handles thread-safety internally with locks.

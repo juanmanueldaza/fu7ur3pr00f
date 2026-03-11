@@ -33,7 +33,7 @@ def search_github_repos(
     """Search GitHub repositories by name, description, or topic.
 
     Args:
-        query: Search query (e.g., "futureproof",
+        query: Search query (e.g., "fu7ur3pr00f",
                "user:daniaza language:python",
                "topic:machine-learning stars:>100")
         per_page: Number of results (default 10, max 100)

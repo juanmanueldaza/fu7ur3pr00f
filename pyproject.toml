@@ -1,6 +1,6 @@
 [project]
 name = "fu7ur3pr00f"
-version = "0.1.0"
+version = "0.1.1"
 description = "Career intelligence system - gather professional data, generate CVs, analyze career alignment"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     # Core
     "typer>=0.15",
+    "click>=8.1,<8.3",
     "pydantic-settings>=2",
     "pyyaml>=6",
     "rich>=14",
@@ -51,7 +52,7 @@ Repository = "https://github.com/juanmanueldaza/fu7ur3pr00f"
 "Bug Tracker" = "https://github.com/juanmanueldaza/fu7ur3pr00f/issues"
 
 [project.scripts]
-futureproof = "fu7ur3pr00f.cli:app"
+fu7ur3pr00f = "fu7ur3pr00f.cli:app"
 
 [build-system]
 requires = ["hatchling"]

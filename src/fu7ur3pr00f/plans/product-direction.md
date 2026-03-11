@@ -17,9 +17,9 @@ CLI (Typer)
   └─ Chat Client (prompt_toolkit, Rich UI, streaming)
        └─ LangGraph Agent (create_agent, 40 tools, 4 middlewares)
             ├─ Multi-Provider LLM (FutureProof proxy / BYOK / Ollama)
-            ├─ ChromaDB PersistentClient (~/.futureproof/episodic/)
-            ├─ SqliteSaver checkpointer (~/.futureproof/memory.db)
-            ├─ Profile YAML (~/.futureproof/profile.yaml)
+            ├─ ChromaDB PersistentClient (~/.fu7ur3pr00f/episodic/)
+            ├─ SqliteSaver checkpointer (~/.fu7ur3pr00f/memory.db)
+            ├─ Profile YAML (~/.fu7ur3pr00f/profile.yaml)
             ├─ MCP Clients (13: GitHub, Tavily, job boards, HN, financial, content)
             └─ Services (KnowledgeService, GathererService, AnalysisService)
 ```
@@ -50,7 +50,7 @@ Multi-provider LLM support is implemented in `src/fu7ur3pr00f/llm/fallback.py` a
 
 Following Zed Editor and Warp Terminal: free tool with hosted LLM compute as the **default** experience.
 
-**New users will get free starter tokens** — enough for several career analysis sessions. Once published to PyPI, `pip install futureproof` will work immediately with no API key setup or provider configuration, eliminating onboarding friction entirely.
+**New users will get free starter tokens** — enough for several career analysis sessions. Once published to PyPI, `pipx install fu7ur3pr00f` will work immediately with no API key setup or provider configuration, eliminating onboarding friction entirely.
 
 **After free tokens**: pay-as-you-go at API cost + ~10% markup, or switch to BYOK/Ollama at any time. No lock-in.
 
@@ -74,7 +74,7 @@ The proxy is the **only** cloud infrastructure FutureProof operates:
 |-----------|---------|-----------|
 | LiteLLM proxy container | Multi-model routing, token metering, rate limiting | ~$40-70/mo |
 | Redis | Rate limit state, caching | ~$10-15/mo |
-| Domain + SSL | futureproof.dev | ~$1/mo |
+| Domain + SSL | fu7ur3pr00f.dev | ~$1/mo |
 | **Total** | | **~$50-85/mo** |
 
 No PostgreSQL. No Qdrant. No user database. No OAuth server. Auth is a simple API key issued at signup.
@@ -158,7 +158,7 @@ This document replaces 4 previous plan documents that described a CLI-to-SaaS tr
 CloudBackend, FastAPI server, PostgreSQL, Qdrant, Redis, OAuth, Stripe billing. **Rejected**: unnecessary complexity (~$120-300/month infrastructure), contradicts local-first philosophy, introduces multi-tenant isolation concerns that don't exist when data is local.
 
 ### BYOK-first with proxy as optional add-on
-Default to requiring users to configure their own API keys. **Rejected**: creates onboarding friction. Most users will bounce at "configure Azure OpenAI API key." Proxy-first with free starter tokens means `pip install futureproof` → works immediately (the Zed/Warp pattern).
+Default to requiring users to configure their own API keys. **Rejected**: creates onboarding friction. Most users will bounce at "configure Azure OpenAI API key." Proxy-first with free starter tokens means `pipx install fu7ur3pr00f` → works immediately (the Zed/Warp pattern).
 
 ### Credit pool / subscription billing
 $15/month for a credit pool of LLM usage. **Rejected**: pass-through + markup is simpler, more honest, and avoids the sticker shock that caused Cursor's backlash. Users see exactly what they consume.

@@ -15,7 +15,7 @@ from fu7ur3pr00f.config import Settings
 def _make_settings(**overrides) -> Settings:
     """Create an isolated Settings instance (no .env, no env vars)."""
     defaults: dict[str, str] = {
-        "futureproof_proxy_key": "",
+        "fu7ur3pr00f_proxy_key": "",
         "openai_api_key": "",
         "anthropic_api_key": "",
         "google_api_key": "",
@@ -128,7 +128,7 @@ class TestGetUserEnvPath:
 
         path = get_user_env_path()
         assert isinstance(path, Path)
-        assert ".futureproof" in str(path)
+        assert ".fu7ur3pr00f" in str(path)
         assert path.name == ".env"
 
 

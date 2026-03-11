@@ -12,7 +12,7 @@ from .utils.console import console
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
-    name="futureproof",
+    name="fu7ur3pr00f",
     help="Career Intelligence System - chat with your career agent",
 )
 
@@ -58,7 +58,7 @@ def main(
 
     # No subcommand → launch chat
     if debug:
-        fp_logger = logging.getLogger("futureproof")
+        fp_logger = logging.getLogger("fu7ur3pr00f")
         for handler in fp_logger.handlers:
             if isinstance(handler, logging.StreamHandler) and not isinstance(
                 handler, logging.FileHandler

@@ -84,7 +84,7 @@ class AnalysisService:
         state = self.load_data()
 
         if not self.has_data(state):
-            raise NoDataError("No career data found. Run 'futureproof gather all' first.")
+            raise NoDataError("No career data found. Run 'fu7ur3pr00f gather all' first.")
 
         state["action"] = action
 

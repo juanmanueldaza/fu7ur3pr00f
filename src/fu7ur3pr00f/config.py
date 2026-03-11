@@ -8,7 +8,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # User-level config lives alongside profile and memory data.
-_USER_ENV_PATH = Path.home() / ".futureproof" / ".env"
+_USER_ENV_PATH = Path.home() / ".fu7ur3pr00f" / ".env"
 
 
 class Settings(BaseSettings):
@@ -21,11 +21,11 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider (auto-detected from available keys if empty)
-    llm_provider: str = ""  # "futureproof", "openai", "anthropic", "google", "azure", "ollama"
+    llm_provider: str = ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
 
     # FutureProof Proxy (default for new users — zero-config with starter tokens)
-    futureproof_proxy_url: str = "https://llm.futureproof.dev"
-    futureproof_proxy_key: str = Field(default="", repr=False)
+    fu7ur3pr00f_proxy_url: str = "https://llm.fu7ur3pr00f.dev"
+    fu7ur3pr00f_proxy_key: str = Field(default="", repr=False)
 
     # OpenAI
     openai_api_key: str = Field(default="", repr=False)
@@ -132,7 +132,7 @@ class Settings(BaseSettings):
     @property
     def has_proxy(self) -> bool:
         """Check if FutureProof proxy is configured."""
-        return bool(self.futureproof_proxy_key)
+        return bool(self.fu7ur3pr00f_proxy_key)
 
     @property
     def has_openai(self) -> bool:
@@ -162,7 +162,7 @@ class Settings(BaseSettings):
     def is_provider_configured(self, provider_id: str) -> bool:
         """Check if a provider has its required keys configured."""
         checks = {
-            "futureproof": self.has_proxy,
+            "fu7ur3pr00f": self.has_proxy,
             "openai": self.has_openai,
             "anthropic": self.has_anthropic,
             "google": self.has_google,
@@ -181,7 +181,7 @@ class Settings(BaseSettings):
         if self.llm_provider:
             return self.llm_provider
         if self.has_proxy:
-            return "futureproof"
+            return "fu7ur3pr00f"
         if self.has_azure:
             return "azure"
         if self.has_openai:
@@ -204,11 +204,11 @@ class Settings(BaseSettings):
         """Get the market data cache directory."""
         return self.data_dir / "cache" / "market"
 
-    # Paths (user-level, under ~/.futureproof/)
+    # Paths (user-level, under ~/.fu7ur3pr00f/)
     @property
     def data_dir(self) -> Path:
-        """Get the data directory (~/.futureproof/data/)."""
-        return Path.home() / ".futureproof" / "data"
+        """Get the data directory (~/.fu7ur3pr00f/data/)."""
+        return Path.home() / ".fu7ur3pr00f" / "data"
 
     @property
     def raw_dir(self) -> Path:
@@ -238,7 +238,7 @@ settings = Settings()
 
 
 def get_user_env_path() -> Path:
-    """Path to the user-level .env file (~/.futureproof/.env)."""
+    """Path to the user-level .env file (~/.fu7ur3pr00f/.env)."""
     return _USER_ENV_PATH
 
 

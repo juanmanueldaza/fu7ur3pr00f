@@ -54,11 +54,16 @@ fi
 
 pybs_dir="${work_dir}/python-build-standalone"
 mkdir -p "${pybs_dir}"
-getpybs \
+pybs_log="${work_dir}/getpybs.log"
+if ! getpybs \
   --python-version 3.13 \
   --architecture x86_64-unknown-linux-gnu \
   --content-type install_only_stripped \
-  --dest "${pybs_dir}" >/dev/null
+  --dest "${pybs_dir}" >"${pybs_log}" 2>&1; then
+  echo "getpybs failed. Last 200 lines:"
+  tail -n 200 "${pybs_log}"
+  exit 1
+fi
 
 pybs_tarball="$(ls -1 "${pybs_dir}"/python-3.13*linux*install_only_stripped*.tar.* 2>/dev/null | head -n1)"
 if [[ -z "${pybs_tarball}" ]]; then
@@ -115,7 +120,10 @@ if [[ -z "${mcp_url}" ]]; then
 fi
 
 mcp_archive="${work_dir}/github-mcp-server-asset"
-curl -sSL "${mcp_url}" -o "${mcp_archive}"
+if ! curl -fSL "${mcp_url}" -o "${mcp_archive}"; then
+  echo "Failed to download github-mcp-server asset"
+  exit 1
+fi
 
 mcp_extract_dir="${work_dir}/github-mcp-server"
 mkdir -p "${mcp_extract_dir}"

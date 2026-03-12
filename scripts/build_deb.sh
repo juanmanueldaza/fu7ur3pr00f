@@ -28,8 +28,12 @@ deb_root="${pkg_dir}/fu7ur3pr00f_${version}_${arch}"
 mkdir -p "${deb_root}/DEBIAN" "${deb_root}/usr/bin" "${deb_root}/opt/fu7ur3pr00f" \
   "${deb_root}/usr/share/doc/fu7ur3pr00f"
 
-python3 -m pip install --upgrade pip build getpybs >/dev/null
-python3 -m build --wheel >/dev/null
+export PIP_DISABLE_PIP_VERSION_CHECK=1
+export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-120}"
+export PIP_RETRIES="${PIP_RETRIES:-5}"
+
+python3 -m pip install --upgrade pip build hatchling getpybs >/dev/null
+python3 -m build --wheel --no-isolation >/dev/null
 
 wheel_path="$(ls -1 "${root_dir}/dist"/fu7ur3pr00f-"${version}"-py3-none-any.whl | head -n1)"
 if [[ ! -f "${wheel_path}" ]]; then

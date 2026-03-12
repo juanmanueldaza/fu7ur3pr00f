@@ -32,7 +32,12 @@ export PIP_DISABLE_PIP_VERSION_CHECK=1
 export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-120}"
 export PIP_RETRIES="${PIP_RETRIES:-5}"
 
-python3 -m pip install --upgrade pip build hatchling getpybs >/dev/null
+pip_log="${work_dir}/pip-install.log"
+if ! python3 -m pip install --upgrade pip build hatchling getpybs >"${pip_log}" 2>&1; then
+  echo "pip install failed. Last 200 lines:"
+  tail -n 200 "${pip_log}"
+  exit 1
+fi
 
 build_log="${work_dir}/build.log"
 if ! python3 -m build --wheel --no-isolation -v >"${build_log}" 2>&1; then

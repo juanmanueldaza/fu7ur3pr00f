@@ -76,9 +76,9 @@ if ! "${build_venv}/bin/getpybs" \
   exit 1
 fi
 
-pybs_tarball="$(ls -1 "${pybs_dir}"/python-3.13*linux*install_only_stripped*.tar.* 2>/dev/null | head -n1)"
+pybs_tarball="$(find "${pybs_dir}" -maxdepth 2 -type f -name "python-3.13*install_only_stripped*.tar.*" | head -n1)"
 if [[ -z "${pybs_tarball}" ]]; then
-  pybs_tarball="$(ls -1 "${pybs_dir}"/*.tar.* | head -n1)"
+  pybs_tarball="$(find "${pybs_dir}" -maxdepth 3 -type f -name "*.tar.*" | head -n1)"
 fi
 if [[ -z "${pybs_tarball}" ]]; then
   echo "Python build tarball not found in ${pybs_dir}"

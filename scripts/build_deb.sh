@@ -6,6 +6,7 @@ dist_dir="${DIST_DIR:-${root_dir}/dist/deb}"
 work_dir="${dist_dir}/work"
 pkg_dir="${dist_dir}/pkg"
 arch="amd64"
+trap 'echo "Build failed at line ${LINENO}." >&2' ERR
 
 version="${VERSION:-}"
 if [[ -z "${version}" ]]; then
@@ -32,15 +33,24 @@ export PIP_DISABLE_PIP_VERSION_CHECK=1
 export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-120}"
 export PIP_RETRIES="${PIP_RETRIES:-5}"
 
+build_venv="${work_dir}/build-venv"
+echo "Setting up build virtualenv at ${build_venv}"
+if ! python3 -m venv "${build_venv}" >/dev/null 2>&1; then
+  echo "Failed to create build virtualenv. Ensure python3-venv is installed." >&2
+  exit 1
+fi
+
 pip_log="${work_dir}/pip-install.log"
-if ! python3 -m pip install --upgrade pip build hatchling getpybs >"${pip_log}" 2>&1; then
+echo "Installing build tools"
+if ! "${build_venv}/bin/pip" install --upgrade pip build hatchling getpybs >"${pip_log}" 2>&1; then
   echo "pip install failed. Last 200 lines:"
   tail -n 200 "${pip_log}"
   exit 1
 fi
 
 build_log="${work_dir}/build.log"
-if ! python3 -m build --wheel --no-isolation -v >"${build_log}" 2>&1; then
+echo "Building wheel"
+if ! "${build_venv}/bin/python" -m build --wheel --no-isolation -v >"${build_log}" 2>&1; then
   echo "Wheel build failed. Last 200 lines:"
   tail -n 200 "${build_log}"
   exit 1
@@ -55,7 +65,8 @@ fi
 pybs_dir="${work_dir}/python-build-standalone"
 mkdir -p "${pybs_dir}"
 pybs_log="${work_dir}/getpybs.log"
-if ! getpybs \
+echo "Downloading python-build-standalone"
+if ! "${build_venv}/bin/getpybs" \
   --python-version 3.13 \
   --architecture x86_64-unknown-linux-gnu \
   --content-type install_only_stripped \

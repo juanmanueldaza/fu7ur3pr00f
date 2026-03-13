@@ -198,20 +198,13 @@ if [[ ! -x "${venv}/bin/python" ]]; then
   "${python}" -m venv "${venv}"
 fi
 
-if "${venv}/bin/python" - <<'PY'
-import importlib.util
-raise SystemExit(0 if importlib.util.find_spec("fu7ur3pr00f") else 1)
-PY
-then
-  exit 0
-fi
-
 if ! "${venv}/bin/pip" --version >/dev/null 2>&1; then
   "${venv}/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
 fi
 
 "${venv}/bin/python" -m pip install --upgrade pip >/dev/null
-"${venv}/bin/python" -m pip install "${wheel}"
+# Always install/upgrade from the bundled wheel to keep the venv in sync
+"${venv}/bin/python" -m pip install --upgrade --no-deps "${wheel}"
 EOF
 chmod 755 "${deb_root}/DEBIAN/postinst"
 

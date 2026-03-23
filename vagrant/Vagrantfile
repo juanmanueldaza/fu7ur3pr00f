@@ -1,0 +1,38 @@
+Vagrant.configure("2") do |config|
+  config.vm.boot_timeout = 600
+  config.vm.synced_folder "..", "/workspace"
+
+  machines = {
+    "ubuntu2404" => {
+      box: "bento/ubuntu-24.04",
+      hostname: "fu7ur3pr00f-ubuntu2404"
+    },
+    "debian12" => {
+      box: "bento/debian-12",
+      hostname: "fu7ur3pr00f-debian12"
+    }
+  }
+
+  machines.each do |name, spec|
+    config.vm.define name do |machine|
+      machine.vm.box = spec[:box]
+      machine.vm.hostname = spec[:hostname]
+
+      machine.vm.provider "virtualbox" do |vb|
+        vb.memory = 4096
+        vb.cpus = 2
+      end
+
+      machine.vm.provision "shell",
+                           path: "../scripts/vagrant_apt_smoke.sh",
+                           privileged: true,
+                           env: {
+                             "PACKAGE_NAME" => "fu7ur3pr00f",
+                             "REPO_BASE_URL" => "https://juanmanueldaza.github.io/fu7ur3pr00f",
+                             "REPO_DIST" => "stable",
+                             "REPO_COMPONENT" => "main",
+                             "LOG_PATH" => "/home/vagrant/fu7ur3pr00f-apt-smoke.log"
+                           }
+    end
+  end
+end

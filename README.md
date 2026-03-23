@@ -153,6 +153,32 @@ scripts/fresh_install_check.sh --source local --config-from .env
 scripts/fresh_install_check.sh --source pypi --config-from .env
 ```
 
+## Fresh VM Apt Check
+
+Use this when you want a real clean machine for the public apt install path
+without risking your host OS.
+
+Requirements: `vagrant` plus a provider such as `VirtualBox`.
+
+```bash
+scripts/run_vagrant_apt_smoke.sh ubuntu2404
+scripts/run_vagrant_apt_smoke.sh debian12
+scripts/run_vagrant_apt_smoke.sh all --destroy
+```
+
+This boots a disposable VM from `vagrant/Vagrantfile`, adds the public apt
+repository, then runs `install`, `reinstall`, `remove`, and `purge` for
+`fu7ur3pr00f`.
+
+If you prefer to drive Vagrant directly:
+
+```bash
+cd vagrant
+vagrant up ubuntu2404 --provision
+vagrant up debian12 --provision
+vagrant destroy -f ubuntu2404 debian12
+```
+
 ## Tech Stack
 
 **Python 3.13** · [LangChain](https://python.langchain.com/) + [LangGraph](https://langchain-ai.github.io/langgraph/) · [ChromaDB](https://www.trychroma.com/) · Multi-provider LLM (OpenAI, Anthropic, Google, Azure, Ollama) · [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) · [WeasyPrint](https://weasyprint.org/) · [httpx](https://www.python-httpx.org/)

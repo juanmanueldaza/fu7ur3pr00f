@@ -55,22 +55,38 @@ graph LR
 
 ## Quick Start
 
-Tier-1 package support today is Debian/Ubuntu on `amd64`.
+### 1. Setup (One-time)
+
+**Automated setup (recommended):**
 
 ```bash
-curl -fsSL https://juanmanueldaza.github.io/fu7ur3pr00f/fu7ur3pr00f-archive-keyring.gpg | \
-  sudo tee /usr/share/keyrings/fu7ur3pr00f-archive-keyring.gpg >/dev/null
-
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/fu7ur3pr00f-archive-keyring.gpg] \
-https://juanmanueldaza.github.io/fu7ur3pr00f stable main" | \
-  sudo tee /etc/apt/sources.list.d/fu7ur3pr00f.list >/dev/null
-
-sudo apt update
-sudo apt install fu7ur3pr00f
-fu7ur3pr00f
+./scripts/setup.sh
 ```
 
-On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.fu7ur3pr00f/.env`. Everything happens inside the chat — use `/help` to see all commands.
+This will:
+- Log you in to Azure (if not already)
+- Find your Azure OpenAI resource
+- Configure `~/.fu7ur3pr00f/.env` automatically
+- Copy your career data to the right location
+- Test the connection
+
+**Manual setup:**
+
+```bash
+mkdir -p ~/.fu7ur3pr00f
+cp .env.example ~/.fu7ur3pr00f/.env
+# Edit ~/.fu7ur3pr00f/.env with your Azure credentials
+```
+
+### 2. Run
+
+```bash
+# System-wide (pipx)
+fu7ur3pr00f
+
+# Or from virtual environment
+.venv/bin/fu7ur3pr00f
+```
 
 ## Install via apt (Debian/Ubuntu, amd64)
 

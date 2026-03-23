@@ -55,14 +55,38 @@ graph LR
 
 ## Quick Start
 
+### 1. Setup (One-time)
+
+**Automated setup (recommended):**
+
 ```bash
-pipx install fu7ur3pr00f
-fu7ur3pr00f
+./scripts/setup.sh
 ```
 
-If `fu7ur3pr00f` is not found, run `pipx ensurepath` and restart your shell.
+This will:
+- Log you in to Azure (if not already)
+- Find your Azure OpenAI resource
+- Configure `~/.fu7ur3pr00f/.env` automatically
+- Copy your career data to the right location
+- Test the connection
 
-On first launch, the `/setup` wizard prompts you to configure an LLM provider. Supports OpenAI, Anthropic, Google, Azure, Ollama, or the FutureProof proxy. Settings are saved to `~/.fu7ur3pr00f/.env`. Everything happens inside the chat — use `/help` to see all commands.
+**Manual setup:**
+
+```bash
+mkdir -p ~/.fu7ur3pr00f
+cp .env.example ~/.fu7ur3pr00f/.env
+# Edit ~/.fu7ur3pr00f/.env with your Azure credentials
+```
+
+### 2. Run
+
+```bash
+# System-wide (pipx)
+fu7ur3pr00f
+
+# Or from virtual environment
+.venv/bin/fu7ur3pr00f
+```
 
 ## Install via apt (Debian/Ubuntu, amd64)
 
@@ -78,17 +102,29 @@ sudo apt update
 sudo apt install fu7ur3pr00f
 ```
 
-During installation, the package bootstraps the Python environment and downloads
-Python dependencies into `/opt/fu7ur3pr00f/venv`, so internet access is required.
+The apt package is self-contained: installation places a ready-to-run Python
+runtime and CLI under `/opt/fu7ur3pr00f` with no `pip install` and no network
+bootstrap during `apt install`.
 
-The apt package bundles `github-mcp-server` and installs `glab`, `poppler-utils`,
-and WeasyPrint system libraries as dependencies.
+The package bundles `github-mcp-server`. Some optional integrations rely on
+extra system packages and degrade gracefully if they are not present.
 
-> **PDF generation** (CVs) requires system libraries for text rendering. Without them the app works fine — you just get Markdown output instead of PDF.
+> **Optional extras**
 >
-> Ubuntu/Debian: `sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libfontconfig1 libgdk-pixbuf-2.0-0 poppler-utils`
+> GitLab tools: `sudo apt-get install glab`
 >
-> macOS: `brew install pango cairo gdk-pixbuf poppler`
+> CliftonStrengths PDF import: `sudo apt-get install poppler-utils`
+>
+> PDF generation (CV export): `sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libfontconfig1 libgdk-pixbuf-2.0-0`
+
+## Other Platforms
+
+`apt` is the first polished native channel. `rpm`, `AUR`, and `Homebrew`
+support are planned from the same packaged runtime model, but they are not yet
+the supported installation path.
+
+For contributor workflows and unsupported platforms, `pipx install fu7ur3pr00f`
+still works as a development/testing fallback.
 
 ## Project Structure
 
@@ -124,14 +160,13 @@ pyright src/fu7ur3pr00f       # Type checking
 ruff check .                  # Lint
 ```
 
-## Fresh Install Connectivity Check
+## Dependency note: JobSpy and NumPy
 
-Use this to validate a clean pipx install plus MCP/LLM connectivity from a temporary HOME.
+`python-jobspy` is required for FutureProof's job search tools, and the current release pins `NUMPY==1.26.3`. Installing the project with `pip install -e .` will therefore keep NumPy at 1.26.x so the MCP job search client keeps working. If your wider toolchain demands `numpy>=2.1`, isolate that work in a separate virtual environment (or container) so that the JobSpy environment stays pinned at 1.26.3. After installing `python-jobspy`, rerun `pip check` to confirm pip's resolver sees a consistent NumPy version before running the agent.
 
-```bash
-scripts/fresh_install_check.sh --source local --config-from .env
-scripts/fresh_install_check.sh --source pypi --config-from .env
-```
+## Cleaning build artifacts
+
+Use `scripts/clean_dev_artifacts.sh` to remove stale wheels, `dist/`, and Python cache directories when you need a lean working tree or before running `git status`. The script also purges the temporary `data/cache/` folder so market gatherers start with fresh data.
 
 ## Optional Dependencies
 
@@ -156,6 +191,43 @@ Markdown (`.md`) and plain text (`.txt`) CVs work without additional dependencie
 
 ```bash
 sudo apt install glab  # or see https://gitlab.com/gitlab-org/cli
+```
+
+## Fresh Install Connectivity Check
+
+Use this to validate a clean pipx install plus MCP/LLM connectivity from a temporary HOME.
+
+```bash
+scripts/fresh_install_check.sh --source local --config-from .env
+scripts/fresh_install_check.sh --source pypi --config-from .env
+```
+
+## Fresh VM Apt Check
+
+Use this when you want a real clean machine for the public apt install path
+without risking your host OS.
+
+Requirements: `vagrant` plus a provider such as `VirtualBox`.
+
+```bash
+scripts/run_vagrant_apt_smoke.sh ubuntu2404
+scripts/run_vagrant_apt_smoke.sh debian12
+scripts/run_vagrant_apt_smoke.sh all
+scripts/run_vagrant_apt_smoke.sh debian12 --keep
+```
+
+This boots a disposable VM from `vagrant/Vagrantfile`, adds the public apt
+repository, then runs `install`, `reinstall`, `remove`, and `purge` for
+`fu7ur3pr00f`. The helper destroys each VM after the run by default, including
+failed runs; use `--keep` only when you need to inspect the guest afterward.
+
+If you prefer to drive Vagrant directly:
+
+```bash
+cd vagrant
+vagrant up ubuntu2404 --provision
+vagrant up debian12 --provision
+vagrant destroy -f ubuntu2404 debian12
 ```
 
 ## Tech Stack

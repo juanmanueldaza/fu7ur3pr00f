@@ -8,7 +8,7 @@ import logging
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.config import settings
-from fu7ur3pr00f.mcp.pool import call_mcp
+from fu7ur3pr00f.mcp.pool import MCPErrorType, call_mcp, get_error_type
 
 logger = logging.getLogger(__name__)
 _GITHUB_API_BASE = "https://api.github.com"
@@ -104,14 +104,9 @@ def _save_github_username(username: str) -> None:
 def _github(tool_name: str, args: dict) -> str:
     """Call GitHub MCP via pool, return content or error."""
     result = call_mcp("github", tool_name, args)
-    if isinstance(result, str):
-        normalized = result.lstrip()
-        if normalized.startswith("Github connection error") or "GitHub MCP server" in result:
-            logger.info("GitHub MCP unavailable, falling back to REST API: %s", result)
-            return _github_http(tool_name, args)
-        if "docker: permission denied" in result:
-            logger.info("GitHub MCP requires Docker; falling back to REST API")
-            return _github_http(tool_name, args)
+    if isinstance(result, (str, dict)) and get_error_type(result) == MCPErrorType.CONNECTION_ERROR:
+        logger.info("GitHub MCP unavailable, falling back to REST API: %s", result)
+        return _github_http(tool_name, args)
     return result if isinstance(result, str) else str(result)
 
 

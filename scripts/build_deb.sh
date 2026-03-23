@@ -22,6 +22,7 @@ PY
 fi
 
 mkdir -p "${dist_dir}"
+rm -f "${dist_dir}"/fu7ur3pr00f_*.deb
 rm -rf "${work_dir}" "${pkg_dir}"
 mkdir -p "${work_dir}" "${pkg_dir}"
 
@@ -33,6 +34,75 @@ export PIP_DISABLE_PIP_VERSION_CHECK=1
 export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-120}"
 export PIP_RETRIES="${PIP_RETRIES:-5}"
 
+prune_path_if_exists() {
+  local path
+  for path in "$@"; do
+    if [[ -e "${path}" ]]; then
+      rm -rf "${path}"
+    fi
+  done
+}
+
+remove_matching_paths() {
+  local base_dir="$1"
+  shift
+  local pattern
+  local path
+
+  shopt -s nullglob
+  for pattern in "$@"; do
+    for path in "${base_dir}"/${pattern}; do
+      rm -rf "${path}"
+    done
+  done
+  shopt -u nullglob
+}
+
+prune_bundled_python() {
+  local python_root="$1"
+  local python_lib_dir="$2"
+  local site_packages_dir="${python_lib_dir}/site-packages"
+  local tls_client_dir="${site_packages_dir}/tls_client/dependencies"
+
+  echo "Pruning bundled runtime payload"
+
+  prune_path_if_exists \
+    "${python_root}/include" \
+    "${python_root}/lib/pkgconfig" \
+    "${python_root}/share/man" \
+    "${python_root}/share/terminfo" \
+    "${python_lib_dir}/ensurepip"
+
+  remove_matching_paths "${python_root}/bin" \
+    "pip" "pip3" "pip3.13" "idle3" "idle3.13" "pydoc3" "pydoc3.13" "python3.13-config"
+  remove_matching_paths "${python_root}/lib" \
+    "tcl*" "tk*" "itcl*" "thread*" "libtcl*" "libtk*"
+  remove_matching_paths "${site_packages_dir}" \
+    "pip" "pip-*.dist-info"
+
+  if [[ -d "${site_packages_dir}" ]]; then
+    find "${site_packages_dir}" -type d \( -name test -o -name tests \) -prune -exec rm -rf {} +
+  fi
+
+  find "${python_root}" -type d -name __pycache__ -prune -exec rm -rf {} +
+  find "${python_root}" -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
+
+  if [[ -d "${tls_client_dir}" ]]; then
+    find "${tls_client_dir}" -maxdepth 1 -type f \
+      ! -name "__init__.py" \
+      ! -name "tls-client-amd64.so" \
+      -delete
+  fi
+}
+
+log_error_and_exit() {
+  local msg="$1"
+  local log_file="$2"
+  echo "${msg}. Last 200 lines:" >&2
+  tail -n 200 "${log_file}" >&2
+  exit 1
+}
+
 build_venv="${work_dir}/build-venv"
 echo "Setting up build virtualenv at ${build_venv}"
 if ! python3 -m venv "${build_venv}" >/dev/null 2>&1; then
@@ -43,17 +113,13 @@ fi
 pip_log="${work_dir}/pip-install.log"
 echo "Installing build tools"
 if ! "${build_venv}/bin/pip" install --upgrade pip build hatchling getpybs >"${pip_log}" 2>&1; then
-  echo "pip install failed. Last 200 lines:"
-  tail -n 200 "${pip_log}"
-  exit 1
+  log_error_and_exit "pip install failed" "${pip_log}"
 fi
 
 build_log="${work_dir}/build.log"
 echo "Building wheel"
 if ! "${build_venv}/bin/python" -m build --wheel --no-isolation -v >"${build_log}" 2>&1; then
-  echo "Wheel build failed. Last 200 lines:"
-  tail -n 200 "${build_log}"
-  exit 1
+  log_error_and_exit "Wheel build failed" "${build_log}"
 fi
 
 wheel_path="$(ls -1 "${root_dir}/dist"/fu7ur3pr00f-"${version}"-py3-none-any.whl | head -n1)"
@@ -71,9 +137,7 @@ if ! "${build_venv}/bin/getpybs" \
   --architecture x86_64-unknown-linux-gnu \
   --content-type install_only_stripped \
   --dest "${pybs_dir}" >"${pybs_log}" 2>&1; then
-  echo "getpybs failed. Last 200 lines:"
-  tail -n 200 "${pybs_log}"
-  exit 1
+  log_error_and_exit "getpybs failed" "${pybs_log}"
 fi
 
 pybs_tarball="$(find "${pybs_dir}" -maxdepth 2 -type f -name "python-3.13*install_only_stripped*.tar.*" | head -n1)"
@@ -114,13 +178,45 @@ python_dest="${deb_root}/opt/fu7ur3pr00f/python"
 mkdir -p "${python_dest}"
 cp -a "${python_root}/." "${python_dest}/"
 
-wheel_dir="${deb_root}/opt/fu7ur3pr00f/wheels"
-mkdir -p "${wheel_dir}"
-cp "${wheel_path}" "${wheel_dir}/"
+runtime_log="${work_dir}/runtime-install.log"
+echo "Installing application into bundled Python"
+if ! "${python_dest}/bin/python" -m pip --version >/dev/null 2>&1; then
+  if ! "${python_dest}/bin/python" -m ensurepip --upgrade >"${runtime_log}" 2>&1; then
+    log_error_and_exit "ensurepip failed" "${runtime_log}"
+  fi
+fi
+
+if ! PYTHONNOUSERSITE=1 PIP_PREFER_BINARY=1 "${python_dest}/bin/python" -m pip install \
+  --no-compile \
+  --ignore-installed "${wheel_path}" >>"${runtime_log}" 2>&1; then
+  log_error_and_exit "Bundled Python install failed" "${runtime_log}"
+fi
+
+build_python_path="${python_dest}/bin/python"
+runtime_python_path="/opt/fu7ur3pr00f/python/bin/python"
+while IFS= read -r -d '' script_path; do
+  first_line="$(head -n1 "${script_path}")"
+  if [[ "${first_line}" != "#!"* ]]; then
+    continue
+  fi
+  if [[ "${first_line}" == "#!${build_python_path}" ]]; then
+    sed -i "1s|^#!.*$|#!${runtime_python_path}|" "${script_path}"
+  fi
+done < <(find "${python_dest}/bin" -maxdepth 1 -type f -perm -u+x -print0)
+
+python_lib_dir="$(find "${python_dest}/lib" -mindepth 1 -maxdepth 1 -type d -name "python3.*" | head -n1)"
+if [[ -z "${python_lib_dir}" ]]; then
+  echo "Bundled Python stdlib directory not found in ${python_dest}/lib"
+  exit 1
+fi
+
+prune_bundled_python "${python_dest}" "${python_lib_dir}"
 
 cat > "${deb_root}/usr/bin/fu7ur3pr00f" <<'EOF'
 #!/usr/bin/env bash
-exec /opt/fu7ur3pr00f/venv/bin/fu7ur3pr00f "$@"
+export PYTHONNOUSERSITE=1
+export PYTHONDONTWRITEBYTECODE=1
+exec /opt/fu7ur3pr00f/python/bin/python -B -m fu7ur3pr00f.cli "$@"
 EOF
 chmod 755 "${deb_root}/usr/bin/fu7ur3pr00f"
 
@@ -175,38 +271,12 @@ Section: utils
 Priority: optional
 Architecture: ${arch}
 Maintainer: Juan Manuel Daza <juanmanueldaza@users.noreply.github.com>
-Depends: libc6, libstdc++6, libpango-1.0-0, libpangoft2-1.0-0, libcairo2, libfontconfig1, libgdk-pixbuf-2.0-0, poppler-utils, glab
+Depends: libc6, libstdc++6, ca-certificates
+Suggests: glab, poppler-utils, libpango-1.0-0, libpangoft2-1.0-0, libcairo2, libfontconfig1, libgdk-pixbuf-2.0-0
 Description: FutureProof career intelligence agent
  FutureProof is a local-first career intelligence agent that gathers
  professional data, analyzes career trajectories, and generates CVs.
 EOF
-
-cat > "${deb_root}/DEBIAN/postinst" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-venv="/opt/fu7ur3pr00f/venv"
-python="/opt/fu7ur3pr00f/python/bin/python"
-wheel="$(ls /opt/fu7ur3pr00f/wheels/fu7ur3pr00f-*.whl | head -n1)"
-
-if [[ ! -x "${python}" ]]; then
-  echo "Embedded python not found at ${python}" >&2
-  exit 1
-fi
-
-if [[ ! -x "${venv}/bin/python" ]]; then
-  "${python}" -m venv "${venv}"
-fi
-
-if ! "${venv}/bin/pip" --version >/dev/null 2>&1; then
-  "${venv}/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
-fi
-
-"${venv}/bin/python" -m pip install --upgrade pip >/dev/null
-# Always install/upgrade from the bundled wheel to keep the venv in sync
-"${venv}/bin/python" -m pip install --upgrade --no-deps "${wheel}"
-EOF
-chmod 755 "${deb_root}/DEBIAN/postinst"
 
 dpkg-deb --build "${deb_root}" "${dist_dir}/fu7ur3pr00f_${version}_${arch}.deb" >/dev/null
 echo "Built ${dist_dir}/fu7ur3pr00f_${version}_${arch}.deb"

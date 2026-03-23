@@ -17,6 +17,12 @@ repo_dir="${REPO_DIR:-${root_dir}/dist/apt}"
 dist_name="${APT_DIST:-stable}"
 component="${APT_COMPONENT:-main}"
 arch="amd64"
+gpg_home="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "${gpg_home}"
+}
+trap cleanup EXIT
 
 rm -rf "${repo_dir}"
 mkdir -p "${repo_dir}/pool/${component}/f/fu7ur3pr00f"
@@ -66,34 +72,56 @@ apt-ftparchive \
   release "dists/${dist_name}" > "dists/${dist_name}/Release"
 popd >/dev/null
 
-if [[ -z "${APT_GPG_PRIVATE_KEY:-}" || -z "${APT_GPG_PASSPHRASE:-}" ]]; then
-  echo "APT_GPG_PRIVATE_KEY and APT_GPG_PASSPHRASE are required for signing."
-  exit 1
-fi
-
-gpg_home="${repo_dir}/.gnupg"
 mkdir -p "${gpg_home}"
 chmod 700 "${gpg_home}"
 export GNUPGHOME="${gpg_home}"
 
-echo "${APT_GPG_PRIVATE_KEY}" | gpg --batch --import >/dev/null
+if [[ -n "${APT_GPG_PRIVATE_KEY:-}" ]]; then
+  if [[ -z "${APT_GPG_PASSPHRASE:-}" ]]; then
+    echo "APT_GPG_PASSPHRASE is required when APT_GPG_PRIVATE_KEY is provided."
+    exit 1
+  fi
+  echo "${APT_GPG_PRIVATE_KEY}" | gpg --batch --import >/dev/null
+elif [[ "${APT_GPG_ALLOW_EPHEMERAL:-0}" == "1" ]]; then
+  batch_file="${gpg_home}/ephemeral-gpg-batch"
+  cat > "${batch_file}" <<'EOF'
+%no-protection
+Key-Type: RSA
+Key-Length: 3072
+Name-Real: FutureProof Ephemeral Repo
+Name-Email: noreply@fu7ur3pr00f.invalid
+Expire-Date: 1d
+%commit
+EOF
+  gpg --batch --generate-key "${batch_file}" >/dev/null
+  rm -f "${batch_file}"
+else
+  echo "APT_GPG_PRIVATE_KEY and APT_GPG_PASSPHRASE are required for release signing."
+  echo "Set APT_GPG_ALLOW_EPHEMERAL=1 to generate a temporary validation key."
+  exit 1
+fi
 
 key_id="${APT_GPG_KEY_ID:-}"
 if [[ -z "${key_id}" ]]; then
-  key_id="$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')"
+  # Use 'fpr' (fingerprint) instead of 'sec' (secret key stub) because fpr
+  # returns the full key fingerprint which is more reliable for signing.
+  key_id="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')"
 fi
 if [[ -z "${key_id}" ]]; then
   echo "Failed to detect GPG key id."
   exit 1
 fi
 
-gpg --batch --pinentry-mode loopback --passphrase "${APT_GPG_PASSPHRASE}" \
-  --default-key "${key_id}" --clearsign \
+sign_args=(--batch --yes --default-key "${key_id}")
+if [[ -n "${APT_GPG_PASSPHRASE:-}" ]]; then
+  sign_args+=(--pinentry-mode loopback --passphrase "${APT_GPG_PASSPHRASE}")
+fi
+
+gpg "${sign_args[@]}" --clearsign \
   -o "${repo_dir}/dists/${dist_name}/InRelease" \
   "${repo_dir}/dists/${dist_name}/Release"
 
-gpg --batch --pinentry-mode loopback --passphrase "${APT_GPG_PASSPHRASE}" \
-  --default-key "${key_id}" --detach-sign \
+gpg "${sign_args[@]}" --detach-sign \
   -o "${repo_dir}/dists/${dist_name}/Release.gpg" \
   "${repo_dir}/dists/${dist_name}/Release"
 

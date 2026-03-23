@@ -6,14 +6,13 @@ import asyncio
 import contextlib
 import shutil
 import subprocess
-import sys
 from typing import Any
 
 import httpx
 
 from .agents.tools import get_all_tools
 from .config import settings
-from .mcp.factory import MCPClientFactory
+from .mcp.factory import MCPClientFactory, MCPServerType
 
 
 def _print_result(name: str, ok: bool, detail: str = "") -> None:
@@ -56,7 +55,7 @@ def _check_gitlab() -> bool:
     return True
 
 
-async def _check_mcp_server(server_type: str) -> bool:
+async def _check_mcp_server(server_type: MCPServerType) -> bool:
     if not MCPClientFactory.is_available(server_type):
         _print_result(f"MCP:{server_type}", False, "missing config")
         return False
@@ -113,7 +112,7 @@ async def _run_async_checks() -> dict[str, Any]:
     results["gitlab"] = _check_gitlab()
 
     for server_type in MCPClientFactory.AVAILABILITY_CHECKERS.keys():
-        ok = await _check_mcp_server(server_type)
+        ok = await _check_mcp_server(server_type)  # type: ignore[arg-type]
         results["mcp"][server_type] = ok
     return results
 
@@ -127,8 +126,7 @@ def main() -> int:
     failures = 0
     if not results["llm"]:
         failures += 1
-    if not results["gitlab"]:
-        failures += 1
+    # GitLab CLI integration is optional for the core install.
     failures += sum(1 for ok in results["mcp"].values() if not ok)
 
     if failures:

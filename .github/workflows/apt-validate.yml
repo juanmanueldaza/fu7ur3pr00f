@@ -1,0 +1,14 @@
+name: Apt Validate
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  validate-apt:
+    uses: ./.github/workflows/build-apt.yml
+    with:
+      validate: true
+      validation_images: "ubuntu:24.04 debian:12"

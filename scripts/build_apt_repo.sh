@@ -103,6 +103,8 @@ fi
 
 key_id="${APT_GPG_KEY_ID:-}"
 if [[ -z "${key_id}" ]]; then
+  # Use 'fpr' (fingerprint) instead of 'sec' (secret key stub) because fpr
+  # returns the full key fingerprint which is more reliable for signing.
   key_id="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')"
 fi
 if [[ -z "${key_id}" ]]; then

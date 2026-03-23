@@ -3,14 +3,16 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/run_vagrant_apt_smoke.sh [ubuntu2404|debian12|all] [--destroy]
+Usage: scripts/run_vagrant_apt_smoke.sh [ubuntu2404|debian12|all] [--keep]
 
 Boots one or more Vagrant VMs from vagrant/Vagrantfile and runs the public apt
-install/reinstall/remove/purge smoke test inside each VM.
+install/reinstall/remove/purge smoke test inside each VM. Each VM is destroyed
+after the run by default, even when provisioning fails.
 
 Examples:
   scripts/run_vagrant_apt_smoke.sh ubuntu2404
-  scripts/run_vagrant_apt_smoke.sh all --destroy
+  scripts/run_vagrant_apt_smoke.sh all
+  scripts/run_vagrant_apt_smoke.sh debian12 --keep
 
 Notes:
   - Requires Vagrant and a provider such as VirtualBox.
@@ -19,15 +21,15 @@ USAGE
 }
 
 target="${1:-all}"
-destroy_after="false"
+destroy_after="true"
 
 for arg in "$@"; do
   case "${arg}" in
     ubuntu2404|debian12|all)
       target="${arg}"
       ;;
-    --destroy)
-      destroy_after="true"
+    --keep)
+      destroy_after="false"
       ;;
     -h|--help)
       usage

@@ -25,6 +25,54 @@ from .factory import MCPClientFactory, MCPServerType
 
 logger = logging.getLogger(__name__)
 
+
+class MCPErrorType:
+    """Error type constants for MCP operations."""
+
+    CONNECTION_ERROR = "connection_error"
+    API_ERROR = "api_error"
+    UNKNOWN_ERROR = "unknown_error"
+
+
+def get_error_type(result: str | dict) -> str:
+    """Determine the type of MCP error from a result.
+
+    Args:
+        result: Error result from call_mcp (string or dict with "error" key)
+
+    Returns:
+        One of MCPErrorType constants
+
+    This allows callers to distinguish between connection failures
+    (which may warrant fallback/retry) and API errors (which should not).
+    """
+    error_str = result if isinstance(result, str) else result.get("error", "")
+    error_lower = error_str.lower()
+
+    # Connection-related errors that may warrant fallback
+    connection_indicators = [
+        "connection error",
+        "connection failed",
+        "not connected",
+        "docker: permission denied",
+        "github mcp server",
+    ]
+    if any(indicator in error_lower for indicator in connection_indicators):
+        return MCPErrorType.CONNECTION_ERROR
+
+    # API errors (auth, rate limit, not found, etc.)
+    api_indicators = [
+        "api error",
+        "401",
+        "403",
+        "404",
+        "rate limit",
+    ]
+    if any(indicator in error_lower for indicator in api_indicators):
+        return MCPErrorType.API_ERROR
+
+    return MCPErrorType.UNKNOWN_ERROR
+
 _lock = threading.Lock()
 _clients: dict[str, MCPClient] = {}
 _client_locks: dict[str, asyncio.Lock] = {}
@@ -138,16 +186,6 @@ def shutdown() -> None:
             fut.result(timeout=10)
         except Exception:
             logger.debug("Pool shutdown error", exc_info=True)
-
-
-def reset() -> None:
-    """Shutdown and reset pool state. For tests."""
-    shutdown()
-    global _loop, _thread
-    if _loop is not None:
-        _loop.call_soon_threadsafe(_loop.stop)
-        _loop = None
-        _thread = None
 
 
 atexit.register(shutdown)

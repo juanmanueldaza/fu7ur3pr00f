@@ -62,13 +62,37 @@ PY
 APT_GPG_ALLOW_EPHEMERAL=1 REPO_DIR="${repo_dir}" \
   "${root_dir}/scripts/build_apt_repo.sh" "${deb_path}"
 
-python3 -m http.server "${server_port}" --bind 127.0.0.1 --directory "${repo_dir}" \
-  >"${server_log}" 2>&1 &
-server_pid="$!"
-sleep 1
+# Start HTTP server with retry logic to handle port race conditions
+max_retries=3
+retry_count=0
+while [[ ${retry_count} -lt ${max_retries} ]]; do
+  python3 -m http.server "${server_port}" --bind 127.0.0.1 --directory "${repo_dir}" \
+    >"${server_log}" 2>&1 &
+  server_pid="$!"
+  sleep 1
+
+  if kill -0 "${server_pid}" >/dev/null 2>&1; then
+    break
+  fi
+
+  retry_count=$((retry_count + 1))
+  if [[ ${retry_count} -lt ${max_retries} ]]; then
+    # Port may have been taken, get a new one
+    server_port="$(
+      python3 - <<'PY'
+import socket
+
+sock = socket.socket()
+sock.bind(("127.0.0.1", 0))
+print(sock.getsockname()[1])
+sock.close()
+PY
+    )"
+  fi
+done
 
 if ! kill -0 "${server_pid}" >/dev/null 2>&1; then
-  echo "Failed to start local apt repo server. Log follows:" >&2
+  echo "Failed to start local apt repo server after ${max_retries} attempts. Log follows:" >&2
   cat "${server_log}" >&2
   exit 1
 fi

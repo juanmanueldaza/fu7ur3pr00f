@@ -143,7 +143,8 @@ done < <(find "${python_dest}/bin" -maxdepth 1 -type f -perm -u+x -print0)
 cat > "${deb_root}/usr/bin/fu7ur3pr00f" <<'EOF'
 #!/usr/bin/env bash
 export PYTHONNOUSERSITE=1
-exec /opt/fu7ur3pr00f/python/bin/python -m fu7ur3pr00f.cli "$@"
+export PYTHONDONTWRITEBYTECODE=1
+exec /opt/fu7ur3pr00f/python/bin/python -B -m fu7ur3pr00f.cli "$@"
 EOF
 chmod 755 "${deb_root}/usr/bin/fu7ur3pr00f"
 

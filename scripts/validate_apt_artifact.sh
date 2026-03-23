@@ -95,8 +95,20 @@ EOF
       fu7ur3pr00f --version
       apt-get remove -y fu7ur3pr00f
       apt-get purge -y fu7ur3pr00f
+      hash -r
+      if [[ -x /usr/bin/fu7ur3pr00f ]]; then
+        echo '/usr/bin/fu7ur3pr00f still present after purge' >&2
+        ls -l /usr/bin/fu7ur3pr00f >&2
+        exit 1
+      fi
+      if [[ -e /opt/fu7ur3pr00f ]]; then
+        echo '/opt/fu7ur3pr00f still present after purge' >&2
+        find /opt/fu7ur3pr00f -mindepth 1 -maxdepth 6 | sort | head -n 200 >&2
+        exit 1
+      fi
       if command -v fu7ur3pr00f >/dev/null 2>&1; then
-        echo 'fu7ur3pr00f still present after purge' >&2
+        echo 'fu7ur3pr00f still resolves in PATH after purge' >&2
+        command -v fu7ur3pr00f >&2
         exit 1
       fi
     "

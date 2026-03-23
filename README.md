@@ -144,6 +144,14 @@ pyright src/fu7ur3pr00f       # Type checking
 ruff check .                  # Lint
 ```
 
+## Dependency note: JobSpy and NumPy
+
+`python-jobspy` is required for FutureProof's job search tools, and the current release pins `NUMPY==1.26.3`. Installing the project with `pip install -e .` will therefore keep NumPy at 1.26.x so the MCP job search client keeps working. If your wider toolchain demands `numpy>=2.1`, isolate that work in a separate virtual environment (or container) so that the JobSpy environment stays pinned at 1.26.3. After installing `python-jobspy`, rerun `pip check` to confirm pip's resolver sees a consistent NumPy version before running the agent.
+
+## Cleaning build artifacts
+
+Use `scripts/clean_dev_artifacts.sh` to remove stale wheels, `dist/`, and Python cache directories when you need a lean working tree or before running `git status`. The script also purges the temporary `data/cache/` folder so market gatherers start with fresh data.
+
 ## Fresh Install Connectivity Check
 
 Use this to validate a clean pipx install plus MCP/LLM connectivity from a temporary HOME.
@@ -163,12 +171,14 @@ Requirements: `vagrant` plus a provider such as `VirtualBox`.
 ```bash
 scripts/run_vagrant_apt_smoke.sh ubuntu2404
 scripts/run_vagrant_apt_smoke.sh debian12
-scripts/run_vagrant_apt_smoke.sh all --destroy
+scripts/run_vagrant_apt_smoke.sh all
+scripts/run_vagrant_apt_smoke.sh debian12 --keep
 ```
 
 This boots a disposable VM from `vagrant/Vagrantfile`, adds the public apt
 repository, then runs `install`, `reinstall`, `remove`, and `purge` for
-`fu7ur3pr00f`.
+`fu7ur3pr00f`. The helper destroys each VM after the run by default, including
+failed runs; use `--keep` only when you need to inspect the guest afterward.
 
 If you prefer to drive Vagrant directly:
 

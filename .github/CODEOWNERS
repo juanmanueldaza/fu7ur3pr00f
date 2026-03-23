@@ -1,0 +1,30 @@
+# Code owners for FutureProof
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner
+@juanmanueldaza
+
+# Core agent and middleware
+src/fu7ur3pr00f/agents/ @juanmanueldaza
+
+# Memory and RAG
+src/fu7ur3pr00f/memory/ @juanmanueldaza
+
+# LLM fallback and routing
+src/fu7ur3pr00f/llm/ @juanmanueldaza
+
+# MCP clients
+src/fu7ur3pr00f/mcp/ @juanmanueldaza
+
+# Gatherers
+src/fu7ur3pr00f/gatherers/ @juanmanueldaza
+
+# CV generation
+src/fu7ur3pr00f/generators/ @juanmanueldaza
+
+# Tests
+tests/ @juanmanueldaza
+
+# Documentation
+*.md @juanmanueldaza
+docs/ @juanmanueldaza

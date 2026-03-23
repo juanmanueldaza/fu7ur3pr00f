@@ -1,5 +1,5 @@
 name: Bug Report
-description: File a bug report
+description: Report a bug or unexpected behavior
 title: "[Bug]: "
 labels: ["bug", "triage"]
 assignees:
@@ -8,29 +8,71 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        **Before you start**: Search [existing issues](https://github.com/juanmanueldaza/fu7ur3pr00f/issues) to avoid duplicates.
+
   - type: textarea
-    id: what-happened
+    id: description
     attributes:
-      label: What happened?
-      description: Also tell us, what did you expect to happen?
-      placeholder: Tell us what you see!
-      value: "A bug happened!"
+      label: Description
+      description: What happened? What did you expect to happen?
+      placeholder: Describe the bug clearly with actual vs expected behavior
     validations:
       required: true
-  - type: dropdown
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: How can we reproduce this?
+      placeholder: |
+        1. Run `fu7ur3pr00f`
+        2. Execute command `/gather`
+        3. See error...
+    validations:
+      required: true
+
+  - type: input
     id: version
     attributes:
       label: Version
-      description: What version of our software are you running?
-      options:
-        - 1.0.0 (Default)
-      default: 0
+      description: Run `fu7ur3pr00f --version` or check pip
+      placeholder: "0.1.8"
     validations:
       required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python Version
+      description: Run `python --version`
+      placeholder: "3.13.1"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: OS and version
+      placeholder: "Ubuntu 24.04, macOS 15.0, Windows 11"
+    validations:
+      required: true
+
   - type: textarea
     id: logs
     attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      label: Logs
+      description: Run with `fu7ur3pr00f --debug` and paste relevant output
       render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues
+          required: true
+        - label: I have included debug output
+          required: false

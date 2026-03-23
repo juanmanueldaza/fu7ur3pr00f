@@ -1,208 +1,118 @@
-# FutureProof - Project Context
+# Qwen Code — Project Context
 
-## Project Overview
+**Project**: FutureProof — Career intelligence agent  
+**Stack**: Python 3.13, LangChain, LangGraph, ChromaDB, MCP  
+**LLM**: Multi-provider (OpenAI, Anthropic, Google, Azure, Ollama, FutureProof proxy)
 
-**FutureProof** is a career intelligence agent that gathers professional data, analyzes career trajectories, searches job boards, and generates ATS-optimized CVs through a conversational chat interface. Built with LangChain, LangGraph, and ChromaDB.
+## How Qwen Should Work Here
 
-### Key Capabilities
+### 1. Understand Before Acting
 
-- **Career Data Gathering**: LinkedIn CSV, GitHub (MCP), GitLab (glab CLI), portfolio websites, CliftonStrengths PDF
-- **Job Search**: Queries 7 job boards + Hacker News hiring threads via JobSpy and MCP
-- **Career Analysis**: Skill gap analysis, market trend analysis, career trajectory planning
-- **CV Generation**: ATS-optimized CVs in Markdown and PDF (via WeasyPrint)
-- **RAG Memory**: ChromaDB for knowledge base and episodic memory
+Read the code. Don't assume. When modifying:
+1. Find the relevant module
+2. Check existing tests
+3. Match the existing patterns
 
-### Architecture Highlights
+### 2. Coding Standards
 
-- **Single Agent Design**: One agent with 40+ tools (multi-agent handoffs proved unreliable)
-- **Database-First Pipeline**: Gatherers index directly to ChromaDB (no intermediate files)
-- **Two-Pass Synthesis**: `AnalysisSynthesisMiddleware` for focused synthesis from reasoning models
-- **Multi-Provider LLM Fallback**: Supports OpenAI, Anthropic, Google, Azure, Ollama, FutureProof proxy
-- **HITL Confirmation**: LangGraph `interrupt()` for destructive/expensive operations
+**Imports**: Use `collections.abc` types, not `typing`
 
-## Building and Running
-
-### Installation
-
-```bash
-# Development install
-pip install -e .
-
-# Install dev tools
-pip install pyright pytest ruff
+```python
+from collections.abc import Mapping, Sequence  # Good
+from typing import Dict, List                  # Bad
 ```
 
-### Running the Application
+**Error handling**: Raise exceptions, never return error dicts
 
-```bash
-fu7ur3pr00f           # Launch chat client
-fu7ur3pr00f --debug   # Verbose logging
+```python
+raise ServiceError("Connection failed")  # Good
+return {"error": "..."}                   # Bad
 ```
 
-### Testing and Quality
+**Line length**: 100 (ruff enforces this)
 
-```bash
-pytest tests/ -q            # Run unit tests
-pyright src/fu7ur3pr00f     # Type checking
-ruff check .                # Lint
-ruff check . --fix          # Auto-fix lint issues
-```
+**Type hints**: Required. Python 3.13 syntax.
 
-### Fresh Install Verification
+### 3. Testing Rules
 
-```bash
-scripts/fresh_install_check.sh --source local --config-from .env
-```
+- Mock external services (LLMs, HTTP, ChromaDB) — no real API calls
+- Tests mirror source: `tests/gatherers/` for `src/fu7ur3pr00f/gatherers/`
+- Use fixtures from `tests/conftest.py`
+- Run: `pytest tests/ -q`
 
-## Project Structure
+### 4. Architecture Awareness
 
-```
-src/fu7ur3pr00f/
-├── agents/
-│   ├── career_agent.py     # Single agent with 40 tools, singleton cache
-│   ├── middleware.py        # Dynamic prompts, synthesis, tool repair, summarization
-│   ├── orchestrator.py      # LangGraph Functional API for analysis workflows
-│   ├── helpers/             # Orchestrator support (data pipeline, LLM invoker)
-│   └── tools/               # 40 tools by domain
-│       ├── profile.py       # Profile management
-│       ├── gathering.py     # Data gathering tools
-│       ├── analysis.py      # Career analysis tools
-│       ├── generation.py    # CV generation
-│       ├── knowledge.py     # Knowledge base search
-│       ├── market.py        # Market intelligence
-│       ├── memory.py        # Episodic memory
-│       ├── settings.py      # Settings management
-│       ├── github.py        # GitHub MCP tools
-│       ├── gitlab.py        # GitLab CLI tools
-│       └── financial.py     # Financial tools
-├── chat/
-│   └── client.py            # Streaming chat client, HITL loop, Rich UI, /setup wizard
-├── gatherers/               # LinkedIn CSV, CliftonStrengths PDF, portfolio scraper
-├── generators/              # CV generation (Markdown + PDF via WeasyPrint)
-├── llm/
-│   └── fallback.py          # FallbackLLMManager: multi-provider, purpose-based routing
-├── memory/
-│   ├── checkpointer.py      # LangGraph checkpointing
-│   └── chroma/              # ChromaDB RAG and episodic memory
-├── mcp/
-│   ├── factory.py           # MCP client factory
-│   └── clients/             # 12 MCP clients (GitHub, Tavily, JobSpy, HN, etc.)
-├── prompts/                 # System + analysis + CV prompt templates
-├── services/                # GathererService, AnalysisService, KnowledgeService
-└── utils/
-    ├── console.py           # Rich console output
-    ├── logging.py           # Logging setup
-    ├── security.py          # PII anonymization, SSRF protection
-    └── data_loader.py       # Data loading utilities
-```
+**Single agent design**: One agent with 40+ tools. No multi-agent handoffs.
 
-## Configuration
+**Database-first**: Gatherers index directly to ChromaDB. No intermediate files.
 
-### Environment Variables
+**Two-pass synthesis**: `AnalysisSynthesisMiddleware` replaces generic LLM output with focused reasoning.
 
-Configuration is stored in `~/.fu7ur3pr00f/.env` (created via `/setup` wizard). See `.env.example` for reference.
+**HITL**: Destructive/expensive operations use LangGraph `interrupt()`.
 
-**LLM Provider** (pick ONE, auto-detected if empty):
-- `FUTUREPROOF_PROXY_KEY` - FutureProof proxy (default, zero config)
-- `OPENAI_API_KEY` - OpenAI
-- `ANTHROPIC_API_KEY` - Anthropic
-- `GOOGLE_API_KEY` - Google Gemini
-- `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, etc. - Azure
-- `OLLAMA_BASE_URL` - Ollama (local)
+### 5. When Qwen Modifies Code
 
-**Purpose-Based Routing** (optional overrides):
-- `AGENT_MODEL` - Tool calling
-- `ANALYSIS_MODEL` - Analysis / CV generation
-- `SUMMARY_MODEL` - Summarization
-- `SYNTHESIS_MODEL` - Synthesis (reasoning)
-- `EMBEDDING_MODEL` - Embeddings
+**Before**:
+- Check `pyproject.toml` for dependencies
+- Read existing code for patterns
+- Check if tests exist
 
-**Optional Integrations**:
-- `GITHUB_PERSONAL_ACCESS_TOKEN` - GitHub MCP
-- `TAVILY_API_KEY` - Tavily search (salary data, market research)
-- `PORTFOLIO_URL` - Portfolio to scrape
+**After**:
+- `ruff check . --fix`
+- `pyright src/fu7ur3pr00f`
+- `pytest tests/ -q`
 
-### External Dependencies
-
-Some features require system packages:
-
-```bash
-# GitLab tools
-sudo apt-get install glab
-
-# CliftonStrengths PDF import
-sudo apt-get install poppler-utils
-
-# PDF generation (CV export)
-sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libfontconfig1 libgdk-pixbuf-2.0-0
-```
-
-## Development Conventions
-
-### Coding Style
-
-- **Python 3.13** with type hints throughout
-- **Line length**: 100 (enforced by ruff in `pyproject.toml`)
-- **Imports**: Prefer `collections.abc` types (`Mapping`, `Sequence`) over `typing`
-- **Error handling**: Raise exceptions (`ServiceError`, `NoDataError`, `AnalysisError`) instead of returning error dicts
-- **Dependency injection**: Used for services to keep tests isolated
-
-### Testing Practices
-
-- **Framework**: `pytest` with fixtures in `tests/conftest.py`
-- **Mocking**: Mock external services (LLMs, HTTP, ChromaDB) - no real API calls in unit tests
-- **Test structure**: Tests mirror source structure (e.g., `tests/gatherers/` for `src/fu7ur3pr00f/gatherers/`)
-
-### Commit Guidelines
-
-- Conventional commits with concise subject
-- Add short body when why/impact is non-obvious
-- **No AI attribution lines** (no `Co-Authored-By` or "Generated by ...")
-
-### Security Considerations
-
-- PII is anonymized before sending to LLMs (see `utils/security.py`)
-- Portfolio fetchers enforce SSRF protections (no private IP access)
-- Secrets stored with `0o600` permissions in `~/.fu7ur3pr00f/.env`
-
-## Dependency Notes
-
-### NumPy Pinning
-
-`python-jobspy` pins `numpy==1.26.3`. If your wider toolchain requires `numpy>=2.1`, use a separate virtual environment.
-
-```bash
-pip check  # Verify consistent NumPy version
-```
-
-### Build Artifacts
-
-Clean stale artifacts with:
-
-```bash
-scripts/clean_dev_artifacts.sh
-```
-
-## Key Files Reference
+### 6. Files Qwen Should Know
 
 | File | Purpose |
 |------|---------|
-| `pyproject.toml` | Package metadata, dependencies, ruff/pytest config |
-| `pyrightconfig.json` | Type checking configuration |
-| `.env.example` | Environment variable reference |
-| `AGENTS.md` | Repository guidelines for AI assistants |
+| `src/fu7ur3pr00f/agents/career_agent.py` | Single agent, singleton cache |
+| `src/fu7ur3pr00f/agents/middleware.py` | Dynamic prompts, synthesis, tool repair |
+| `src/fu7ur3pr00f/agents/orchestrator.py` | LangGraph workflows |
+| `src/fu7ur3pr00f/memory/chroma/` | ChromaDB RAG + episodic memory |
+| `src/fu7ur3pr00f/llm/fallback.py` | Multi-provider fallback routing |
 | `tests/conftest.py` | Shared pytest fixtures |
-| `src/fu7ur3pr00f/config.py` | Settings loading and validation |
-| `src/fu7ur3pr00f/diagnostics.py` | Fresh install connectivity checks |
 
-## Chat Commands
+### 7. What Qwen Should NOT Do
 
-The CLI provides an interactive chat with built-in commands:
+- Don't add AI attribution comments
+- Don't create intermediate files for data pipeline
+- Don't bypass `utils/security.py` (PII anonymization, SSRF protection)
+- Don't mock in production code
+- Don't add dependencies without checking `pyproject.toml`
 
-- `/setup` - Configure LLM provider and settings
-- `/help` - Show all available commands
-- `/gather` - Gather career data
-- `/analyze` - Analyze career alignment
-- `/search` - Search job boards
-- `/generate` - Generate CV
-- `/memory` - Query knowledge base
+### 8. Common Tasks
+
+**Add a tool**: Add to `src/fu7ur3pr00f/agents/tools/`, register in `career_agent.py`
+
+**Add a gatherer**: Create in `src/fu7ur3pr00f/gatherers/`, index to ChromaDB
+
+**Modify prompts**: Edit `src/fu7ur3pr00f/prompts/md/`
+
+**Debug LLM calls**: Run with `fu7ur3pr00f --debug`
+
+**Build .deb package**: `scripts/build_deb.sh`
+
+**Test apt package**: `scripts/validate_apt_artifact.sh path/to.deb`
+
+**Test in Vagrant VMs**: `scripts/run_vagrant_apt_smoke.sh all`
+
+**Clean artifacts**: `scripts/clean_dev_artifacts.sh`
+
+See [docs/scripts.md](docs/scripts.md) for all scripts.
+
+### 9. Security
+
+- PII is anonymized before LLM calls (`utils/security.py`)
+- Portfolio fetchers enforce SSRF protection (no private IP access)
+- Secrets in `~/.fu7ur3pr00f/.env` with `0o600` permissions
+
+### 10. When in Doubt
+
+1. Read the existing code
+2. Check `CONTRIBUTING.md`
+3. Ask for clarification
+
+---
+
+*This file is for Qwen Code. Keep it updated when patterns change.*

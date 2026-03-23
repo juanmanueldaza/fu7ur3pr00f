@@ -1,37 +1,40 @@
-# Pull Request Template
+## Summary
 
-## Type of change
+<!-- One sentence describing the change -->
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] This change requires a documentation update
+## Motivation
 
-## Description
+<!-- Why is this change needed? What problem does it solve? -->
 
-Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. List any dependencies that are required for this change.
+## Changes
 
-Fixes # (issue)
+<!-- List the key changes in this PR -->
 
-## How Has This Been Tested?
+- 
+- 
 
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Please also list any relevant details for your test configuration.
+## Testing
 
-- [ ] Test A
-- [ ] Test B
+<!-- How was this tested? Include commands and output -->
 
-**Test Configuration**:
-*   OS:
-*   Python version:
-*   ...
+```bash
+pytest tests/ -q
+ruff check .
+pyright src/fu7ur3pr00f
+```
 
-## Checklist:
+## Checklist
 
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published in downstream modules
+- [ ] Tests pass locally
+- [ ] Linting passes (`ruff check .`)
+- [ ] Type checking passes (`pyright src/fu7ur3pr00f`)
+- [ ] Changes are backwards compatible
+- [ ] Documentation updated (if needed)
+
+## Screenshots (if applicable)
+
+<!-- For UI changes, include before/after screenshots -->
+
+## Related Issues
+
+<!-- Link related issues: Fixes #123 -->

@@ -2,11 +2,29 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Documentation and context retrieval"
     },
     "sequential-thinking": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"],
+      "description": "Complex reasoning and step-by-step analysis"
+    },
+    "github": {
+      "command": "github-mcp-server",
+      "args": [],
+      "description": "GitHub integration (repos, issues, PRs)",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem@latest"],
+      "description": "Local file system access",
+      "disabled": true
     }
-  }
+  },
+  "version": "1.0.0",
+  "notes": "MCP servers for FutureProof. GitHub MCP requires GITHUB_PERSONAL_ACCESS_TOKEN in .env"
 }

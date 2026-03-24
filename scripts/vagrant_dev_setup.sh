@@ -62,7 +62,7 @@ cd "${vagrant_dir}"
 case "${command}" in
   up)
     echo "Starting Vagrant VM (${box})..."
-    VAGRANT_VAGRANTFILE="${vagrant_file}" vagrant up --provision
+    VAGRANT_VAGRANTFILE="${vagrant_file}" vagrant up
     echo ""
     echo "✓ VM is running. SSH with: scripts/vagrant_dev_setup.sh ssh"
     ;;
@@ -139,7 +139,7 @@ case "${command}" in
 
     # Start the VM
     echo "Starting VM..."
-    vagrant up --provision -f "${vagrant_file}"
+    VAGRANT_VAGRANTFILE="${vagrant_file}" vagrant up --provision
 
     echo ""
     echo "=============================================="

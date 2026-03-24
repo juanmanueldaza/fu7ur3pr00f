@@ -21,6 +21,10 @@ from fu7ur3pr00f.agents.specialists.base import (
     MemoryResult,
 )
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
+from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+from fu7ur3pr00f.agents.specialists.code import CodeAgent
+from fu7ur3pr00f.agents.specialists.founder import FounderAgent
 from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
 
 __all__ = [
@@ -30,12 +34,11 @@ __all__ = [
     "MemoryResult",
     # Specialist agents
     "CoachAgent",
+    "LearningAgent",
+    "JobsAgent",
+    "CodeAgent",
+    "FounderAgent",
     "OrchestratorAgent",
-    # TODO: Add more agents as they're implemented
-    # "LearningAgent",
-    # "JobsAgent",
-    # "CodeAgent",
-    # "FounderAgent",
 ]
 
 
@@ -58,6 +61,10 @@ def get_agent(name: str) -> BaseAgent:
     """
     agents = {
         "coach": CoachAgent,
+        "learning": LearningAgent,
+        "jobs": JobsAgent,
+        "code": CodeAgent,
+        "founder": FounderAgent,
         "orchestrator": OrchestratorAgent,
     }
     
@@ -78,9 +85,13 @@ def list_agents() -> list[dict[str, str]]:
     Example:
         >>> agents = list_agents()
         >>> len(agents)
-        2
+        6
     """
     return [
         {"name": "coach", "description": CoachAgent.description},
+        {"name": "learning", "description": LearningAgent.description},
+        {"name": "jobs", "description": JobsAgent.description},
+        {"name": "code", "description": CodeAgent.description},
+        {"name": "founder", "description": FounderAgent.description},
         {"name": "orchestrator", "description": OrchestratorAgent.description},
     ]

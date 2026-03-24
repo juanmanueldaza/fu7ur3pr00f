@@ -14,6 +14,10 @@ from collections.abc import Callable
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
+from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+from fu7ur3pr00f.agents.specialists.code import CodeAgent
+from fu7ur3pr00f.agents.specialists.founder import FounderAgent
 from fu7ur3pr00f.agents.values import VALUES_PROMPT, apply_values_filter, ValuesContext
 
 
@@ -114,14 +118,12 @@ class OrchestratorAgent(BaseAgent):
             >>> await orchestrator.initialize()
             >>> # Now ready to handle requests
         """
-        # Initialize Coach Agent (Phase 0)
+        # Initialize all specialist agents
         self.specialists["coach"] = CoachAgent()
-        
-        # TODO: Initialize other agents in future phases
-        # self.specialists["learning"] = LearningAgent()
-        # self.specialists["jobs"] = JobsAgent()
-        # self.specialists["code"] = CodeAgent()
-        # self.specialists["founder"] = FounderAgent()
+        self.specialists["learning"] = LearningAgent()
+        self.specialists["jobs"] = JobsAgent()
+        self.specialists["code"] = CodeAgent()
+        self.specialists["founder"] = FounderAgent()
     
     def _route_query(self, query: str) -> str:
         """Route query to appropriate specialist based on keywords.

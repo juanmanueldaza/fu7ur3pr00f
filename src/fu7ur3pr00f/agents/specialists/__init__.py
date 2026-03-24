@@ -1,0 +1,86 @@
+"""Specialist agents for multi-agent FutureProof architecture.
+
+This package contains all specialist agents that handle specific domains:
+- Coach Agent: Career growth and leadership
+- Learning Agent: Skill development and expertise
+- Jobs Agent: Employment opportunities
+- Code Agent: GitHub, GitLab, open source
+- Founder Agent: Startups and entrepreneurship
+- Orchestrator Agent: Routes requests and synthesizes responses
+
+Example:
+    >>> from fu7ur3pr00f.agents.specialists import OrchestratorAgent
+    >>> orchestrator = OrchestratorAgent()
+    >>> await orchestrator.initialize()
+    >>> response = await orchestrator.handle("How can I get promoted?")
+"""
+
+from fu7ur3pr00f.agents.specialists.base import (
+    BaseAgent,
+    KnowledgeResult,
+    MemoryResult,
+)
+from fu7ur3pr00f.agents.specialists.coach import CoachAgent
+from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
+
+__all__ = [
+    # Base classes
+    "BaseAgent",
+    "KnowledgeResult",
+    "MemoryResult",
+    # Specialist agents
+    "CoachAgent",
+    "OrchestratorAgent",
+    # TODO: Add more agents as they're implemented
+    # "LearningAgent",
+    # "JobsAgent",
+    # "CodeAgent",
+    # "FounderAgent",
+]
+
+
+def get_agent(name: str) -> BaseAgent:
+    """Get a specialist agent by name.
+    
+    Args:
+        name: Agent name (e.g., "coach", "orchestrator")
+    
+    Returns:
+        Agent instance
+    
+    Raises:
+        ValueError: If agent name is unknown
+    
+    Example:
+        >>> agent = get_agent("coach")
+        >>> isinstance(agent, CoachAgent)
+        True
+    """
+    agents = {
+        "coach": CoachAgent,
+        "orchestrator": OrchestratorAgent,
+    }
+    
+    if name not in agents:
+        raise ValueError(
+            f"Unknown agent: {name}. Available: {list(agents.keys())}"
+        )
+    
+    return agents[name]()
+
+
+def list_agents() -> list[dict[str, str]]:
+    """List all available specialist agents.
+    
+    Returns:
+        List of agent info dicts with name and description
+    
+    Example:
+        >>> agents = list_agents()
+        >>> len(agents)
+        2
+    """
+    return [
+        {"name": "coach", "description": CoachAgent.description},
+        {"name": "orchestrator", "description": OrchestratorAgent.description},
+    ]

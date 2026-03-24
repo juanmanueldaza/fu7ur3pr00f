@@ -4,7 +4,6 @@ Parses CV and resume files (PDF or Markdown) into labeled sections
 for indexing into the career knowledge base.
 """
 
-import hashlib
 import logging
 import re
 import shutil

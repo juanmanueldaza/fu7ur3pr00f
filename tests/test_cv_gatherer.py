@@ -275,6 +275,7 @@ class TestGatherCvDataTool:
     def test_gather_cv_data_tool_exists(self):
         """Verify the tool is properly registered."""
         from langchain_core.tools import StructuredTool
+
         from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
         
         assert isinstance(gather_cv_data, StructuredTool)
@@ -283,7 +284,6 @@ class TestGatherCvDataTool:
 
     def test_gather_cv_data_file_not_found(self, tmp_path):
         from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
-        from pathlib import Path
 
         # Create a file in tmp_path that looks like a PDF but doesn't exist
         # We test the actual error message for non-existent files
@@ -293,11 +293,9 @@ class TestGatherCvDataTool:
         assert "not found" in result.lower() or "access denied" in result.lower()
 
     def test_gather_cv_data_unsupported_format(self, tmp_path):
-        from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
-        from pathlib import Path
-
         # Create a test file in home directory to pass the path check
-        import os
+
+        from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
         test_file = Path.home() / ".fu7ur3pr00f" / "test_cv.docx"
         test_file.parent.mkdir(parents=True, exist_ok=True)
         test_file.write_bytes(b"fake docx")

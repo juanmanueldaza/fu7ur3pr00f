@@ -50,9 +50,9 @@
 | Task | Status | File | Notes |
 |------|--------|------|-------|
 | Update career_agent.py | ✅ Done | `agents/multi_agent.py` | Multi-agent wrapper |
-| Update chat client | ⏳ Pending | `chat/client.py` | Optional integration |
+| Update chat client | ✅ Done | `chat/client.py` | `/multi` command added |
 | Add benchmarks | ⏳ Pending | `tests/benchmarks/` | TODO |
-| Final testing | ✅ Done | `tests/` | Unit tests pass |
+| Final testing | ✅ Done | `tests/` | 28 tests pass |
 
 **Phase 0 Completion Criteria:**
 - [ ] CoachAgent can handle promotion/leadership queries

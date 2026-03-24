@@ -18,7 +18,7 @@ Example:
     'The salary is higher, but consider: this company uses proprietary software...'
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 

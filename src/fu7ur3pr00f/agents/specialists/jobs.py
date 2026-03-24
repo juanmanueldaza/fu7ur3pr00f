@@ -11,7 +11,10 @@ Example:
 from collections.abc import Callable
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent, KnowledgeResult
-from fu7ur3pr00f.agents.values import apply_values_filter, ValuesContext, check_opportunity_alignment
+from fu7ur3pr00f.agents.values import (
+    ValuesContext,
+    apply_values_filter,
+)
 
 
 class JobsAgent(BaseAgent):

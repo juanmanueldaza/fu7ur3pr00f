@@ -309,6 +309,9 @@ def display_help() -> None:
 | `/thread [name]` | Show or switch conversation thread |
 | `/threads` | List all conversation threads |
 | `/memory` | Show memory and profile stats |
+| `/multi` | Multi-agent system commands |
+| `/multi agents` | List specialist agents |
+| `/multi test` | Test multi-agent system |
 | `/clear` | Clear current thread history |
 | `/reset` | Factory reset (delete all generated data) |
 | `/quit` or `/q` | Exit chat |

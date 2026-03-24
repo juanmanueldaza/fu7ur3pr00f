@@ -10,15 +10,14 @@ Example:
     'Based on your CliftonStrengths...'
 """
 
-from collections.abc import Callable
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
-from fu7ur3pr00f.agents.specialists.learning import LearningAgent
-from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
 from fu7ur3pr00f.agents.specialists.founder import FounderAgent
-from fu7ur3pr00f.agents.values import VALUES_PROMPT, apply_values_filter, ValuesContext
+from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+from fu7ur3pr00f.agents.values import ValuesContext, apply_values_filter
 
 
 class OrchestratorAgent(BaseAgent):

@@ -4,6 +4,7 @@ Combines prompt-toolkit for input handling with Rich for output display.
 Provides both sync and async chat loops for different use cases.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -26,6 +27,12 @@ from fu7ur3pr00f.agents.career_agent import (
     get_agent_config,
     get_agent_model_name,
     reset_career_agent,
+)
+from fu7ur3pr00f.agents.multi_agent import (
+    handle_query as handle_multi_agent_query,
+)
+from fu7ur3pr00f.agents.multi_agent import (
+    list_agents as list_multi_agents,
 )
 from fu7ur3pr00f.chat.ui import (
     console,
@@ -271,6 +278,42 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
         if profile.goals:
             console.print(f"  Career goals: {len(profile.goals)}")
         console.print()
+        return False
+    
+    if cmd == "/multi":
+        # Multi-agent system command
+        if arg == "agents":
+            # List available specialist agents
+            agents = list_multi_agents()
+            console.print("[bold #5bc0be]Specialist Agents[/bold #5bc0be]\n")
+            for agent in agents:
+                agent_line = (
+                    f"  [bold #ffd700]{agent['name']}[/bold #ffd700]: "
+                    f"{agent['description']}"
+                )
+                console.print(agent_line)
+            console.print()
+        elif arg == "test":
+            # Test multi-agent system
+            console.print("[bold #5bc0be]Testing multi-agent system...[/bold #5bc0be]")
+            try:
+                response = asyncio.run(handle_multi_agent_query("What agents are available?"))
+                console.print("[#10b981]Multi-agent system is working![/#10b981]")
+                console.print(f"Response preview: {response[:200]}...")
+            except Exception as e:
+                display_error(f"Multi-agent test failed: {e}")
+        else:
+            console.print("[bold #5bc0be]Multi-Agent System[/bold #5bc0be]\n")
+            console.print("Usage: /multi [command]\n")
+            console.print("Commands:")
+            console.print("  /multi agents  - List available specialist agents")
+            console.print("  /multi test    - Test multi-agent system\n")
+            console.print("The multi-agent system provides specialized agents for:")
+            console.print("  - Career growth (Coach)")
+            console.print("  - Skill development (Learning)")
+            console.print("  - Job search (Jobs)")
+            console.print("  - Code projects (Code)")
+            console.print("  - Startups (Founder)\n")
         return False
 
     if cmd == "/reset":

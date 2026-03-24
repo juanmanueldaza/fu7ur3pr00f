@@ -1,8 +1,8 @@
 """Tests for BaseAgent and specialist agents."""
 
-import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from fu7ur3pr00f.agents.specialists.base import (
     BaseAgent,
@@ -11,7 +11,6 @@ from fu7ur3pr00f.agents.specialists.base import (
 )
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
-
 
 # =============================================================================
 # BaseAgent Tests
@@ -183,14 +182,14 @@ class TestBaseAgentChromaDB:
             'metadatas': [[{"source": "linkedin", "section": "experience"}]],
             'distances': [[0.15]]
         }
-        
-        results = test_agent.search_knowledge(
+
+        test_agent.search_knowledge(
             "experience",
             limit=5,
             section="experience",
             sources=["linkedin"]
         )
-        
+
         # Verify filter was passed
         call_args = mock_collection.query.call_args
         assert call_args[1]['where'] is not None
@@ -528,7 +527,7 @@ class TestMultiAgentIntegration:
     @pytest.mark.asyncio
     async def test_agent_values_filtering(self):
         """Test that values filtering is applied."""
-        from fu7ur3pr00f.agents.values import apply_values_filter, ValuesContext
+        from fu7ur3pr00f.agents.values import ValuesContext, apply_values_filter
         
         # Test with red flags
         ctx = ValuesContext(

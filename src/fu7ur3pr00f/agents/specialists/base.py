@@ -23,7 +23,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from fu7ur3pr00f.memory.chromadb_store import get_chroma_client

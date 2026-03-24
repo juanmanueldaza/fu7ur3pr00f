@@ -96,7 +96,10 @@
       "Bash(git *)",
       "Bash(xargs *)",
       "Bash(git reflog *)",
-      "Bash(git gc *)"
+      "Bash(git gc *)",
+      "Bash(python3 *)",
+      "Bash(pip3 list)",
+      "Bash(pip3 install *)"
     ]
   },
   "$version": 3

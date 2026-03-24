@@ -57,7 +57,7 @@ class OrchestratorAgent(BaseAgent):
             "talk", "blog", "write", "publish",
         },
         "jobs": {
-            "jobs", "hiring", "interview", "salary", "compensation", "benefits",
+            "jobs", "job", "hiring", "interview", "salary", "compensation", "benefits",
             "remote", "work from home", "job search", "apply", "resume", "cv",
         },
         "code": {

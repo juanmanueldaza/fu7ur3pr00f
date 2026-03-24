@@ -243,7 +243,7 @@ def gather_cv_data(file_path: str) -> str:
             {"label": "Cancel", "value": "cancel"},
         ] if has_existing_cv else None,
     })
-    
+
     if approved == "cancel" or not approved:
         return "CV import cancelled."
 
@@ -256,7 +256,7 @@ def gather_cv_data(file_path: str) -> str:
             if store:
                 store.clear_by_source(KnowledgeSource.CV)
             logger.info("Cleared existing CV data before re-import")
-        
+
         sections = service.gather_cv(resolved)
     except FileNotFoundError:
         return f"CV file not found at '{file_path}'. Please check the path."
@@ -264,7 +264,7 @@ def gather_cv_data(file_path: str) -> str:
         return str(e)
     except ServiceError as e:
         return str(e)
-    
+
     action = "cleared and " if approved == "clear_first" else ""
     return f"CV {action}imported: {len(sections)} sections indexed from {resolved.name}"
 

@@ -44,16 +44,16 @@ __all__ = [
 
 def get_agent(name: str) -> BaseAgent:
     """Get a specialist agent by name.
-    
+
     Args:
         name: Agent name (e.g., "coach", "orchestrator")
-    
+
     Returns:
         Agent instance
-    
+
     Raises:
         ValueError: If agent name is unknown
-    
+
     Example:
         >>> agent = get_agent("coach")
         >>> isinstance(agent, CoachAgent)
@@ -67,21 +67,21 @@ def get_agent(name: str) -> BaseAgent:
         "founder": FounderAgent,
         "orchestrator": OrchestratorAgent,
     }
-    
+
     if name not in agents:
         raise ValueError(
             f"Unknown agent: {name}. Available: {list(agents.keys())}"
         )
-    
+
     return agents[name]()
 
 
 def list_agents() -> list[dict[str, str]]:
     """List all available specialist agents.
-    
+
     Returns:
         List of agent info dicts with name and description
-    
+
     Example:
         >>> agents = list_agents()
         >>> len(agents)
@@ -93,7 +93,7 @@ def list_agents() -> list[dict[str, str]]:
     code = CodeAgent()
     founder = FounderAgent()
     orchestrator = OrchestratorAgent()
-    
+
     return [
         {"name": coach.name, "description": coach.description},
         {"name": learning.name, "description": learning.description},

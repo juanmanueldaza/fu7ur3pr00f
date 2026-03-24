@@ -304,6 +304,7 @@ def display_help() -> None:
 |---------|-------------|
 | `/help` or `/h` | Show this help message |
 | `/setup` | Configure LLM providers and API keys |
+| `/gather` | Gather career data (LinkedIn, CliftonStrengths, CV, portfolio) |
 | `/profile` | View your career profile |
 | `/goals` | View your career goals |
 | `/thread [name]` | Show or switch conversation thread |

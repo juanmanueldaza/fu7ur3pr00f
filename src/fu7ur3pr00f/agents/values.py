@@ -25,7 +25,7 @@ from typing import Any
 @dataclass
 class ValuesContext:
     """Context for values-based filtering.
-    
+
     Attributes:
         company_uses_proprietary: Does company use proprietary software?
         company_contributes_to_oss: Does company contribute to open source?
@@ -35,7 +35,7 @@ class ValuesContext:
         is_remote_friendly: Is remote work available?
         fair_compensation: Is compensation fair?
         crunch_expected: Is crunch/overtime expected?
-    
+
     Example:
         >>> ctx = ValuesContext(
         ...     company_uses_proprietary=True,
@@ -53,13 +53,13 @@ class ValuesContext:
     is_remote_friendly: bool = False
     fair_compensation: bool = True
     crunch_expected: bool = False
-    
+
     def has_red_flags(self) -> bool:
         """Check if opportunity has ethical red flags.
-        
+
         Returns:
             True if any critical red flags present
-            
+
         Example:
             >>> ctx = ValuesContext(
             ...     work_is_ethical=False,
@@ -73,13 +73,13 @@ class ValuesContext:
             not self.product_respects_freedom or
             self.crunch_expected
         )
-    
+
     def has_green_flags(self) -> bool:
         """Check if opportunity has ethical green flags.
-        
+
         Returns:
             True if multiple green flags present
-            
+
         Example:
             >>> ctx = ValuesContext(
             ...     company_contributes_to_oss=True,
@@ -239,18 +239,18 @@ def apply_values_filter(
     include_values_reminder: bool = True,
 ) -> str:
     """Apply values-based filtering to agent response.
-    
+
     Analyzes the context and modifies response to highlight ethical concerns
     or praise value-aligned opportunities.
-    
+
     Args:
         response: Original agent response
         context: Values context (dict or ValuesContext)
         include_values_reminder: Whether to include values reminder
-    
+
     Returns:
         Filtered response with values-aware messaging
-    
+
     Example:
         >>> response = "The job pays $200k and has great benefits."
         >>> context = ValuesContext(
@@ -271,11 +271,11 @@ def apply_values_filter(
         ctx = ValuesContext()
     else:
         ctx = context
-    
+
     # If no red flags and response doesn't need modification, return as-is
     if not ctx.has_red_flags() and not ctx.has_green_flags():
         return response
-    
+
     # Build red flags list
     red_flags: list[str] = []
     if ctx.company_uses_proprietary:
@@ -286,7 +286,7 @@ def apply_values_filter(
         red_flags.append("❌ Work may involve unethical practices")
     if ctx.crunch_expected:
         red_flags.append("❌ Crunch culture / long hours expected")
-    
+
     # Build green flags list
     green_flags: list[str] = []
     if ctx.company_contributes_to_oss:
@@ -301,7 +301,7 @@ def apply_values_filter(
         green_flags.append("✅ Remote-friendly")
     if ctx.fair_compensation:
         green_flags.append("✅ Fair compensation")
-    
+
     # Choose appropriate template
     if red_flags and green_flags:
         template = MIXED_FLAG_RESPONSE
@@ -311,7 +311,7 @@ def apply_values_filter(
         template = GREEN_FLAG_RESPONSE
     else:
         return response
-    
+
     # Format response
     filtered = template.format(
         red_flags="\n".join(red_flags) if red_flags else "None identified",
@@ -321,11 +321,11 @@ def apply_values_filter(
             "- Seek remote-first, values-aligned startups"
         ),
     )
-    
+
     # Append original response if it adds value
     if response.strip():
         filtered = f"{response}\n\n{filtered}"
-    
+
     return filtered
 
 
@@ -335,15 +335,15 @@ def check_opportunity_alignment(
     user_values: list[str] | None = None,
 ) -> dict[str, Any]:
     """Check how well an opportunity aligns with user values.
-    
+
     Args:
         company_name: Company name
         job_description: Job description text
         user_values: User's prioritized values (default: FutureProof defaults)
-    
+
     Returns:
         Dict with alignment score and breakdown
-    
+
     Example:
         >>> result = check_opportunity_alignment(
         ...     company_name="Red Hat",
@@ -364,7 +364,7 @@ def check_opportunity_alignment(
             "work_life_balance",
             "ethical",
         ]
-    
+
     # Keywords for each value
     value_keywords = {
         "free_software": ["free software", "gnu", "gpl", "freedom", "libre"],
@@ -374,27 +374,27 @@ def check_opportunity_alignment(
         "ethical": ["ethical", "privacy", "user-focused", "transparent"],
         "fair_compensation": ["equity", "stock options", "competitive", "fair"],
     }
-    
+
     # Score each value
     breakdown: dict[str, int] = {}
     job_text = (company_name + " " + job_description).lower()
-    
+
     for value, keywords in value_keywords.items():
         matches = sum(1 for kw in keywords if kw in job_text)
         score = min(100, matches * 25)  # Max 100 per value
         breakdown[value] = score
-    
+
     # Calculate overall score (weighted by user priorities)
     total_score = 0
     weight_sum = 0
-    
+
     for i, value in enumerate(user_values):
         weight = len(user_values) - i  # Higher weight for earlier values
         total_score += breakdown.get(value, 50) * weight
         weight_sum += weight
-    
+
     overall_score = round(total_score / weight_sum) if weight_sum > 0 else 50
-    
+
     return {
         "score": overall_score,
         "breakdown": breakdown,
@@ -404,10 +404,10 @@ def check_opportunity_alignment(
 
 def _get_recommendation(score: int) -> str:
     """Get recommendation based on alignment score.
-    
+
     Args:
         score: Overall alignment score (0-100)
-    
+
     Returns:
         Recommendation string
     """

@@ -279,7 +279,79 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
             console.print(f"  Career goals: {len(profile.goals)}")
         console.print()
         return False
-    
+
+    if cmd == "/gather":
+        # Gather career data from all sources
+        console.print("[bold #5bc0be]Gathering career data...[/bold #5bc0be]\n")
+        try:
+            from fu7ur3pr00f.services.gatherer_service import GathererService
+            
+            service = GathererService()
+            sections = service.gather_all()
+            
+            console.print(f"[#10b981]✓ Gathered {len(sections)} sections from all sources[/#10b981]")
+            console.print("[#10b981]✓ Data indexed to knowledge base[/#10b981]\n")
+        except ImportError:
+            # Fallback: run gatherers directly
+            from fu7ur3pr00f.gatherers.linkedin import LinkedInGatherer
+            from fu7ur3pr00f.gatherers.cliftonstrengths import CliftonStrengthsGatherer
+            from fu7ur3pr00f.gatherers.cv import CVGatherer
+            from fu7ur3pr00f.gatherers.portfolio import PortfolioGatherer
+            from fu7ur3pr00f.config import settings
+            from pathlib import Path
+            
+            data_dir = settings.data_dir / "raw"
+            total = 0
+            
+            # LinkedIn
+            zip_files = list(data_dir.glob("*.zip"))
+            if zip_files:
+                gatherer = LinkedInGatherer()
+                for zip_file in zip_files:
+                    sections = gatherer.gather(zip_file)
+                    total += len(sections)
+                    console.print(f"  [✓] LinkedIn: {len(sections)} sections from {zip_file.name}")
+            
+            # CliftonStrengths
+            pdf_files = [f for f in data_dir.glob("*.pdf") if 'strength' in f.name.lower()]
+            if pdf_files:
+                gatherer = CliftonStrengthsGatherer()
+                sections = gatherer.gather(data_dir)
+                total += len(sections)
+                console.print(f"  [✓] CliftonStrengths: {len(sections)} sections")
+            
+            # CV
+            cv_files = list(data_dir.glob("*.md")) + list(data_dir.glob("*.pdf")) + list(data_dir.glob("*.txt"))
+            if cv_files:
+                gatherer = CVGatherer()
+                for cv_file in cv_files:
+                    try:
+                        sections = gatherer.gather(cv_file)
+                        total += len(sections)
+                        console.print(f"  [✓] CV: {len(sections)} sections from {cv_file.name}")
+                    except Exception as e:
+                        console.print(f"  [!] CV skip: {cv_file.name} ({e})")
+            
+            # Portfolio
+            if settings.portfolio_url:
+                gatherer = PortfolioGatherer()
+                sections = gatherer.gather(settings.portfolio_url)
+                total += len(sections)
+                console.print(f"  [✓] Portfolio: {len(sections)} sections from {settings.portfolio_url}")
+            
+            if total > 0:
+                console.print(f"\n[#10b981]✓ Total: {total} sections indexed to knowledge base[/#10b981]\n")
+            else:
+                console.print("[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n")
+                console.print("Expected files:")
+                console.print("  - LinkedIn: linkedin.zip (from LinkedIn export)")
+                console.print("  - CliftonStrengths: *.pdf (Gallup PDF reports)")
+                console.print("  - CV: *.md, *.pdf, or *.txt")
+                console.print(f"  - Portfolio: configured in .env (PORTFOLIO_URL)\n")
+        except Exception as e:
+            display_error(f"Gather failed: {e}")
+        return False
+
     if cmd == "/multi":
         # Multi-agent system command
         if arg == "agents":
@@ -702,7 +774,7 @@ def run_chat(thread_id: str = "main") -> None:
                         # Log full traceback to file only, show user-friendly message
                         logger.exception("Unrecoverable agent error")
                         error_msg = _sanitize_error(f"Agent error: {e}")
-                        
+
                         # Provide helpful context for common errors
                         if "Connection error" in str(e) or "ConnectError" in str(type(e).__name__):
                             error_msg = (
@@ -716,7 +788,7 @@ def run_chat(thread_id: str = "main") -> None:
                                 "Check your internet connection and API credentials. "
                                 "Run '/setup' to reconfigure."
                             )
-                        
+
                         display_error(error_msg)
                         break
 

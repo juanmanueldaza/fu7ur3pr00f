@@ -274,7 +274,7 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         # Call synthesis model
         model, config = get_model_with_fallback(purpose="synthesis")
         logger.info("Synthesis model: %s", config.description)
-        
+
         # Google Gemini requires HumanMessage for synthesis (SystemMessage not supported)
         # Other providers use SystemMessage for proper behavioral context
         if config.provider == "google":

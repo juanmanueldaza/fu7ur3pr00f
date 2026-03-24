@@ -54,7 +54,7 @@ _PDF_ALLCAPS_EXCLUDE = frozenset({
 
 def _file_cache_key(path: Path) -> tuple[str, float, int]:
     """Generate cache key from file path, mtime, and size.
-    
+
     Cache is automatically invalidated when file is modified.
     """
     stat = path.stat()
@@ -110,13 +110,13 @@ class CVGatherer:
     @lru_cache(maxsize=128)
     def _extract_text_pdf_cached(self, cache_key: tuple[str, float, int]) -> str:
         """Cached PDF text extraction.
-        
+
         Cache is invalidated when file is modified (mtime/size change).
         """
         # cache_key contains (path_str, mtime, size) - we only need path for extraction
         path = Path(cache_key[0])
         return self._extract_text_pdf_uncached(path)
-    
+
     def _extract_text_pdf_uncached(self, path: Path) -> str:
         """Run pdftotext -layout and return stdout (uncached)."""
         pdftotext_path = shutil.which("pdftotext")
@@ -140,10 +140,10 @@ class CVGatherer:
         except subprocess.TimeoutExpired:
             logger.error("Timeout extracting text from %s", path)
             return ""
-    
+
     def _extract_text_pdf(self, path: Path) -> str:
         """Run pdftotext with caching.
-        
+
         Raises:
             ServiceError: if pdftotext is not found on PATH.
         """

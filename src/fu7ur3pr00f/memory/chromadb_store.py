@@ -171,41 +171,41 @@ _chroma_lock = threading.Lock()
 
 def get_chroma_client(persist_dir: Path | None = None):
     """Get or create shared ChromaDB client for multi-agent system.
-    
+
     This function provides a singleton ChromaDB client that can be shared
     across all specialist agents, ensuring they all access the same data.
-    
+
     Args:
         persist_dir: Optional persistence directory. If not provided,
             uses default from checkpointer.
-    
+
     Returns:
         ChromaDB PersistentClient instance
-    
+
     Example:
         >>> client = get_chroma_client()
         >>> collection = client.get_collection("career_knowledge")
     """
     global _chroma_client
-    
+
     if _chroma_client is not None:
         return _chroma_client
-    
+
     with _chroma_lock:
         if _chroma_client is not None:
             return _chroma_client
-        
+
         from fu7ur3pr00f.memory.checkpointer import get_data_dir
         from fu7ur3pr00f.utils.security import secure_mkdir
-        
+
         if persist_dir is None:
             persist_dir = get_data_dir() / "chroma"
-        
+
         secure_mkdir(persist_dir)
-        
+
         import chromadb  # type: ignore[import-not-found]
-        
+
         _chroma_client = chromadb.PersistentClient(path=str(persist_dir))
         logger.info("Shared ChromaDB client initialized at %s", persist_dir)
-        
+
         return _chroma_client

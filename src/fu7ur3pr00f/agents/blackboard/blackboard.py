@@ -10,6 +10,7 @@ The blackboard is a TypedDict that stores:
 All specialists read/write to this shared state, enabling collaborative analysis.
 """
 
+import time
 from typing import Annotated, Any
 
 from typing_extensions import TypedDict
@@ -163,7 +164,7 @@ def record_specialist_contribution(
         {
             "iteration": blackboard.get("iteration", 0),
             "specialist": specialist_name,
-            "timestamp": __import__("time").time(),
+            "timestamp": time.time(),
             "keys_modified": list(finding.keys()),
             "confidence": confidence,
         }

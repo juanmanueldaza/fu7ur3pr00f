@@ -76,7 +76,7 @@ def analyze_career_alignment() -> str:
         profile = load_profile()
         service = KnowledgeService()
 
-        career_data = service.search("career goals trajectory alignment", top_k=15)
+        career_data = service.search("career goals trajectory alignment", limit=15)
         career_context = (
             "\n".join(f"- {r.content}" for r in career_data)
             if career_data
@@ -117,7 +117,7 @@ def get_career_advice(target: str) -> str:
         profile = load_profile()
         service = KnowledgeService()
 
-        career_data = service.search(target, top_k=10)
+        career_data = service.search(target, limit=10)
         career_context = (
             "\n".join(f"- {r.content}" for r in career_data)
             if career_data

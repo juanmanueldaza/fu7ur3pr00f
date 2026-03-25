@@ -448,7 +448,7 @@ def analyze_market_skills() -> str:
         trends = market_data.get("hiring_trends", {})
         tech_list = ", ".join(t[0] for t in trends.get("top_technologies", [])[:8])
 
-        career_data = service.search("skills learning", top_k=10)
+        career_data = service.search("skills learning", limit=10)
         career_context = (
             "\n".join(f"- {r.content}" for r in career_data)
             if career_data

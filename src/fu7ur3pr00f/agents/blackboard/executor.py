@@ -91,27 +91,36 @@ class BlackboardExecutor:
 
         # Stream updates from the graph with custom events for real-time progress
         final_state: CareerBlackboard = initial
+        started_specialists: set[str] = set()
+
         for chunk in graph.stream(
             initial, config, stream_mode=["updates", "custom"]
         ):
-            # Handle standard state updates
-            if isinstance(chunk, dict):
-                for node_name, node_output in chunk.items():
-                    if isinstance(node_output, dict):
-                        final_state = final_state | node_output  # type: ignore
+            mode, data = chunk  # Unpack tuple (always a 2-tuple)
 
-                        # Notify callbacks for specialist nodes
-                        if node_name in self.specialists:
-                            if on_specialist_start:
-                                on_specialist_start(node_name)
+            if mode == "updates":
+                for node_name, node_output in data.items():
+                    if not isinstance(node_output, dict):
+                        continue
 
-                            finding = node_output.get("findings", {}).get(
-                                node_name, {}
-                            )
-                            if on_specialist_complete:
-                                on_specialist_complete(node_name, finding)
+                    # Fire start callback once per specialist
+                    if (
+                        node_name in self.specialists
+                        and node_name not in started_specialists
+                    ):
+                        started_specialists.add(node_name)
+                        if on_specialist_start:
+                            on_specialist_start(node_name)
 
-        # Get final state from graph (in case checkpointer has updates)
+                    # Fire complete callback when specialist produces findings
+                    if node_name in self.specialists:
+                        finding = node_output.get("findings", {}).get(node_name)
+                        if finding and on_specialist_complete:
+                            on_specialist_complete(node_name, finding)
+
+            # "custom" events are for UI progress — no state update needed
+
+        # Get final state from graph (checkpointer is authoritative)
         snap = graph.get_state(config)
         if snap:
             final_state = dict(snap.values)  # type: ignore

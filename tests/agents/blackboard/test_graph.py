@@ -297,18 +297,16 @@ class TestBuildBlackboardGraph:
 
         assert graph is not None
 
-    def test_build_graph_parallel_mode_graceful_fallback(self):
-        """Parallel mode should gracefully fall back to sequential if Send unavailable."""
+    def test_build_graph_sequential_default(self):
+        """Graph should use sequential specialist execution by default."""
         specialists = {
             "coach": Mock(name="coach", contribute=Mock()),
         }
 
-        # Request parallel mode (will fall back if Send API not available)
-        graph = build_blackboard_graph(
-            specialists, parallel_mode=True
-        )
+        # Build sequential graph (parallel mode was removed)
+        graph = build_blackboard_graph(specialists)
 
-        # Should still return a valid graph (either parallel or sequential)
+        # Should return a valid graph with stream capability
         assert graph is not None
         assert hasattr(graph, "stream")
 

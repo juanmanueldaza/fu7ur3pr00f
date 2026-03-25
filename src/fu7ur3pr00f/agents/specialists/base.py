@@ -124,22 +124,58 @@ class BaseAgent(ABC):
         return self._contribute_via_agent(blackboard)
 
     def _contribute_via_agent(self, blackboard: CareerBlackboard) -> SpecialistFinding:
-        """Default contribution implementation using the compiled LangGraph agent.
+        """Default contribution implementation using direct LLM call.
 
         Builds a context-aware prompt that includes:
         - The original user query
-        - User profile
         - Findings from previous specialists (for context)
 
-        Then calls the compiled agent and extracts structured findings.
+        Then calls the LLM and extracts structured findings.
         """
-        from langchain_core.messages import HumanMessage
+        from langchain_core.messages import HumanMessage, SystemMessage
 
-        agent = self.get_compiled_agent()
+        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+
         query = blackboard.get("query", "")
         previous_findings = blackboard.get("findings", {})
 
-        # Build context-aware input message
+        # Build context from previous specialists
+        context_msg = self._format_previous_findings(previous_findings)
+
+        # Build full prompt with context
+        full_prompt = query
+        if context_msg:
+            full_prompt = f"{query}\n\nContext from other specialists:\n{context_msg}"
+
+        try:
+            model, _ = get_model_with_fallback(purpose="analysis")
+            result = model.invoke(
+                [
+                    SystemMessage(content=self.system_prompt),
+                    HumanMessage(content=full_prompt),
+                ]
+            )
+
+            return self._extract_findings({"messages": [result]}, query)
+
+        except Exception as e:
+            logger.error("Error in %s.contribute(): %s", self.name, e)
+            return {
+                "reasoning": f"Failed to contribute: {e}",
+                "confidence": 0.0,
+            }
+
+    def _format_previous_findings(
+        self, previous_findings: dict[str, SpecialistFinding]
+    ) -> str:
+        """Format findings from previous specialists for context (with truncation).
+
+        Args:
+            previous_findings: Dict of specialist findings
+
+        Returns:
+            Formatted string of previous findings, truncated to 4000 chars
+        """
         context_parts = []
 
         if previous_findings:
@@ -151,38 +187,8 @@ class BaseAgent(ABC):
                         context_parts.append(f"  - {key}: {value}")
 
         context_msg = "\n".join(context_parts) if context_parts else ""
-
-        # Build full prompt with context
-        full_prompt = query
-        if context_msg:
-            full_prompt = f"{query}\n\nContext from other specialists:\n{context_msg}"
-
-        input_message = HumanMessage(content=full_prompt)
-
-        # Get config for agent invocation
-        from fu7ur3pr00f.agents.specialists.orchestrator import get_agent_config
-
-        config = get_agent_config()
-
-        # Call agent and extract findings
-        # The agent should return structured output
-        try:
-            result = agent.invoke(
-                {"messages": [input_message]},
-                config=config,
-            )
-
-            # Extract findings from agent response
-            # (The LLM should return structured JSON in the response)
-            findings: SpecialistFinding = self._extract_findings(result, query)
-            return findings
-
-        except Exception as e:
-            logger.error("Error in %s.contribute(): %s", self.name, e)
-            return {
-                "error": str(e),
-                "reasoning": "Failed to contribute to blackboard",
-            }
+        # Truncate to 4000 chars to keep context manageable
+        return context_msg[:4000]
 
     def _extract_findings(
         self,

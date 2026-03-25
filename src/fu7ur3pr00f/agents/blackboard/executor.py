@@ -89,20 +89,27 @@ class BlackboardExecutor:
 
         config = {"configurable": {"thread_id": f"bb_{int(time.time() * 1000)}"}}
 
-        # Stream updates from the graph
+        # Stream updates from the graph with custom events for real-time progress
         final_state: CareerBlackboard = initial
-        for chunk in graph.stream(initial, config, stream_mode="updates"):
-            for node_name, node_output in chunk.items():
-                final_state = final_state | node_output  # type: ignore
+        for chunk in graph.stream(
+            initial, config, stream_mode=["updates", "custom"]
+        ):
+            # Handle standard state updates
+            if isinstance(chunk, dict):
+                for node_name, node_output in chunk.items():
+                    if isinstance(node_output, dict):
+                        final_state = final_state | node_output  # type: ignore
 
-                # Notify callbacks for specialist nodes only
-                if node_name in self.specialists:
-                    if on_specialist_start:
-                        on_specialist_start(node_name)
+                        # Notify callbacks for specialist nodes
+                        if node_name in self.specialists:
+                            if on_specialist_start:
+                                on_specialist_start(node_name)
 
-                    finding = node_output.get("findings", {}).get(node_name, {})
-                    if on_specialist_complete:
-                        on_specialist_complete(node_name, finding)
+                            finding = node_output.get("findings", {}).get(
+                                node_name, {}
+                            )
+                            if on_specialist_complete:
+                                on_specialist_complete(node_name, finding)
 
         # Get final state from graph (in case checkpointer has updates)
         snap = graph.get_state(config)

@@ -3,13 +3,20 @@
 This module converts the manual while-loop executor into a native LangGraph
 StateGraph with nodes for each specialist, iteration control, and synthesis.
 
-The graph topology:
+The graph topology (sequential):
     START → route_fn → [coach, learning, code, jobs, founder]
                               ↓
                           route_fn
                         ├→ next specialist
                         ├→ increment_iteration → coach
                         └→ synthesize → END
+
+The graph topology (parallel - Phase 3.2):
+    START → dispatch → [coach ∥ learning ∥ code ∥ jobs ∥ founder] → merge → synthesize → END
+
+Real-time streaming:
+    Each specialist node emits progress events via get_stream_writer() for
+    integration with UI components showing specialist activity.
 """
 
 import logging
@@ -17,6 +24,15 @@ import time
 from typing import Any
 
 from langgraph.graph import StateGraph
+
+# Try to import Send API (available in LangGraph >= 0.1.0)
+try:
+    from langgraph.graph import Send
+
+    HAS_SEND_API = True
+except ImportError:
+    HAS_SEND_API = False
+    Send = None  # type: ignore
 
 from fu7ur3pr00f.agents.blackboard.blackboard import (
     CareerBlackboard,
@@ -38,9 +54,30 @@ def _make_specialist_node(specialist: Any):
     """
 
     def specialist_node(state: CareerBlackboard) -> dict[str, Any]:
-        """Execute specialist contribution and record on blackboard."""
+        """Execute specialist contribution and record on blackboard.
+
+        Emits real-time progress events via streaming for UI integration.
+        """
         specialist_name = specialist.name
         logger.debug("Specialist %r contributing...", specialist_name)
+
+        # Get stream writer for real-time progress (optional, safe if None)
+        try:
+            from langgraph.config import get_stream_writer
+
+            stream_writer = get_stream_writer()
+        except (ImportError, RuntimeError):
+            stream_writer = None
+
+        # Emit start event
+        if stream_writer:
+            stream_writer(
+                {
+                    "type": "specialist_start",
+                    "specialist": specialist_name,
+                    "iteration": state.get("iteration", 0),
+                }
+            )
 
         try:
             contrib_start = time.time()
@@ -63,6 +100,17 @@ def _make_specialist_node(specialist: Any):
                 confidence,
             )
 
+            # Emit completion event
+            if stream_writer:
+                stream_writer(
+                    {
+                        "type": "specialist_complete",
+                        "specialist": specialist_name,
+                        "elapsed": contrib_time,
+                        "confidence": confidence,
+                    }
+                )
+
             # Return state updates
             return {
                 "findings": state.get("findings", {}) | {specialist_name: finding},
@@ -72,6 +120,17 @@ def _make_specialist_node(specialist: Any):
 
         except Exception as e:
             logger.exception("Error in specialist %r", specialist_name)
+
+            # Emit error event
+            if stream_writer:
+                stream_writer(
+                    {
+                        "type": "specialist_error",
+                        "specialist": specialist_name,
+                        "error": str(e),
+                    }
+                )
+
             errors = state.get("errors", [])
             errors.append(
                 {
@@ -174,17 +233,84 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     return {"synthesis": synthesis}
 
 
+def _make_dispatch_node(specialists: dict[str, Any]):
+    """Factory to create a dispatch node for parallel specialist execution.
+
+    Creates a node that returns a list of Send messages to execute all
+    specialists in parallel, then routes to a merge node.
+
+    Args:
+        specialists: Dict of specialist agents
+
+    Returns:
+        Node function that dispatches to all specialists via Send
+    """
+
+    def dispatch_node(state: CareerBlackboard) -> list[Send]:
+        """Dispatch all specialists to run in parallel."""
+        iteration = state.get("iteration", 0)
+        logger.debug(
+            "Dispatching %d specialists in parallel (iteration %d)",
+            len(specialists),
+            iteration,
+        )
+
+        # Send each specialist for parallel execution
+        return [
+            Send(spec_name, state) for spec_name in specialists.keys()
+        ]
+
+    return dispatch_node
+
+
+def _make_merge_node():
+    """Factory to create a merge node for collecting parallel results.
+
+    Merges findings and change logs from all specialists that ran in
+    parallel. Uses the reducer defined in CareerBlackboard.
+
+    Returns:
+        Node function that merges parallel specialist results
+    """
+
+    def merge_node(state: CareerBlackboard) -> dict[str, Any]:
+        """Merge results from parallel specialist execution."""
+        findings = state.get("findings", {})
+        iteration = state.get("iteration", 0)
+
+        logger.info(
+            "Parallel specialists merged: %d findings in iteration %d",
+            len(findings),
+            iteration,
+        )
+
+        # Return state indicating merge is complete
+        # The reducer in CareerBlackboard handles change_log merging
+        return {
+            "current_specialist": "merge",
+        }
+
+    return merge_node
+
+
 def build_blackboard_graph(
     specialists: dict[str, Any],
     scheduler: BlackboardScheduler | None = None,
     checkpointer: Any | None = None,
+    parallel_mode: bool = False,
 ) -> Any:
     """Build a compiled LangGraph StateGraph for blackboard orchestration.
+
+    Supports two modes:
+    - Sequential (default): Specialists run one at a time with routing logic
+    - Parallel: Specialists run in parallel using LangGraph Send API
 
     Args:
         specialists: Dict mapping specialist names to agent objects
         scheduler: Optional custom scheduler (default: linear_iterative)
         checkpointer: Optional SqliteSaver checkpointer for persistence
+        parallel_mode: If True, use parallel Send-based execution within
+            each iteration. Default False for backward compatibility.
 
     Returns:
         Compiled CompiledStateGraph ready for .stream() / .invoke()
@@ -195,7 +321,7 @@ def build_blackboard_graph(
     # Create StateGraph
     graph = StateGraph(CareerBlackboard)
 
-    # Add specialist nodes
+    # Add specialist nodes (used in both modes)
     for spec_name, specialist in specialists.items():
         node_fn = _make_specialist_node(specialist)
         graph.add_node(spec_name, node_fn)
@@ -206,39 +332,90 @@ def build_blackboard_graph(
     graph.add_node("synthesize", _synthesize_node)
     logger.debug("Added utility nodes: increment_iteration, synthesize")
 
-    # Create and add routing function
-    route_fn = _make_route_fn(scheduler)
+    if parallel_mode:
+        if not HAS_SEND_API:
+            logger.warning(
+                "Parallel mode requested but Send API not available. "
+                "Requires LangGraph >= 0.1.0. Falling back to sequential mode."
+            )
+            parallel_mode = False
 
-    # Add edges from each specialist back to router
-    for spec_name in specialists.keys():
+    if parallel_mode and HAS_SEND_API:
+        # Parallel mode: dispatch → [specialists] → merge → synthesize
+        # Requires Send API from LangGraph >= 0.1.0
+        dispatch_fn = _make_dispatch_node(specialists)
+        merge_fn = _make_merge_node()
+
+        graph.add_node("dispatch", dispatch_fn)
+        graph.add_node("merge", merge_fn)
+        logger.debug("Added parallel nodes: dispatch, merge")
+
+        # Entry point: dispatch to all specialists
+        graph.add_edge("__start__", "dispatch")
+
+        # Dispatch returns Send messages for parallel execution
+        # (Handled automatically by LangGraph)
+
+        # After all specialists complete, merge their results
+        graph.add_edge(list(specialists.keys()), "merge")
+
+        # Merge → increment/synthesize logic
+        route_fn = _make_route_fn(scheduler)
         graph.add_conditional_edges(
-            spec_name,
+            "merge",
             route_fn,
             {
                 "synthesize": "synthesize",
                 "increment_iteration": "increment_iteration",
-                **{name: name for name in specialists.keys()},
+                "dispatch": "dispatch",
             },
         )
 
-    # Edge from increment_iteration back to first specialist
-    first_specialist = scheduler.DEFAULT_ORDER[0]
-    graph.add_edge("increment_iteration", first_specialist)
+        # From increment, go back to dispatch for next iteration
+        graph.add_edge("increment_iteration", "dispatch")
 
-    # Entry point: route to first specialist
-    graph.add_conditional_edges(
-        "__start__",
-        lambda _: first_specialist,
-    )
+        logger.info(
+            "Built parallel blackboard graph with %d specialists, "
+            "max_iterations=%d",
+            len(specialists),
+            scheduler.max_iterations,
+        )
+    else:
+        # Sequential mode: route → specialist → route → ...
+        route_fn = _make_route_fn(scheduler)
+
+        # Add edges from each specialist back to router
+        for spec_name in specialists.keys():
+            graph.add_conditional_edges(
+                spec_name,
+                route_fn,
+                {
+                    "synthesize": "synthesize",
+                    "increment_iteration": "increment_iteration",
+                    **{name: name for name in specialists.keys()},
+                },
+            )
+
+        # Edge from increment_iteration back to first specialist
+        first_specialist = scheduler.DEFAULT_ORDER[0]
+        graph.add_edge("increment_iteration", first_specialist)
+
+        # Entry point: route to first specialist
+        graph.add_conditional_edges(
+            "__start__",
+            lambda _: first_specialist,
+        )
+
+        logger.info(
+            "Built sequential blackboard graph with %d specialists, "
+            "strategy=%s, max_iterations=%d",
+            len(specialists),
+            scheduler.strategy,
+            scheduler.max_iterations,
+        )
 
     # Compile and return
     compiled = graph.compile(checkpointer=checkpointer)
-    logger.info(
-        "Built blackboard graph with %d specialists, strategy=%s, max_iterations=%d",
-        len(specialists),
-        scheduler.strategy,
-        scheduler.max_iterations,
-    )
 
     return compiled
 

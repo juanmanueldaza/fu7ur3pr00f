@@ -296,3 +296,43 @@ class TestBuildBlackboardGraph:
         graph = build_blackboard_graph(specialists, scheduler=custom_scheduler)
 
         assert graph is not None
+
+    def test_build_graph_parallel_mode_graceful_fallback(self):
+        """Parallel mode should gracefully fall back to sequential if Send unavailable."""
+        specialists = {
+            "coach": Mock(name="coach", contribute=Mock()),
+        }
+
+        # Request parallel mode (will fall back if Send API not available)
+        graph = build_blackboard_graph(
+            specialists, parallel_mode=True
+        )
+
+        # Should still return a valid graph (either parallel or sequential)
+        assert graph is not None
+        assert hasattr(graph, "stream")
+
+
+class TestStreamingEvents:
+    """Test real-time streaming events from specialist nodes."""
+
+    def test_specialist_node_handles_missing_stream_writer(self):
+        """Specialist node should work gracefully without stream writer."""
+        specialist = Mock()
+        specialist.name = "coach"
+        specialist.contribute = Mock(
+            return_value={"gaps": ["AI"], "confidence": 0.8}
+        )
+
+        node_fn = _make_specialist_node(specialist)
+        state = make_initial_blackboard(
+            query="test", user_profile={"role": "developer"}
+        )
+
+        # Run without mocking get_stream_writer (will fail gracefully)
+        result = node_fn(state)
+
+        # Should still work and update state
+        assert "findings" in result
+        assert result["current_specialist"] == "coach"
+        specialist.contribute.assert_called_once()

@@ -1,16 +1,29 @@
-"""Orchestrator — routes queries to the right specialist and exposes their agent.
+"""Orchestrator — routes queries to the right specialist(s) and exposes their agents.
 
-The orchestrator is the single entry point for all user messages.  It does
+The orchestrator is the single entry point for all user messages. It does
 keyword-based routing (no LLM call, sub-millisecond) and then returns the
-compiled specialist agent for the chat client to stream against directly.
+compiled specialist agent(s) for the chat client to stream against directly.
+
+For targeted queries, it returns a single specialist. For comprehensive queries
+(e.g., "5-year prediction"), it auto-detects and returns multiple specialists
+to provide well-rounded perspectives.
 
 Usage (from the chat client):
     orchestrator = get_orchestrator()
 
-    # Route a query → get the compiled LangGraph agent for streaming
-    specialist_name = orchestrator.route(user_input)
-    agent = orchestrator.get_compiled_agent(specialist_name)
-    agent.stream({"messages": [HumanMessage(content=user_input)]}, config, ...)
+    # Route a query → get specialist name(s)
+    result = orchestrator.route(user_input)
+    # result is either a string (single specialist) or list[str] (multiple)
+
+    if isinstance(result, list):
+        # Multiple specialists - loop and stream each
+        for specialist_name in result:
+            agent = orchestrator.get_compiled_agent(specialist_name)
+            agent.stream({...}, config, ...)
+    else:
+        # Single specialist
+        agent = orchestrator.get_compiled_agent(result)
+        agent.stream({...}, config, ...)
 """
 
 import logging
@@ -45,22 +58,68 @@ class OrchestratorAgent:
             "founder": FounderAgent(),
         }
 
+    # ── Multi-specialist detection ───────────────────────────────────────
+
+    # Keywords that indicate a complex query needing multiple perspectives
+    _MULTI_SPECIALIST_KEYWORDS = {
+        "5 year|future|predict|overall|complete|all agent|make all|"
+        "comprehensive|full picture|career path|trajectory",
+        "opportunity|option|possibility|alternative|strategy",
+    }
+
+    def _should_route_multi(self, query: str) -> bool:
+        """Check if query needs multiple specialist perspectives."""
+        intent = query.lower()
+        for keywords in self._MULTI_SPECIALIST_KEYWORDS:
+            for keyword in keywords.split("|"):
+                if keyword in intent:
+                    return True
+        return False
+
     # ── Routing ──────────────────────────────────────────────────────────
 
-    def route(self, query: str) -> str:
-        """Pick the best specialist for this query.
+    def route(self, query: str) -> str | list[str]:
+        """Route to specialist(s).
 
-        Scores each specialist by counting keyword matches.  Returns the
-        specialist name with the highest score, defaulting to "coach" for
-        ambiguous queries.
+        Returns:
+            - Single specialist name (str) for targeted queries
+            - List of specialist names for comprehensive queries
+
+        Scores each specialist by counting keyword matches. For single-specialist
+        queries, returns the name with highest score (default "coach").
+
+        For multi-specialist queries (e.g., "5-year prediction"), returns top 3-4
+        specialists to give comprehensive perspective.
         """
-        best_name = "coach"
-        best_score = 0
         intent = query.lower()
 
+        # Score all specialists
+        scores: dict[str, int] = {}
         for name, agent in self._specialists.items():
             keywords: frozenset[str] = getattr(agent, "KEYWORDS", frozenset())
             score = sum(1 for kw in keywords if kw in intent)
+            scores[name] = score
+
+        # Check if this is a multi-specialist query
+        if self._should_route_multi(query):
+            # Return top 3-4 specialists for comprehensive answer
+            sorted_specialists = sorted(
+                scores.items(), key=lambda x: x[1], reverse=True
+            )
+            # Always include coach, then top 2-3 others
+            result = ["coach"]
+            for name, score in sorted_specialists:
+                if name != "coach" and len(result) < 4 and score >= 0:
+                    result.append(name)
+            logger.debug(
+                "route_multi(%r) → %s (comprehensive query)", query[:60], result
+            )
+            return result
+
+        # Single specialist routing
+        best_name = "coach"
+        best_score = 0
+        for name, score in scores.items():
             if score > best_score:
                 best_score = score
                 best_name = name

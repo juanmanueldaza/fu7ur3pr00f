@@ -809,82 +809,95 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
                 config = chat_state["config"]
                 continue
 
-            # Route to the right specialist, then stream its compiled agent
+            # Route to the right specialist(s), then stream their compiled agents
             console.print()  # Blank line before response
 
-            specialist_name = orchestrator.route(user_input)
-            agent = orchestrator.get_compiled_agent(specialist_name)
-            specialist = orchestrator.get_specialist(specialist_name)
-            console.print(
-                f"[dim][ {specialist_name.upper()} ] {specialist.description}[/dim]"
+            routing_result = orchestrator.route(user_input)
+            # Handle both single specialist (str) and multi-specialist (list) routing
+            specialist_names = (
+                routing_result if isinstance(routing_result, list) else [routing_result]
             )
-
-            input_message = _make_input(user_input)
 
             full_response = ""
             shown_tools: set[str] = set()
 
-            # Retry loop for automatic fallback on rate limits / tool state errors
-            max_retries = 8
-            for attempt in range(max_retries):
-                try:
-                    full_response, shown_tools = _stream_response(
-                        agent, input_message, config, console, session
-                    )
-                    break
+            # Stream each specialist's response in sequence
+            for specialist_name in specialist_names:
+                agent = orchestrator.get_compiled_agent(specialist_name)
+                specialist = orchestrator.get_specialist(specialist_name)
+                console.print(
+                    f"[dim][ {specialist_name.upper()} ] "
+                    f"{specialist.description}[/dim]"
+                )
 
-                except Exception as e:
-                    if _is_tool_call_state_error(e) and attempt < max_retries - 1:
-                        logger.warning(
-                            "Tool state error (attempt %d/%d), retrying",
-                            attempt + 1,
-                            max_retries,
+                input_message = _make_input(user_input)
+
+                # Retry loop for automatic fallback on rate limits / tool state errors
+                max_retries = 8
+                for attempt in range(max_retries):
+                    try:
+                        response, tools = _stream_response(
+                            agent, input_message, config, console, session
                         )
-                        console.print(
-                            "[#ffd700]Recovering from tool state "
-                            "error, retrying...[/#ffd700]"
-                        )
-                        continue
-
-                    fallback_mgr = get_fallback_manager()
-                    if fallback_mgr.handle_error(e) and attempt < max_retries - 1:
-                        status = fallback_mgr.get_status()
-                        available = status.get("available_models", [])
-                        next_model = available[0] if available else "unknown"
-                        logger.warning(
-                            "Model error (attempt %d/%d): %s — switching to %s",
-                            attempt + 1,
-                            max_retries,
-                            e,
-                            next_model,
-                        )
-                        display_model_switch(next_model)
-                        # Reset all compiled agents so they rebuild with new model
-                        reset_orchestrator()
-                        orchestrator = get_orchestrator()
-                        agent = orchestrator.get_compiled_agent(specialist_name)
-                        continue
-                    else:
-                        logger.exception("Unrecoverable agent error")
-                        error_msg = _sanitize_error(f"Agent error: {e}")
-
-                        if "Connection error" in str(e) or "ConnectError" in str(
-                            type(e).__name__
-                        ):
-                            error_msg = (
-                                "Cannot connect to LLM provider. "
-                                "Check your internet connection and API credentials. "
-                                "Run '/setup' to reconfigure."
-                            )
-                        elif "APIConnectionError" in str(type(e).__name__):
-                            error_msg = (
-                                "Cannot connect to LLM provider. "
-                                "Check your internet connection and API credentials. "
-                                "Run '/setup' to reconfigure."
-                            )
-
-                        display_error(error_msg)
+                        full_response += f"\n\n[{specialist_name.upper()}]\n{response}"
+                        shown_tools.update(tools)
                         break
+
+                    except Exception as e:
+                        if _is_tool_call_state_error(e) and attempt < max_retries - 1:
+                            logger.warning(
+                                "Tool state error (attempt %d/%d), retrying",
+                                attempt + 1,
+                                max_retries,
+                            )
+                            console.print(
+                                "[#ffd700]Recovering from tool state "
+                                "error, retrying...[/#ffd700]"
+                            )
+                            continue
+
+                        fallback_mgr = get_fallback_manager()
+                        if fallback_mgr.handle_error(e) and attempt < max_retries - 1:
+                            status = fallback_mgr.get_status()
+                            available = status.get("available_models", [])
+                            next_model = available[0] if available else "unknown"
+                            logger.warning(
+                                "Model error (attempt %d/%d): %s — switching to %s",
+                                attempt + 1,
+                                max_retries,
+                                e,
+                                next_model,
+                            )
+                            display_model_switch(next_model)
+                            # Reset all compiled agents so they rebuild with new model
+                            reset_orchestrator()
+                            orchestrator = get_orchestrator()
+                            agent = orchestrator.get_compiled_agent(specialist_name)
+                            continue
+                        else:
+                            logger.exception("Unhandled agent error")
+                            error_msg = _sanitize_error(f"Agent error: {e}")
+
+                            if "Connection error" in str(e) or "ConnectError" in str(
+                                type(e).__name__
+                            ):
+                                error_msg = (
+                                    "Cannot connect to LLM provider. "
+                                    "Check your internet and API credentials. "
+                                    "Run '/setup' to reconfigure."
+                                )
+                            elif "APIConnectionError" in str(type(e).__name__):
+                                error_msg = (
+                                    "Cannot connect to LLM provider. "
+                                    "Check your internet and API credentials. "
+                                    "Run '/setup' to reconfigure."
+                                )
+
+                            display_error(error_msg)
+                            break
+
+                # Continue to next specialist even if this one failed
+                console.print()  # Blank line between specialists
 
         except KeyboardInterrupt:
             console.print("\n[#415a77]Use /quit to exit[/#415a77]")

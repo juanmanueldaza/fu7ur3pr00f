@@ -268,6 +268,35 @@ class TestOrchestratorAgent:
         orch = self._make_orchestrator()
         assert orch.route("Help me") == "coach"
 
+    def test_routing_multi_5year_prediction(self):
+        """Queries about 5-year predictions should route to multiple specialists."""
+        orch = self._make_orchestrator()
+        result = orch.route("Give me a 5-year prediction for my career")
+        assert isinstance(result, list)
+        assert len(result) >= 3
+        assert "coach" in result
+
+    def test_routing_multi_comprehensive(self):
+        """Queries with 'complete portrait' or 'overall' route to multiple."""
+        orch = self._make_orchestrator()
+        result = orch.route("Give me a complete portrait of my future")
+        assert isinstance(result, list)
+        assert "coach" in result
+
+    def test_routing_multi_strategy(self):
+        """Queries about overall strategy should route to multiple specialists."""
+        orch = self._make_orchestrator()
+        result = orch.route("What are my options and strategies?")
+        assert isinstance(result, list)
+        assert "coach" in result
+
+    def test_routing_single_narrow_query(self):
+        """Narrow, targeted queries should still route to single specialist."""
+        orch = self._make_orchestrator()
+        assert orch.route("How do I get promoted to Staff?") == "coach"
+        assert isinstance(orch.route("Find remote senior developer jobs"), str)
+        assert isinstance(orch.route("Help me"), str)
+
     def test_list_agents(self):
         orch = self._make_orchestrator()
         agents = orch.list_agents()
@@ -374,6 +403,7 @@ class TestIntegration:
 
         orch = OrchestratorAgent()
         name = orch.route("How can I get promoted to Staff Engineer?")
+        assert isinstance(name, str)
         assert name == "coach"
 
         specialist = orch.get_specialist(name)
@@ -388,6 +418,7 @@ class TestIntegration:
 
         orch = OrchestratorAgent()
         name = orch.route("Search for remote Python jobs paying over $150k")
+        assert isinstance(name, str)
         assert name == "jobs"
 
         specialist = orch.get_specialist(name)

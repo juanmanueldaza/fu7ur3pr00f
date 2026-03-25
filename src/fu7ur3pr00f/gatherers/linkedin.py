@@ -273,7 +273,7 @@ def _parse_recommendations(
         attribution = f"{prefix}{name}" if name else ""
         if company:
             attribution += f"{company_join}{company}"
-        lines.append(f'> "{text}" {attribution}'.strip())  # noqa: B907
+        lines.append(f'> "{text}" {attribution}'.strip())  # noqa: E501
     return Section(section_name, "\n\n".join(lines))
 
 

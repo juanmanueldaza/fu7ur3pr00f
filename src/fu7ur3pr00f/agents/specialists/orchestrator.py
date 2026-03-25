@@ -8,10 +8,13 @@ For targeted queries, it returns a single specialist. For comprehensive queries
 (e.g., "5-year prediction"), it auto-detects and returns multiple specialists
 to provide well-rounded perspectives.
 
+Additionally, the orchestrator can execute queries using the blackboard pattern,
+where specialists collaborate iteratively with shared state.
+
 Usage (from the chat client):
     orchestrator = get_orchestrator()
 
-    # Route a query → get specialist name(s)
+    # Option 1: Traditional streaming (one specialist or multiple in sequence)
     result = orchestrator.route(user_input)
     # result is either a string (single specialist) or list[str] (multiple)
 
@@ -24,12 +27,25 @@ Usage (from the chat client):
         # Single specialist
         agent = orchestrator.get_compiled_agent(result)
         agent.stream({...}, config, ...)
+
+    # Option 2: Blackboard pattern (multi-specialist collaboration)
+    if orchestrator.should_use_blackboard(user_input):
+        executor = orchestrator.get_blackboard_executor()
+        blackboard = executor.execute(
+            query=user_input,
+            user_profile=user_profile,
+            on_specialist_start=lambda name: print(f"[{name}] working..."),
+            on_specialist_complete=lambda name, f: print(f"[{name}] done"),
+        )
+        # Now display the integrated advice from blackboard.synthesis
 """
 
 import logging
 import threading
 from typing import Any
 
+from fu7ur3pr00f.agents.blackboard.executor import BlackboardExecutor
+from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
 from fu7ur3pr00f.agents.specialists.base import BaseAgent, reset_all_specialists
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
@@ -173,6 +189,45 @@ class OrchestratorAgent:
         invocation recompiles with the new model.
         """
         reset_all_specialists()
+
+    # ── Blackboard pattern execution ──────────────────────────────────────
+
+    def should_use_blackboard(self, query: str) -> bool:
+        """Determine if a query should use blackboard pattern.
+
+        Blackboard pattern is best for comprehensive queries like:
+        - "5-year prediction"
+        - "Complete career portrait"
+        - "What should I do?"
+
+        Traditional streaming is better for targeted queries like:
+        - "How do I get promoted?"
+        - "What skills should I learn?"
+
+        Currently, we use blackboard for multi-specialist queries.
+        """
+        return self._should_route_multi(query)
+
+    def get_blackboard_executor(
+        self, scheduler: BlackboardScheduler | None = None
+    ) -> BlackboardExecutor:
+        """Get a BlackboardExecutor configured with our specialists.
+
+        Args:
+            scheduler: Optional custom scheduler (default: linear_iterative)
+
+        Returns:
+            Executor ready to run blackboard-based analysis
+        """
+        if scheduler is None:
+            scheduler = BlackboardScheduler(
+                strategy="linear_iterative", max_iterations=5
+            )
+
+        return BlackboardExecutor(
+            specialists=self._specialists,
+            scheduler=scheduler,
+        )
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────

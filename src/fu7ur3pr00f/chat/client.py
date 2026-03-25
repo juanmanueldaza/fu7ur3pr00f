@@ -28,6 +28,7 @@ from fu7ur3pr00f.agents.specialists.orchestrator import (
 )
 from fu7ur3pr00f.chat.ui import (
     console,
+    display_blackboard_result,
     display_error,
     display_goals,
     display_help,
@@ -35,6 +36,7 @@ from fu7ur3pr00f.chat.ui import (
     display_model_switch,
     display_node_transition,
     display_profile_summary,
+    display_specialist_progress,
     display_timing,
     display_tool_result,
     display_tool_start,
@@ -720,6 +722,68 @@ def _stream_response(
     return full_response, shown_tools
 
 
+def _run_blackboard_query(
+    orchestrator: Any,
+    user_input: str,
+    con: Console,
+) -> None:
+    """Execute a query using the blackboard multi-specialist pattern.
+
+    Args:
+        orchestrator: The OrchestratorAgent instance
+        user_input: The user's query
+        con: Rich console for output
+    """
+    import time
+
+    from fu7ur3pr00f.memory.profile import load_profile
+
+    profile = load_profile()
+    user_profile = {
+        "name": profile.name,
+        "current_role": profile.current_role,
+        "years_experience": profile.years_experience,
+        "technical_skills": profile.technical_skills or [],
+        "target_roles": profile.target_roles or [],
+        "goals": [g.description for g in (profile.goals or [])],
+    }
+
+    con.print(
+        "[dim][ BLACKBOARD ] Running comprehensive multi-specialist analysis..."
+        "[/dim]"
+    )
+    con.print()
+
+    executor = orchestrator.get_blackboard_executor()
+    start = time.monotonic()
+
+    try:
+        blackboard = executor.execute(
+            query=user_input,
+            user_profile=user_profile,
+            on_specialist_start=lambda name: display_specialist_progress(
+                name, "working"
+            ),
+            on_specialist_complete=lambda name, finding: display_specialist_progress(
+                name, "done"
+            ),
+        )
+    except Exception as e:
+        logger.exception("Blackboard execution failed")
+        display_error(_sanitize_error(f"Analysis failed: {e}"))
+        return
+
+    elapsed = time.monotonic() - start
+    synthesis = blackboard.get("synthesis", {})
+    specialists = list(blackboard.get("findings", {}).keys())
+
+    display_blackboard_result(
+        synthesis=synthesis,
+        specialists_contributed=specialists,
+        elapsed=elapsed,
+    )
+
+
 def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
     """Run the synchronous chat loop.
 
@@ -813,7 +877,13 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
             console.print()  # Blank line before response
 
             routing_result = orchestrator.route(user_input)
-            # Handle both single specialist (str) and multi-specialist (list) routing
+
+            # Use blackboard pattern for comprehensive queries
+            if orchestrator.should_use_blackboard(user_input):
+                _run_blackboard_query(orchestrator, user_input, console)
+                continue
+
+            # Otherwise, stream each specialist's response in sequence
             specialist_names = (
                 routing_result if isinstance(routing_result, list) else [routing_result]
             )

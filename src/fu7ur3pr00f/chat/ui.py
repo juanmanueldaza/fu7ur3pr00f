@@ -423,3 +423,79 @@ def display_goals() -> None:
         )
     )
     console.print()
+
+
+def display_specialist_progress(
+    specialist_name: str,
+    status: str,
+    elapsed: float | None = None,
+) -> None:
+    """Display specialist progress during blackboard execution.
+
+    Args:
+        specialist_name: Name of the specialist
+        status: "working" | "done" | "error"
+        elapsed: Optional elapsed time in seconds
+    """
+    colors = {"working": "#ffd700", "done": "#10b981", "error": "#ff6b6b"}
+    color = colors.get(status, "#415a77")
+    badge_labels = {"working": "ANALYZING", "done": "DONE", "error": "ERROR"}
+    label = badge_labels.get(status, status.upper())
+
+    timing = f" ({elapsed:.1f}s)" if elapsed is not None else ""
+    badge = f"[bold {color}][{label}][/bold {color}]"
+    name = f"[bold {color}]{specialist_name.upper()}[/bold {color}]"
+
+    console.print(f"{badge} {name}{timing}")
+
+
+def display_blackboard_result(
+    synthesis: dict,
+    specialists_contributed: list[str],
+    elapsed: float,
+) -> None:
+    """Display the integrated blackboard synthesis result.
+
+    Args:
+        synthesis: Synthesis dict with 'integrated_advice' key
+        specialists_contributed: List of specialist names that ran
+        elapsed: Total elapsed time in seconds
+    """
+    integrated = synthesis.get("integrated_advice", {})
+
+    parts: list[str] = []
+    if integrated.get("target_role"):
+        parts.append(f"**Target Role:** {integrated['target_role']}")
+    if integrated.get("timeline"):
+        parts.append(f"**Timeline:** {integrated['timeline']}")
+    if integrated.get("key_gaps"):
+        gaps_str = ", ".join(str(g) for g in integrated["key_gaps"][:5])
+        parts.append(f"**Key Gaps:** {gaps_str}")
+    if integrated.get("learning_plan"):
+        plan_str = ", ".join(str(s) for s in integrated["learning_plan"][:5])
+        parts.append(f"**Learning Plan:** {plan_str}")
+    if integrated.get("opportunities"):
+        opps = integrated["opportunities"]
+        parts.append(f"**Opportunities:** {len(opps)} identified")
+    if integrated.get("next_steps"):
+        steps = integrated["next_steps"]
+        steps_str = "\n".join(f"- {s}" for s in steps[:5])
+        parts.append(f"\n**Next Steps:**\n{steps_str}")
+
+    body = "\n".join(parts) if parts else "Analysis complete."
+    contributors = ", ".join(s.upper() for s in specialists_contributed)
+
+    console.print(
+        Panel(
+            Markdown(body),
+            title="[bold #ffd700]INTEGRATED CAREER ANALYSIS[/bold #ffd700]",
+            subtitle=(
+                f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]"
+            ),
+            subtitle_align="right",
+            border_style="#ffd700",
+            box=box.DOUBLE,
+            padding=(1, 2),
+        )
+    )
+    console.print()

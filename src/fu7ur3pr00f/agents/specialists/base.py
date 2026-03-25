@@ -7,6 +7,9 @@ The base class handles:
 - Compiling and caching the per-specialist LangGraph graph
 - Keyword-based intent routing
 - Shared plumbing (model, checkpointer, middleware)
+- Two modes of operation:
+  * stream(): Direct streaming to user (original mode)
+  * contribute(): Blackboard pattern collaboration (new mode)
 """
 
 import logging
@@ -14,6 +17,8 @@ import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
+
+from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +90,159 @@ class BaseAgent(ABC):
         """Keyword-based intent matching for routing."""
         ...
 
-    # ── Compiled agent ───────────────────────────────────────────────────
+    # ── Blackboard pattern ───────────────────────────────────────────────
+
+    def contribute(self, blackboard: CareerBlackboard) -> SpecialistFinding:
+        """Contribute analysis to the shared blackboard.
+
+        This is the new blackboard pattern mode where specialists:
+        1. Read findings from previous specialists
+        2. Analyze the user's query in context of those findings
+        3. Return their own findings (no streaming to user)
+
+        The orchestrator will collect all findings and synthesize them.
+
+        Args:
+            blackboard: Shared state with user profile, query, and previous findings
+
+        Returns:
+            Dict of {key: value} findings to record on the blackboard.
+            Example:
+                {
+                    "gaps": ["agentic_ai_projects", "formal_education"],
+                    "target_role": "Staff Engineer",
+                    "confidence": 0.85,
+                    ...
+                }
+
+        Note:
+            Subclasses can override this to provide custom blackboard logic.
+            Default implementation will use self._build_agent() to run the agent
+            with a context-aware prompt that includes previous findings.
+        """
+        # Default implementation: use the compiled agent with context
+        return self._contribute_via_agent(blackboard)
+
+    def _contribute_via_agent(self, blackboard: CareerBlackboard) -> SpecialistFinding:
+        """Default contribution implementation using the compiled LangGraph agent.
+
+        Builds a context-aware prompt that includes:
+        - The original user query
+        - User profile
+        - Findings from previous specialists (for context)
+
+        Then calls the compiled agent and extracts structured findings.
+        """
+        from langchain_core.messages import HumanMessage
+
+        agent = self.get_compiled_agent()
+        query = blackboard.get("query", "")
+        previous_findings = blackboard.get("findings", {})
+
+        # Build context-aware input message
+        context_parts = []
+
+        if previous_findings:
+            context_parts.append("Other specialists have found:")
+            for specialist, finding in previous_findings.items():
+                context_parts.append(f"\n{specialist.upper()}:")
+                for key, value in finding.items():
+                    if key not in ("confidence", "iteration_contributed"):
+                        context_parts.append(f"  - {key}: {value}")
+
+        context_msg = "\n".join(context_parts) if context_parts else ""
+
+        # Build full prompt with context
+        full_prompt = query
+        if context_msg:
+            full_prompt = f"{query}\n\nContext from other specialists:\n{context_msg}"
+
+        input_message = HumanMessage(content=full_prompt)
+
+        # Get config for agent invocation
+        from fu7ur3pr00f.agents.specialists.orchestrator import get_agent_config
+
+        config = get_agent_config()
+
+        # Call agent and extract findings
+        # The agent should return structured output
+        try:
+            result = agent.invoke(
+                {"messages": [input_message]},
+                config=config,
+            )
+
+            # Extract findings from agent response
+            # (The LLM should return structured JSON in the response)
+            findings: SpecialistFinding = self._extract_findings(result, query)
+            return findings
+
+        except Exception as e:
+            logger.error("Error in %s.contribute(): %s", self.name, e)
+            return {
+                "error": str(e),
+                "reasoning": "Failed to contribute to blackboard",
+            }
+
+    def _extract_findings(
+        self,
+        agent_result: dict[str, Any],
+        query: str,
+    ) -> SpecialistFinding:
+        """Extract structured findings from agent response via Pydantic.
+
+        Makes a separate, structured LLM call to extract findings in a
+        reliable, typed format instead of parsing free-text output.
+
+        Args:
+            agent_result: Result dict from agent.invoke()
+            query: Original user query
+
+        Returns:
+            Structured findings dict
+        """
+        from langchain_core.messages import HumanMessage
+
+        from fu7ur3pr00f.agents.blackboard.findings_schema import (
+            SpecialistFindingsModel,
+        )
+        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+
+        # Extract the agent's final message text
+        messages = agent_result.get("messages", [])
+        if not messages:
+            return {"reasoning": "No output from agent", "confidence": 0.50}
+
+        last_msg = messages[-1]
+        agent_text = str(getattr(last_msg, "content", str(last_msg)))[:4000]
+
+        # Make a separate extraction call using structured output
+        try:
+            model, _ = get_model_with_fallback(purpose="analysis")
+            extractor = model.with_structured_output(SpecialistFindingsModel)
+
+            extraction_prompt = (
+                f"Extract career findings from this specialist analysis.\n\n"
+                f"Query: {query}\n\n"
+                f"Specialist output:\n{agent_text}"
+            )
+
+            result: SpecialistFindingsModel = extractor.invoke(
+                [HumanMessage(content=extraction_prompt)]
+            )
+            return result.model_dump(exclude_none=True)
+
+        except Exception as e:
+            logger.warning(
+                "%s._extract_findings structured extraction failed: %s",
+                self.name,
+                e,
+            )
+            # Graceful fallback: return raw text as reasoning
+            return {
+                "reasoning": agent_text[:2000],
+                "confidence": 0.60,
+            }
 
     def get_compiled_agent(self) -> Any:
         """Get the compiled LangGraph agent for this specialist (cached).

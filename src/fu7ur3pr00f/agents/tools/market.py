@@ -1,14 +1,15 @@
 """Market intelligence tools for the career agent."""
 
-from typing import TYPE_CHECKING
 from unicodedata import normalize
 
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 
-from ._async import run_async
+from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.services.knowledge_service import KnowledgeService
 
-if TYPE_CHECKING:
-    from fu7ur3pr00f.services.analysis_service import AnalysisAction
+from ._async import run_async
 
 # Common location translations (non-English → English)
 # Covers Spanish, French, German, Portuguese, Italian, and native names
@@ -120,22 +121,6 @@ def _translate_location(location: str) -> str:
     """
     key = _norm(location)
     return _LOCATION_ALIASES.get(key, location)
-
-
-def _analyze_with_market_data(action: "AnalysisAction", label: str) -> str:
-    """Shared helper for market-aware analysis tools."""
-    from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
-    from fu7ur3pr00f.services import AnalysisService
-
-    gatherer = TechTrendsGatherer()
-    market_data = run_async(gatherer.gather_with_cache())
-
-    service = AnalysisService()
-    result = service.analyze(action, market_data=market_data)
-
-    if result.success:
-        return f"{label}:\n\n{result.content}"
-    return f"Could not complete {label.lower()}: {result.error}"
 
 
 @tool
@@ -404,7 +389,42 @@ def analyze_market_fit() -> str:
     Use this when the user asks how well they fit the current job market
     or wants to know if their skills are in demand.
     """
-    return _analyze_with_market_data("analyze_market", "Market fit analysis")
+    try:
+        from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
+
+        profile = load_profile()
+        service = KnowledgeService()
+        gatherer = TechTrendsGatherer()
+
+        market_data = run_async(gatherer.gather_with_cache())
+        trends = market_data.get("hiring_trends", {})
+        tech_list = ", ".join(t[0] for t in trends.get("top_technologies", [])[:8])
+
+        career_data = service.search("skills experience", limit=10)
+        career_context = (
+            "\n".join(f"- {r.content}" for r in career_data)
+            if career_data
+            else "No career data available."
+        )
+
+        prompt = (
+            f"Analyze market fit for this profile:\n{profile.summary()}\n\n"
+            f"Career context:\n{career_context}\n\n"
+            f"Current market demand (top tech): {tech_list}\n\n"
+            f"How well does their profile align with market demands? "
+            f"What's in/out of demand? Be specific."
+        )
+
+        model, _ = get_model_with_fallback(purpose="analysis")
+        result = model.invoke([HumanMessage(content=prompt)])
+
+        return f"Market fit analysis:\n\n{result.content}"
+
+    except Exception as e:
+        return (
+            "Could not complete market fit analysis: "
+            f"{type(e).__name__}. Check logs for details."
+        )
 
 
 @tool
@@ -417,7 +437,42 @@ def analyze_market_skills() -> str:
     Use this when the user asks what skills they should learn or
     how to stay competitive in the job market.
     """
-    return _analyze_with_market_data("analyze_skills", "Market skills analysis")
+    try:
+        from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
+
+        profile = load_profile()
+        service = KnowledgeService()
+        gatherer = TechTrendsGatherer()
+
+        market_data = run_async(gatherer.gather_with_cache())
+        trends = market_data.get("hiring_trends", {})
+        tech_list = ", ".join(t[0] for t in trends.get("top_technologies", [])[:8])
+
+        career_data = service.search("skills learning", top_k=10)
+        career_context = (
+            "\n".join(f"- {r.content}" for r in career_data)
+            if career_data
+            else "No career data available."
+        )
+
+        prompt = (
+            f"Identify market-driven skill gaps:\n{profile.summary()}\n\n"
+            f"Career context:\n{career_context}\n\n"
+            f"Trending technologies: {tech_list}\n\n"
+            f"What skills should they learn to stay competitive? "
+            f"Prioritize by market demand and impact on career growth."
+        )
+
+        model, _ = get_model_with_fallback(purpose="analysis")
+        result = model.invoke([HumanMessage(content=prompt)])
+
+        return f"Market skills analysis:\n\n{result.content}"
+
+    except Exception as e:
+        return (
+            "Could not complete market skills analysis: "
+            f"{type(e).__name__}. Check logs for details."
+        )
 
 
 @tool

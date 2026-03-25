@@ -180,54 +180,32 @@ Use Vagrant for isolated testing of the apt installation path.
 
 **Requirements:** Vagrant + VirtualBox (or another provider)
 
-**Available Boxes:**
-
-| Box | Description |
-|-----|-------------|
-| `ubuntu2404` | Ubuntu 24.04 LTS |
-| `debian12` | Debian 12 (Bookworm) |
+**Testing the apt repository:**
 
 ```bash
-# Test Ubuntu 24.04
-scripts/run_vagrant_apt_smoke.sh ubuntu2404
+# Test on both Ubuntu 24.04 and Debian 12
+scripts/vagrant.sh test-apt
 
-# Test Debian 12
-scripts/run_vagrant_apt_smoke.sh debian12
-
-# Test all boxes
-scripts/run_vagrant_apt_smoke.sh all
-
-# Keep VM after test (for debugging)
-scripts/run_vagrant_apt_smoke.sh debian12 --keep
-```
-
-**Multi-agent Vagrant test:**
-```bash
-scripts/vagrant_test_multi.sh
-```
-
-**Manual Vagrant usage:**
-
-```bash
-cd vagrant
-
-# Boot and provision
-vagrant up ubuntu2404 --provision
-vagrant up debian12 --provision
-
-# Destroy
-vagrant destroy -f ubuntu2404 debian12
+# Keep VMs for debugging (normally auto-destroyed)
+KEEP_TEST_VMS=1 scripts/vagrant.sh test-apt
 ```
 
 **Development VM:**
 
 ```bash
-scripts/vagrant_dev_setup.sh setup   # Copy data/.env and start VM
-scripts/vagrant_dev_setup.sh ssh     # SSH into VM
-scripts/vagrant_dev_setup.sh destroy # Clean up
+scripts/vagrant.sh dev       # Start development VM
+scripts/vagrant.sh ssh       # SSH into VM
+scripts/vagrant.sh halt      # Stop VM (save RAM)
+scripts/vagrant.sh destroy   # Destroy VM
 ```
 
-See `vagrant/README.md` for details.
+**Multi-agent testing:**
+
+```bash
+scripts/vagrant.sh multi  # Test specialist routing
+```
+
+**See:** `vagrant/README.md` for comprehensive Vagrant guide
 
 ## Debugging
 

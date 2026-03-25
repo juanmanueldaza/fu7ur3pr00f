@@ -16,10 +16,7 @@ All scripts are in `scripts/`. Most are bash and executable.
 | [`build_deb.sh`](#build_debsh--build-deb-package) | Build .deb package | CI/Build |
 | [`build_apt_repo.sh`](#build_apt_reposh--build-apt-repository) | Build apt repository | CI/Build |
 | [`validate_apt_artifact.sh`](#validate_apt_artifactsh--test-deb-in-containers) | Test .deb in Docker | CI/Test |
-| [`run_vagrant_apt_smoke.sh`](#run_vagrant_apt_smokesh--test-apt-packages-in-vms) | Test in Vagrant VMs | CI/Test |
-| [`vagrant_dev_setup.sh`](#vagrant_dev_setupsh--development-vm-manager) | Dev VM manager | Dev |
-| [`vagrant_apt_smoke.sh`](#vagrant_apt_smokesh--vagrant-provision-script) | Vagrant provision script | Internal |
-| [`vagrant_test_multi.sh`](#vagrant_test_multish--multi-agent-vagrant-test) | Multi-agent Vagrant test | CI/Test |
+| [`vagrant.sh`](#vagrantsh--vagrant-management) | Unified Vagrant management | Dev/Test |
 
 ---
 
@@ -216,93 +213,53 @@ Validates a .deb package installs/uninstalls cleanly in Docker containers.
 
 ### `run_vagrant_apt_smoke.sh` — Test apt packages in VMs
 
-Runs apt install/reinstall/remove/purge tests in disposable Vagrant VMs.
-
-```bash
-./scripts/run_vagrant_apt_smoke.sh ubuntu2404
-./scripts/run_vagrant_apt_smoke.sh debian12
-./scripts/run_vagrant_apt_smoke.sh all
-./scripts/run_vagrant_apt_smoke.sh debian12 --keep
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `ubuntu2404` | Test on Ubuntu 24.04 LTS |
-| `debian12` | Test on Debian 12 (Bookworm) |
-| `all` | Test on both boxes |
-| `--keep` | Don't destroy VM after test |
-
-**Requirements:** Vagrant + VirtualBox
-
 ---
 
-### `vagrant_test_multi.sh` — Multi-agent Vagrant test
+### `vagrant.sh` — Vagrant management
 
-Runs integration tests for the multi-agent system inside a Vagrant VM.
-
-```bash
-./scripts/vagrant_test_multi.sh
-```
-
-Tests that the `/multi` command and specialist agents (Coach, Learning, Jobs, Code, Founder) initialize and respond correctly in an isolated environment.
-
----
-
-## Internal Scripts
-
-### `vagrant_dev_setup.sh` — Development VM manager
-
-Manages a development Vagrant environment with your data and secrets.
+Unified script to manage development and test VMs.
 
 ```bash
-./scripts/vagrant_dev_setup.sh up
-./scripts/vagrant_dev_setup.sh ssh
-./scripts/vagrant_dev_setup.sh halt
-./scripts/vagrant_dev_setup.sh destroy
-./scripts/vagrant_dev_setup.sh status
-./scripts/vagrant_dev_setup.sh logs
-./scripts/vagrant_dev_setup.sh setup
+./scripts/vagrant.sh dev        # Start development VM
+./scripts/vagrant.sh test-apt   # Test apt repo from GitHub Pages
+./scripts/vagrant.sh multi      # Test multi-agent routing
+./scripts/vagrant.sh ssh        # SSH into dev VM
+./scripts/vagrant.sh status     # Show VM status and resource usage
+./scripts/vagrant.sh halt       # Stop VM(s)
+./scripts/vagrant.sh clean      # Destroy test VMs (keep dev)
+./scripts/vagrant.sh destroy    # Destroy all VMs
 ```
 
 **Commands:**
 | Command | Description |
 |---------|-------------|
-| `up` | Start VM and provision |
-| `ssh` | SSH into running VM |
-| `halt` | Stop VM (save state) |
-| `destroy` | Destroy VM |
-| `status` | Show VM status |
-| `logs` | Show provisioning logs |
-| `setup` | Copy data/.env and start VM |
+| `dev` | Start development VM (default) |
+| `test-apt` | Test apt repository from GitHub Pages on Ubuntu + Debian |
+| `multi` | Test multi-agent routing in dev VM |
+| `ssh [VM]` | SSH into VM (default: dev) |
+| `status` | Show all VMs and resource usage |
+| `halt [VM]` | Stop VM(s) to save RAM |
+| `clean` | Destroy test VMs (keeps dev) |
+| `destroy` | Destroy ALL VMs |
+| `logs` | Show dev VM provisioning logs |
 
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `--box ubuntu2404` | Use Ubuntu 24.04 (default) |
-| `--box debian12` | Use Debian 12 |
+**VMs:**
+- **dev** — Development environment (4GB RAM, synced folders)
+- **ubuntu2404** — Apt test VM (2GB RAM, auto-cleaned)
+- **debian12** — Apt test VM (2GB RAM, auto-cleaned)
 
-**File locations in VM:**
-- Code: `/workspace`
-- Data: `/workspace/data/raw`
-- Config: `/home/vagrant/.fu7ur3pr00f/.env`
-- Venv: `/workspace/.venv`
+**Environment variables:**
+| Variable | Effect |
+|----------|--------|
+| `KEEP_TEST_VMS=1` | Keep test VMs after apt testing (normally auto-destroyed) |
 
----
+**What it does:**
+- **dev VM**: Ubuntu 24.04, Python 3.13, all dependencies, synced code and data
+- **test-apt**: Creates clean VMs, adds your published GitHub Pages apt repo, tests installation as real user would
 
-### `vagrant_apt_smoke.sh` — Vagrant provision script
+**Requirements:** Vagrant + VirtualBox
 
-Provisioning script run inside Vagrant VMs by `run_vagrant_apt_smoke.sh`.
-
-**Not meant to be run directly.** Called by Vagrant with these env vars:
-
-| Variable | Value |
-|----------|-------|
-| `PACKAGE_NAME` | `fu7ur3pr00f` |
-| `REPO_BASE_URL` | `https://juanmanueldaza.github.io/fu7ur3pr00f` |
-| `REPO_DIST` | `stable` |
-| `REPO_COMPONENT` | `main` |
-| `LOG_PATH` | `/home/vagrant/fu7ur3pr00f-apt-smoke.log` |
+**See also:** `vagrant/README.md` for detailed usage guide
 
 ---
 
@@ -315,8 +272,9 @@ Provisioning script run inside Vagrant VMs by `run_vagrant_apt_smoke.sh`.
 | First-time Azure setup | `./scripts/setup.sh` |
 | Validate pipx install | `./scripts/fresh_install_check.sh --source local --config-from .env` |
 | Test apt package | `./scripts/validate_apt_artifact.sh dist/deb/fu7ur3pr00f_*.deb` |
-| Test in VMs | `./scripts/run_vagrant_apt_smoke.sh all` |
-| Dev VM | `./scripts/vagrant_dev_setup.sh setup` |
+| Dev VM | `./scripts/vagrant.sh dev` |
+| Test apt repo | `./scripts/vagrant.sh test-apt` |
+| Test multi-agent | `./scripts/vagrant.sh multi` |
 | Build .deb | `./scripts/build_deb.sh` |
 | Build apt repo | `./scripts/build_apt_repo.sh dist/deb/fu7ur3pr00f_*.deb` |
 | Clean artifacts | `./scripts/clean_dev_artifacts.sh` |
@@ -326,4 +284,5 @@ Provisioning script run inside Vagrant VMs by `run_vagrant_apt_smoke.sh`.
 ## See Also
 
 - [Development Guide](development.md)
-- `vagrant/README.md` — Vagrant details
+- `vagrant/README.md` — Comprehensive Vagrant usage guide
+

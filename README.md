@@ -121,9 +121,7 @@ ruff check . --fix
 | `build_deb.sh` | Build .deb package |
 | `build_apt_repo.sh` | Build apt repository |
 | `validate_apt_artifact.sh` | Test .deb in Docker |
-| `run_vagrant_apt_smoke.sh` | Test in Vagrant VMs |
-| `vagrant_dev_setup.sh` | Dev VM manager |
-| `vagrant_apt_smoke.sh` | Vagrant provision script |
+| `vagrant.sh` | Vagrant VM management |
 
 See [docs/scripts.md](docs/scripts.md) for detailed usage.
 
@@ -139,9 +137,11 @@ pytest tests/benchmarks/ -v
 # Fresh install check
 scripts/fresh_install_check.sh --source local --config-from .env
 
-# Vagrant apt testing
-scripts/run_vagrant_apt_smoke.sh ubuntu2404
-scripts/run_vagrant_apt_smoke.sh debian12
+# Vagrant apt repo testing
+scripts/vagrant.sh test-apt
+
+# Multi-agent system testing
+scripts/vagrant.sh multi
 ```
 
 See [docs/development.md](docs/development.md) for details.

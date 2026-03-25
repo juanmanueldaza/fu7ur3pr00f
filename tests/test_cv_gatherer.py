@@ -35,7 +35,9 @@ MSc Computer Science, MIT (2018-2020)
 Thesis on distributed consensus algorithms.
 """
 
-UNSTRUCTURED_TEXT = "John Doe, software engineer with 5 years experience in Python and Go."
+UNSTRUCTURED_TEXT = (
+    "John Doe, software engineer with 5 years experience in Python and Go."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +168,9 @@ class TestGatherHappyPath:
         pdf_file.write_bytes(b"%PDF-1.4 fake")
 
         gatherer = CVGatherer()
-        with patch.object(gatherer, "_extract_text_pdf", return_value=STRUCTURED_PDF_TEXT):
+        with patch.object(
+            gatherer, "_extract_text_pdf", return_value=STRUCTURED_PDF_TEXT
+        ):
             sections = gatherer.gather(pdf_file)
 
         assert isinstance(sections, list)
@@ -243,13 +247,16 @@ class TestTxtFileSupport:
 
     def test_txt_with_headings_parses_sections(self, tmp_path):
         txt_file = tmp_path / "cv.txt"
-        txt_file.write_text("""
+        txt_file.write_text(
+            """
 # John Doe
 ## Experience
 Software Engineer at Acme
 ## Education
 BS Computer Science
-""", encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
 
         gatherer = CVGatherer()
         sections = gatherer.gather(txt_file)
@@ -267,17 +274,17 @@ BS Computer Science
 
 class TestGatherCvDataTool:
     """Tests for the gather_cv_data tool.
-    
+
     Note: Full integration testing with interrupt() requires LangGraph
     runtime. These tests verify basic validation and error handling.
     """
-    
+
     def test_gather_cv_data_tool_exists(self):
         """Verify the tool is properly registered."""
         from langchain_core.tools import StructuredTool
 
         from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
-        
+
         assert isinstance(gather_cv_data, StructuredTool)
         assert gather_cv_data.name == "gather_cv_data"
         assert "file_path" in gather_cv_data.args
@@ -296,10 +303,11 @@ class TestGatherCvDataTool:
         # Create a test file in home directory to pass the path check
 
         from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
+
         test_file = Path.home() / ".fu7ur3pr00f" / "test_cv.docx"
         test_file.parent.mkdir(parents=True, exist_ok=True)
         test_file.write_bytes(b"fake docx")
-        
+
         try:
             result = gather_cv_data.invoke({"file_path": str(test_file)})
             assert "unsupported format" in result.lower()

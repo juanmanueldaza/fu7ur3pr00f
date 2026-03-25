@@ -46,9 +46,21 @@ class CodeAgent(BaseAgent):
 
     # Keywords for intent matching (GitHub + GitLab)
     KEYWORDS = {
-        "github", "gitlab", "repos", "repositories", "code", "commits",
-        "open source", "oss", "contributions", "projects", "portfolio",
-        "pull request", "merge request", "git", "commit history",
+        "github",
+        "gitlab",
+        "repos",
+        "repositories",
+        "code",
+        "commits",
+        "open source",
+        "oss",
+        "contributions",
+        "projects",
+        "portfolio",
+        "pull request",
+        "merge request",
+        "git",
+        "commit history",
     }
 
     def can_handle(self, intent: str) -> bool:
@@ -141,7 +153,15 @@ class CodeAgent(BaseAgent):
                 analysis["popular_projects"] += 1
 
             # Extract languages (simple heuristic)
-            common_languages = {"python", "javascript", "typescript", "rust", "go", "java", "ruby"}
+            common_languages = {
+                "python",
+                "javascript",
+                "typescript",
+                "rust",
+                "go",
+                "java",
+                "ruby",
+            }
             for lang in common_languages:
                 if lang in content_lower:
                     analysis["languages"].add(lang.title())
@@ -166,48 +186,65 @@ class CodeAgent(BaseAgent):
         recommendations = []
 
         # README recommendation
-        if analysis["total_repos"] > 0 and analysis["has_readme"] < analysis["total_repos"]:
-            recommendations.append({
-                "priority": "High",
-                "area": "Documentation",
-                "action": "Add README to all projects",
-                "impact": "Makes projects accessible and shows professionalism",
-            })
+        if (
+            analysis["total_repos"] > 0
+            and analysis["has_readme"] < analysis["total_repos"]
+        ):
+            recommendations.append(
+                {
+                    "priority": "High",
+                    "area": "Documentation",
+                    "action": "Add README to all projects",
+                    "impact": "Makes projects accessible and shows professionalism",
+                }
+            )
 
         # Tests recommendation
-        if analysis["total_repos"] > 0 and analysis["has_tests"] < analysis["total_repos"]:
-            recommendations.append({
-                "priority": "High",
-                "area": "Testing",
-                "action": "Add tests to your projects",
-                "impact": "Shows code quality and makes projects production-ready",
-            })
+        if (
+            analysis["total_repos"] > 0
+            and analysis["has_tests"] < analysis["total_repos"]
+        ):
+            recommendations.append(
+                {
+                    "priority": "High",
+                    "area": "Testing",
+                    "action": "Add tests to your projects",
+                    "impact": "Shows code quality and makes projects production-ready",
+                }
+            )
 
         # Activity recommendation
         if analysis["active_contributions"] < 3:
-            recommendations.append({
-                "priority": "Medium",
-                "area": "Activity",
-                "action": "Increase contribution frequency",
-                "impact": "Shows consistent engagement with code",
-            })
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "area": "Activity",
+                    "action": "Increase contribution frequency",
+                    "impact": "Shows consistent engagement with code",
+                }
+            )
 
         # Open source recommendation
         if analysis["total_repos"] < 5:
-            recommendations.append({
-                "priority": "Medium",
-                "area": "Portfolio",
-                "action": "Build more public projects",
-                "impact": "Demonstrates skills to potential employers/collaborators",
-            })
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "area": "Portfolio",
+                    "action": "Build more public projects",
+                    "impact": "Demonstrates skills to potential "
+                    "employers/collaborators",
+                }
+            )
 
         # OSS contribution recommendation
-        recommendations.append({
-            "priority": "High",
-            "area": "Open Source",
-            "action": "Contribute to existing open source projects",
-            "impact": "Learn from others, build network, gain visibility",
-        })
+        recommendations.append(
+            {
+                "priority": "High",
+                "area": "Open Source",
+                "action": "Contribute to existing open source projects",
+                "impact": "Learn from others, build network, gain visibility",
+            }
+        )
 
         return recommendations
 
@@ -227,14 +264,14 @@ class CodeAgent(BaseAgent):
         lines.append(f"**Total projects:** {analysis['total_repos']}")
         lines.append(f"- GitHub: {analysis['github_repos']}")
         lines.append(f"- GitLab: {analysis['gitlab_repos']}")
-        langs = analysis['languages']
-        lang_str = ', '.join(langs) if langs else 'Not detected'
+        langs = analysis["languages"]
+        lang_str = ", ".join(langs) if langs else "Not detected"
         lines.append(f"**Languages:** {lang_str}")
         lines.append(f"**Quality score:** {analysis['quality_score']}/100\n")
 
         # Quality breakdown
         lines.append("### Quality Breakdown")
-        if analysis['total_repos'] > 0:
+        if analysis["total_repos"] > 0:
             readme = f"{analysis['has_readme']}/{analysis['total_repos']}"
             tests = f"{analysis['has_tests']}/{analysis['total_repos']}"
             docs = f"{analysis['has_documentation']}/{analysis['total_repos']}"

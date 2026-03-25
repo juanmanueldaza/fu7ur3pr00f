@@ -28,12 +28,8 @@ from fu7ur3pr00f.agents.career_agent import (
     get_agent_model_name,
     reset_career_agent,
 )
-from fu7ur3pr00f.agents.multi_agent import (
-    handle_query as handle_multi_agent_query,
-)
-from fu7ur3pr00f.agents.multi_agent import (
-    list_agents as list_multi_agents,
-)
+from fu7ur3pr00f.agents.multi_agent import handle_query as handle_multi_agent_query
+from fu7ur3pr00f.agents.multi_agent import list_agents as list_multi_agents
 from fu7ur3pr00f.chat.ui import (
     console,
     display_error,
@@ -110,9 +106,7 @@ def _might_be_summary_start(text: str) -> bool:
     for section in _SUMMARY_SECTIONS:
         if section.startswith(first_line) or first_line.startswith(section):
             return True
-    return first_line.startswith(
-        ("here is a summ", "here's a summ", "summary of the")
-    )
+    return first_line.startswith(("here is a summ", "here's a summ", "summary of the"))
 
 
 def _is_summary_echo(text: str) -> bool:
@@ -124,7 +118,9 @@ def _is_summary_echo(text: str) -> bool:
     """
     lower = text.lower().lstrip()
     # Pattern 1: explicit summary preamble
-    if lower.startswith(("here is a summary", "here's a summary", "summary of the conversation")):
+    if lower.startswith(
+        ("here is a summary", "here's a summary", "summary of the conversation")
+    ):
         return True
     # Pattern 2: starts with a known summary section header
     first_line = lower.split("\n", 1)[0].strip().strip("#*").strip()
@@ -202,7 +198,9 @@ def get_history_path() -> Path:
     return get_data_dir() / "chat_history"
 
 
-def handle_command(command: str, *, chat_state: dict) -> bool:
+def handle_command(  # noqa: C901 TODO: refactor
+    command: str, *, chat_state: dict
+) -> bool:
     """Handle slash commands.
 
     Args:
@@ -242,7 +240,7 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
     if cmd == "/thread":
         if not arg:
             console.print(
-                f"[#415a77]Current thread: [bold]{chat_state['thread_id']}[/bold][/#415a77]"
+                f"[#415a77]Current thread: [bold]{chat_state['thread_id']}[/bold][/#415a77]"  # noqa: E501
             )
         else:
             chat_state["thread_id"] = arg
@@ -283,35 +281,36 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
     if cmd == "/gather":
         # Gather career data from all sources
         console.print("[bold #5bc0be]Gathering career data...[/bold #5bc0be]\n")
-        
+
         # Enable verbose logging during gather
         logging.getLogger("fu7ur3pr00f.gatherers").setLevel(logging.INFO)
-        
+
         try:
             from fu7ur3pr00f.services.gatherer_service import GathererService
-            
+
             console.print("[dim]Using GathererService...[/dim]\n")
             service = GathererService()
             sections = service.gather_all()
-            
-            console.print(f"\n[#10b981]✓ Gathered {len(sections)} sections from all sources[/#10b981]")
+
+            console.print(
+                f"\n[#10b981]✓ Gathered {len(sections)} "
+                f"sections from all sources[/#10b981]"
+            )
             console.print("[#10b981]✓ Data indexed to knowledge base[/#10b981]\n")
         except ImportError as e:
             # Fallback: run gatherers directly
             console.print(f"[dim]Fallback mode (ImportError: {e})[/dim]\n")
-            
-            from fu7ur3pr00f.gatherers.linkedin import LinkedInGatherer
+
             from fu7ur3pr00f.gatherers.cliftonstrengths import CliftonStrengthsGatherer
             from fu7ur3pr00f.gatherers.cv import CVGatherer
+            from fu7ur3pr00f.gatherers.linkedin import LinkedInGatherer
             from fu7ur3pr00f.gatherers.portfolio import PortfolioGatherer
-            from fu7ur3pr00f.config import settings
-            from pathlib import Path
-            
+
             data_dir = settings.data_dir / "raw"
             total = 0
-            
+
             console.print(f"[dim]Scanning {data_dir} for data files...[/dim]\n")
-            
+
             # LinkedIn
             zip_files = list(data_dir.glob("*.zip"))
             if zip_files:
@@ -323,13 +322,18 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
                     sections = gatherer.gather(zip_file)
                     elapsed = time.time() - start
                     total += len(sections)
-                    console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
+                    console.print(
+                        f" [#10b981]✓ {len(sections)} sections "
+                        f"in {elapsed:.1f}s[/#10b981]"
+                    )
             else:
                 console.print("  [#ff6b6b]No LinkedIn ZIP found[/#ff6b6b]")
             console.print()
-            
+
             # CliftonStrengths
-            pdf_files = [f for f in data_dir.glob("*.pdf") if 'strength' in f.name.lower()]
+            pdf_files = [
+                f for f in data_dir.glob("*.pdf") if "strength" in f.name.lower()
+            ]
             if pdf_files:
                 console.print("[bold]CliftonStrengths:[/bold]")
                 gatherer = CliftonStrengthsGatherer()
@@ -338,13 +342,19 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
                 sections = gatherer.gather(data_dir)
                 elapsed = time.time() - start
                 total += len(sections)
-                console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
+                console.print(
+                    f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
+                )
             else:
                 console.print("  [#ff6b6b]No CliftonStrengths PDFs found[/#ff6b6b]")
             console.print()
-            
+
             # CV
-            cv_files = list(data_dir.glob("*.md")) + list(data_dir.glob("*.pdf")) + list(data_dir.glob("*.txt"))
+            cv_files = (
+                list(data_dir.glob("*.md"))
+                + list(data_dir.glob("*.pdf"))
+                + list(data_dir.glob("*.txt"))
+            )
             if cv_files:
                 console.print("[bold]CV/Resume:[/bold]")
                 gatherer = CVGatherer()
@@ -355,40 +365,59 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
                         sections = gatherer.gather(cv_file)
                         elapsed = time.time() - start
                         total += len(sections)
-                        console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
+                        console.print(
+                            f" [#10b981]✓ {len(sections)} "
+                            f"sections in {elapsed:.1f}s[/#10b981]"
+                        )
                     except Exception as e:
-                        console.print(f"  [#ff6b6b]✗ Skip: {cv_file.name} ({e})[/#ff6b6b]")
+                        console.print(
+                            f"  [#ff6b6b]✗ Skip: {cv_file.name} ({e})[/#ff6b6b]"
+                        )
             else:
                 console.print("  [#ff6b6b]No CV files found[/#ff6b6b]")
             console.print()
-            
+
             # Portfolio
             if settings.portfolio_url:
-                console.print(f"[bold]Portfolio:[/bold]")
+                console.print("[bold]Portfolio:[/bold]")
                 console.print(f"  [dim]Fetching {settings.portfolio_url}...[/dim]")
                 gatherer = PortfolioGatherer()
                 start = time.time()
                 sections = gatherer.gather(settings.portfolio_url)
                 elapsed = time.time() - start
                 total += len(sections)
-                console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
+                console.print(
+                    f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
+                )
             else:
-                console.print("[bold]Portfolio:[/bold] [#ff6b6b]No PORTFOLIO_URL configured[/#ff6b6b]")
+                console.print(
+                    "[bold]Portfolio:[/bold] "
+                    "[#ff6b6b]No PORTFOLIO_URL configured[/#ff6b6b]"
+                )
             console.print()
-            
+
             if total > 0:
-                console.print(f"\n[bold #10b981]═══════════════════════════════════════[/bold #10b981]")
-                console.print(f"[bold #10b981]  Total: {total} sections indexed[/bold #10b981]")
-                console.print(f"[bold #10b981]═══════════════════════════════════════[/bold #10b981]\n")
+                console.print(
+                    "\n[bold #10b981]═══════════════════════════════════════[/bold #10b981]"  # noqa: E501
+                )
+                console.print(
+                    f"[bold #10b981]  Total: {total} sections indexed[/bold #10b981]"
+                )
+                console.print(
+                    "[bold #10b981]═══════════════════════════════════════[/bold #10b981]\n"  # noqa: E501
+                )
             else:
-                console.print("\n[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n")
+                console.print(
+                    "\n[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n"
+                )
                 console.print("Expected files:")
                 console.print("  - LinkedIn: linkedin.zip (from LinkedIn export)")
                 console.print("  - CliftonStrengths: *.pdf (Gallup PDF reports)")
                 console.print("  - CV: *.md, *.pdf, or *.txt")
-                console.print(f"  - Portfolio: configured in .env (PORTFOLIO_URL)\n")
+                console.print("  - Portfolio: configured in .env (PORTFOLIO_URL)\n")
         except Exception as e:
             import traceback
+
             console.print(f"\n[#ff6b6b]Gather failed:[/#ff6b6b] {e}")
             console.print(f"[dim]{traceback.format_exc()}[/dim]\n")
         return False
@@ -413,7 +442,9 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
             # Test multi-agent system
             console.print("[bold #5bc0be]Testing multi-agent system...[/bold #5bc0be]")
             try:
-                response = asyncio.run(handle_multi_agent_query("What agents are available?"))
+                response = asyncio.run(
+                    handle_multi_agent_query("What agents are available?")
+                )
                 console.print("[#10b981]Multi-agent system is working![/#10b981]")
                 console.print(f"Response preview: {response[:200]}...")
             except Exception as e:
@@ -452,15 +483,21 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
     if cmd == "/verbose":
         # Show detailed system info
         from fu7ur3pr00f.memory.checkpointer import get_data_dir
-        
+
         console.print("[bold #5bc0be]System Information[/bold #5bc0be]\n")
         console.print(f"Data directory: {get_data_dir()}")
         console.print(f"LLM Provider: {settings.llm_provider or 'auto-detect'}")
         console.print(f"Model: {get_agent_model_name()}")
         console.print(f"Portfolio URL: {settings.portfolio_url or 'Not configured'}")
-        console.print(f"GitHub MCP: {'Enabled' if settings.has_github_mcp else 'Disabled'}")
-        console.print(f"Tavily MCP: {'Enabled' if settings.has_tavily_mcp else 'Disabled'}")
-        console.print(f"Debug level: {logging.getLevelName(logging.getLogger().level)}\n")
+        console.print(
+            f"GitHub MCP: {'Enabled' if settings.has_github_mcp else 'Disabled'}"
+        )
+        console.print(
+            f"Tavily MCP: {'Enabled' if settings.has_tavily_mcp else 'Disabled'}"
+        )
+        console.print(
+            f"Debug level: {logging.getLevelName(logging.getLogger().level)}\n"
+        )
         return False
 
     if cmd == "/reset":
@@ -518,11 +555,15 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
             deleted += 1
 
         settings.ensure_directories()
-        console.print(f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items.")
+        console.print(
+            f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items."
+        )
         console.print("[#415a77]Restart FutureProof to start fresh.[/#415a77]")
         return True
 
-    console.print(f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]")
+    console.print(
+        f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]"
+    )
     return False
 
 
@@ -541,7 +582,7 @@ class _ChunkAccumulator:
 
         Returns the extracted content string (empty if chunk had no text).
         """
-        if not (hasattr(chunk, "content") and chunk.content):  # type: ignore[union-attr]
+        if not (hasattr(chunk, "content") and chunk.content):  # type: ignore[union-attr]  # noqa: E501
             return ""
         content = chunk.content  # type: ignore[union-attr]
         if isinstance(content, list):
@@ -632,7 +673,8 @@ def _stream_response(
         if getattr(chunk, "type", None) == "tool":
             tool_content = getattr(chunk, "content", "")
             tool_name = getattr(chunk, "name", None)
-            # Skip synthetic repair messages (no name, injected by ToolCallRepairMiddleware)
+            # Skip synthetic repair messages (no name, injected by
+            # ToolCallRepairMiddleware)
             if not tool_name:
                 return True
             elapsed: float | None = None
@@ -679,7 +721,9 @@ def _stream_response(
                 HTML("<prompt>[Y/n]: </prompt>"),
                 style=_PROMPT_STYLE,
                 is_password=False,
-            ).strip().lower()
+            )
+            .strip()
+            .lower()
         )
         approved = answer in ("", "y", "yes")
 
@@ -699,14 +743,16 @@ def _stream_response(
 
         logger.debug("Resume stream ended")
 
-        resume_text = _strip_summary_echo(resume_acc.full_response) or resume_acc.full_response
+        resume_text = (
+            _strip_summary_echo(resume_acc.full_response) or resume_acc.full_response
+        )
         if resume_text:
             full_response += resume_text
 
     return full_response, shown_tools
 
 
-def run_chat(thread_id: str = "main") -> None:
+def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
     """Run the synchronous chat loop.
 
     Args:
@@ -768,7 +814,9 @@ def run_chat(thread_id: str = "main") -> None:
         try:
             # Get user input
             user_input = session.prompt(
-                _PROMPT_MSG, style=_PROMPT_STYLE, is_password=False,
+                _PROMPT_MSG,
+                style=_PROMPT_STYLE,
+                is_password=False,
             ).strip()
 
             if not user_input:
@@ -816,10 +864,13 @@ def run_chat(thread_id: str = "main") -> None:
                     # ToolCallRepairMiddleware will fix state on next attempt
                     if _is_tool_call_state_error(e) and attempt < max_retries - 1:
                         logger.warning(
-                            "Tool state error (attempt %d/%d), retrying", attempt + 1, max_retries
+                            "Tool state error (attempt %d/%d), retrying",
+                            attempt + 1,
+                            max_retries,
                         )
                         console.print(
-                            "[#ffd700]Recovering from tool state error, retrying...[/#ffd700]"
+                            "[#ffd700]Recovering from tool state "
+                            "error, retrying...[/#ffd700]"
                         )
                         continue
 
@@ -848,7 +899,9 @@ def run_chat(thread_id: str = "main") -> None:
                         error_msg = _sanitize_error(f"Agent error: {e}")
 
                         # Provide helpful context for common errors
-                        if "Connection error" in str(e) or "ConnectError" in str(type(e).__name__):
+                        if "Connection error" in str(e) or "ConnectError" in str(
+                            type(e).__name__
+                        ):
                             error_msg = (
                                 "Cannot connect to LLM provider. "
                                 "Check your internet connection and API credentials. "
@@ -881,5 +934,3 @@ def run_chat(thread_id: str = "main") -> None:
                 # nest_asyncio/prompt_toolkit event loop conflicts
                 console.print("\n[#415a77]Press ENTER to continue...[/#415a77]")
             continue
-
-

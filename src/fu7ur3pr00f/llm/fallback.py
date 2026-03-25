@@ -303,9 +303,7 @@ class FallbackLLMManager:
                 )
                 return True
             else:
-                logger.warning(
-                    "Model error detected, no fallback models available"
-                )
+                logger.warning("Model error detected, no fallback models available")
         return False
 
     def get_status(self) -> dict[str, Any]:
@@ -315,9 +313,7 @@ class FallbackLLMManager:
                 self._current_model.description if self._current_model else None
             ),
             "failed_models": list(self._failed_models),
-            "available_models": [
-                m.description for m in self.get_available_models()
-            ],
+            "available_models": [m.description for m in self.get_available_models()],
             "total_models": len(self._chain),
         }
 
@@ -359,9 +355,7 @@ def _build_purpose_chain(
     """
     default_chain = build_default_chain()
     purpose_model = ModelConfig(provider, model_name, description)
-    return [purpose_model] + [
-        c for c in default_chain if c.model != model_name
-    ]
+    return [purpose_model] + [c for c in default_chain if c.model != model_name]
 
 
 def get_model_for_purpose(

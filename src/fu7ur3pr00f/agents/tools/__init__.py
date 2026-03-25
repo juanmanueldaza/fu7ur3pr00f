@@ -111,7 +111,8 @@ _ALL_TOOLS = [
     update_setting,
 ]
 
-__all__ = [t.name for t in _ALL_TOOLS] + ["get_all_tools"]
+_tool_names = [t.name for t in _ALL_TOOLS]
+__all__ = [*_tool_names, "get_all_tools"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 
 def get_all_tools() -> list:

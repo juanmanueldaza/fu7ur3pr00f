@@ -93,11 +93,13 @@ class CareerKnowledgeStore(ChromaDBStore):
                 chunk_id = str(uuid.uuid4())
                 ids.append(chunk_id)
                 documents.append(chunk.content)
-                metadatas.append({
-                    "source": source.value,
-                    "section": section.name,
-                    "chunk_index": str(chunk_idx),
-                })
+                metadatas.append(
+                    {
+                        "source": source.value,
+                        "section": section.name,
+                        "chunk_index": str(chunk_idx),
+                    }
+                )
                 chunk_idx += 1
 
         batch_size = 100
@@ -129,11 +131,12 @@ class CareerKnowledgeStore(ChromaDBStore):
         if not docs or not metas:
             return ""
 
-        pairs = list(zip(docs, metas))
+        pairs = list(zip(docs, metas, strict=True))
 
         if excluded_sections or excluded_prefixes:
             pairs = [
-                (doc, meta) for doc, meta in pairs
+                (doc, meta)
+                for doc, meta in pairs
                 if str(meta.get("section", "")) not in excluded_sections
                 and not (
                     excluded_prefixes
@@ -217,12 +220,14 @@ class CareerKnowledgeStore(ChromaDBStore):
                     continue
                 if excluded_prefixes and sec.startswith(excluded_prefixes):
                     continue
-            items.append({
-                "content": doc,
-                "source": meta.get("source", "portfolio"),
-                "section": sec,
-                "metadata": {k: v for k, v in meta.items() if k not in reserved},
-            })
+            items.append(
+                {
+                    "content": doc,
+                    "source": meta.get("source", "portfolio"),
+                    "section": sec,
+                    "metadata": {k: v for k, v in meta.items() if k not in reserved},
+                }
+            )
 
         return items[:limit]
 

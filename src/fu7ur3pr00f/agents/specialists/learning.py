@@ -5,7 +5,8 @@ learning roadmaps, tech trends, and authority building strategies.
 
 Example:
     >>> agent = LearningAgent()
-    >>> response = await agent.process({"query": "How do I become an expert in Python?"})
+    >>> query = "How do I become an expert in Python?"
+    >>> response = await agent.process({"query": query})
 """
 
 from collections.abc import Callable
@@ -46,10 +47,29 @@ class LearningAgent(BaseAgent):
 
     # Keywords for intent matching
     KEYWORDS = {
-        "learning", "study", "learn", "skills", "courses", "certification",
-        "expert", "authority", "teaching", "mentoring", "conference",
-        "talk", "blog", "write", "publish", "roadmap", "curriculum",
-        "training", "workshop", "bootcamp", "degree", "master", "phd",
+        "learning",
+        "study",
+        "learn",
+        "skills",
+        "courses",
+        "certification",
+        "expert",
+        "authority",
+        "teaching",
+        "mentoring",
+        "conference",
+        "talk",
+        "blog",
+        "write",
+        "publish",
+        "roadmap",
+        "curriculum",
+        "training",
+        "workshop",
+        "bootcamp",
+        "degree",
+        "master",
+        "phd",
     }
 
     def can_handle(self, intent: str) -> bool:
@@ -135,7 +155,11 @@ class LearningAgent(BaseAgent):
         role_skills = {
             "staff engineer": {
                 "technical": ["system design", "architecture", "scalability"],
-                "leadership": ["mentoring", "technical strategy", "cross-team collaboration"],
+                "leadership": [
+                    "mentoring",
+                    "technical strategy",
+                    "cross-team collaboration",
+                ],
                 "impact": ["technical vision", "organizational impact"],
             },
             "principal engineer": {
@@ -216,25 +240,45 @@ class LearningAgent(BaseAgent):
             ]
             if len(gaps["technical"]) > 1:
                 roadmap["short_term"].append(
-                    {"skill": gaps["technical"][1], "action": "Take a course", "months": 4}
+                    {
+                        "skill": gaps["technical"][1],
+                        "action": "Take a course",
+                        "months": 4,
+                    }
                 )
 
         # Short-term: Leadership skills
         if gaps["leadership"]:
             roadmap["short_term"].append(
-                {"skill": gaps["leadership"][0], "action": "Mentor a junior developer", "months": 5}
+                {
+                    "skill": gaps["leadership"][0],
+                    "action": "Mentor a junior developer",
+                    "months": 5,
+                }
             )
 
         # Medium-term: Impact skills
         if gaps["impact"]:
             roadmap["medium_term"].append(
-                {"skill": gaps["impact"][0], "action": "Lead a cross-team initiative", "months": 9}
+                {
+                    "skill": gaps["impact"][0],
+                    "action": "Lead a cross-team initiative",
+                    "months": 9,
+                }
             )
 
         # Long-term: Authority building
         roadmap["long_term"] = [
-            {"skill": "Industry recognition", "action": "Speak at a conference", "months": 12},
-            {"skill": "Thought leadership", "action": "Write technical blog posts", "months": 15},
+            {
+                "skill": "Industry recognition",
+                "action": "Speak at a conference",
+                "months": 12,
+            },
+            {
+                "skill": "Thought leadership",
+                "action": "Write technical blog posts",
+                "months": 15,
+            },
         ]
 
         return roadmap
@@ -257,7 +301,9 @@ class LearningAgent(BaseAgent):
         if current_skills:
             lines.append(f"Identified {len(current_skills)} skill areas.\n")
         else:
-            lines.append("No skills data found. Consider gathering from GitHub/LinkedIn.\n")
+            lines.append(
+                "No skills data found. Consider gathering from GitHub/LinkedIn.\n"
+            )
 
         # Skill gaps
         lines.append("### Skill Gaps Analysis\n")

@@ -147,7 +147,9 @@ def display_tool_start(tool_name: str, args: dict) -> None:
             console.print(Text(f"       {k}: {val_str}", style="#415a77"))
 
 
-def display_tool_result(tool_name: str, content: str, elapsed: float | None = None) -> None:
+def display_tool_result(
+    tool_name: str, content: str, elapsed: float | None = None
+) -> None:
     """Display tool result in a bordered panel with full content."""
     _icon, color = _tool_style(tool_name)
 
@@ -160,13 +162,17 @@ def display_tool_result(tool_name: str, content: str, elapsed: float | None = No
     display_content = content
     max_len = 2000
     if len(display_content) > max_len:
-        display_content = display_content[:max_len] + f"\n\n... ({len(content)} chars total)"
+        display_content = (
+            display_content[:max_len] + f"\n\n... ({len(content)} chars total)"
+        )
 
     console.print(
         Panel(
             Text(display_content, style="#415a77"),
             title=f"[{color}]{tool_name}[/{color}]",
-            subtitle=f"[italic #415a77]{subtitle}[/italic #415a77]" if subtitle else None,
+            subtitle=(
+                f"[italic #415a77]{subtitle}[/italic #415a77]" if subtitle else None
+            ),
             subtitle_align="right",
             border_style=color,
             box=box.ROUNDED,
@@ -364,7 +370,9 @@ def display_profile_summary() -> None:
     if profile.years_experience:
         profile_parts.append(f"**Experience:** {profile.years_experience} years")
     if profile.technical_skills:
-        profile_parts.append(f"**Technical Skills:** {', '.join(profile.technical_skills[:10])}")
+        profile_parts.append(
+            f"**Technical Skills:** {', '.join(profile.technical_skills[:10])}"
+        )
     if profile.target_roles:
         profile_parts.append(f"**Target Roles:** {', '.join(profile.target_roles)}")
     if profile.preferred_work_style:

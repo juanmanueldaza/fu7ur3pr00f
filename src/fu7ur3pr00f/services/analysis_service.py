@@ -84,7 +84,9 @@ class AnalysisService:
         state = self.load_data()
 
         if not self.has_data(state):
-            raise NoDataError("No career data found. Run 'fu7ur3pr00f gather all' first.")
+            raise NoDataError(
+                "No career data found. Run 'fu7ur3pr00f gather all' first."
+            )
 
         state["action"] = action
 
@@ -101,7 +103,10 @@ class AnalysisService:
                 top = stories[:10] if isinstance(stories, list) else []
                 trends_parts.append(
                     "Trending topics:\n"
-                    + "\n".join(f"- {s.get('title', '')} ({s.get('points', 0)} pts)" for s in top)
+                    + "\n".join(
+                        f"- {s.get('title', '')} ({s.get('points', 0)} pts)"
+                        for s in top
+                    )
                 )
             hiring = market_data.get("hiring_trends", {})
             if hiring:

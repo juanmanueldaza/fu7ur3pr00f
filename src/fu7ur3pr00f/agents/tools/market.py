@@ -139,7 +139,7 @@ def _analyze_with_market_data(action: "AnalysisAction", label: str) -> str:
 
 
 @tool
-def search_jobs(
+def search_jobs(  # noqa: C901 TODO: refactor
     query: str,
     location: str = "remote",
     limit: int = 50,
@@ -154,7 +154,8 @@ def search_jobs(
             Only use "remote" when NO specific location is mentioned.
         limit: Maximum number of results to return
 
-    Use this when the user asks about job opportunities or wants to see what's available.
+    Use this when the user asks about job opportunities or wants to see what's
+        available.
     """
     from fu7ur3pr00f.gatherers.market import JobMarketGatherer
 
@@ -169,10 +170,12 @@ def search_jobs(
     errors = data.get("errors", [])
 
     # Show the user's original location in the header
-    result_parts = [f"Job search results for '{query}' in '{location}':"]
+    result_parts = [f"Job search results for {query!r} in {location!r}:"]
     total = summary.get("total_jobs", 0)
     sources = summary.get("sources", [])
-    result_parts.append(f"\nFound {total} jobs from {len(sources)} sources: {', '.join(sources)}")
+    result_parts.append(
+        f"\nFound {total} jobs from {len(sources)} sources: {', '.join(sources)}"
+    )
 
     if summary.get("remote_positions"):
         result_parts.append(f"Remote positions: {summary['remote_positions']}")
@@ -230,7 +233,9 @@ def search_jobs(
             # Match against both original and translated location
             loc_norms = {_norm(location), _norm(search_location)}
             matched = [
-                j for j in jobs if any(ln in _norm(j.get("location") or "") for ln in loc_norms)
+                j
+                for j in jobs
+                if any(ln in _norm(j.get("location") or "") for ln in loc_norms)
             ]
             unmatched = [j for j in jobs if j not in matched]
 
@@ -294,7 +299,8 @@ def get_tech_trends(topic: str = "") -> str:
     Args:
         topic: Optional topic to focus on (e.g., "Python", "Rust", "AI")
 
-    Use this to understand what technologies are trending and what companies are hiring for.
+    Use this to understand what technologies are trending and what companies are hiring
+        for.
     """
     from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
 
@@ -359,10 +365,12 @@ def get_salary_insights(role: str, location: str = "remote") -> str:
     salary_data = data.get("salary_data", [])
     jobs_with_salary = [j for j in data.get("job_listings", []) if j.get("salary")]
 
-    result_parts = [f"Salary insights for '{role}' ({location}):"]
+    result_parts = [f"Salary insights for {role!r} ({location}):"]
 
     if jobs_with_salary:
-        result_parts.append(f"\n**From job listings:** ({len(jobs_with_salary)} with salary)")
+        result_parts.append(
+            f"\n**From job listings:** ({len(jobs_with_salary)} with salary)"
+        )
         for job in jobs_with_salary[:5]:
             company = job.get("company", "Unknown")
             salary = job.get("salary", "")
@@ -379,7 +387,9 @@ def get_salary_insights(role: str, location: str = "remote") -> str:
                 result_parts.append(f"    {snippet}...")
 
     if not salary_data and not jobs_with_salary:
-        result_parts.append("\nNo specific salary data found. Try broadening the search.")
+        result_parts.append(
+            "\nNo specific salary data found. Try broadening the search."
+        )
 
     return "\n".join(result_parts)
 
@@ -446,12 +456,15 @@ def gather_market_data(source: str = "all") -> str:
         from fu7ur3pr00f.gatherers.market import JobMarketGatherer
 
         gatherer = JobMarketGatherer()
-        data = run_async(gatherer.gather_with_cache(refresh=True, role="Software Developer"))
+        data = run_async(
+            gatherer.gather_with_cache(refresh=True, role="Software Developer")
+        )
         listings = data.get("job_listings", [])
         sources_list = data.get("summary", {}).get("sources", [])
         remote = data.get("summary", {}).get("remote_positions", 0)
         result_parts.append(
-            f"\n**Job Market:** {len(listings)} listings from {len(sources_list)} sources"
+            f"\n**Job Market:** {len(listings)} listings "
+            f"from {len(sources_list)} sources"
         )
         result_parts.append(f"  Remote positions: {remote}")
 

@@ -10,10 +10,10 @@ Example:
     >>> class CoachAgent(BaseAgent):
     ...     name = "coach"
     ...     description = "Leadership and career growth coach"
-    ...     
+    ...
     ...     def can_handle(self, intent: str) -> bool:
     ...         return "leadership" in intent or "promotion" in intent
-    ...     
+    ...
     ...     async def process(self, context: dict[str, Any]) -> str:
     ...         return "Leadership advice..."
 """
@@ -47,6 +47,7 @@ class KnowledgeResult:
         >>> print(result.content)
         'Python developer with 5 years experience'
     """
+
     content: str
     metadata: dict[str, Any]
     score: float | None = None
@@ -70,6 +71,7 @@ class MemoryResult:
         ...     score=0.88
         ... )
     """
+
     content: str
     event_type: str
     timestamp: float | None = None
@@ -90,10 +92,10 @@ class BaseAgent(ABC):
         ...     name = "coach"
         ...     description = "Career growth and leadership coach"
         ...     tools = [analyze_career_alignment, get_career_advice]
-        ...     
+        ...
         ...     def can_handle(self, intent: str) -> bool:
         ...         return any(k in intent.lower() for k in ["leadership", "promotion"])
-        ...     
+        ...
         ...     async def process(self, context: dict[str, Any]) -> str:
         ...         return "Based on your CliftonStrengths..."
     """
@@ -217,8 +219,8 @@ class BaseAgent(ABC):
         return self._chroma
 
     def search_knowledge(
-        self, 
-        query: str, 
+        self,
+        query: str,
         limit: int = 5,
         section: str | None = None,
         sources: list[str] | None = None,
@@ -261,27 +263,29 @@ class BaseAgent(ABC):
         )
 
         # Convert to KnowledgeResult list
-        documents = results['documents'][0]
-        metadatas = results['metadatas'][0]
+        documents = results["documents"][0]
+        metadatas = results["metadatas"][0]
 
         # Handle empty results
         if not documents:
             return []
 
-        distances = results.get('distances', [None] * len(documents))[0]
+        distances = results.get("distances", [None] * len(documents))[0]
 
         return [
             KnowledgeResult(
                 content=doc,
                 metadata=meta,
-                score=1.0 - dist if dist is not None else None,  # Convert distance to similarity
+                score=(
+                    1.0 - dist if dist is not None else None
+                ),  # Convert distance to similarity
             )
-            for doc, meta, dist in zip(documents, metadatas, distances)
+            for doc, meta, dist in zip(documents, metadatas, distances, strict=True)
         ]
 
     def index_knowledge(
-        self, 
-        documents: list[str], 
+        self,
+        documents: list[str],
         metadatas: list[dict[str, Any]],
     ) -> list[str]:
         """Index documents to knowledge base.
@@ -322,8 +326,8 @@ class BaseAgent(ABC):
         return ids
 
     def remember(
-        self, 
-        event_type: str, 
+        self,
+        event_type: str,
         data: str,
         metadata: dict[str, Any] | None = None,
     ) -> str:
@@ -368,8 +372,8 @@ class BaseAgent(ABC):
         return memory_id
 
     def recall_memories(
-        self, 
-        query: str, 
+        self,
+        query: str,
         event_type: str | None = None,
         limit: int = 5,
     ) -> list[MemoryResult]:
@@ -408,14 +412,14 @@ class BaseAgent(ABC):
         )
 
         # Convert to MemoryResult list
-        documents = results['documents'][0]
-        metadatas = results['metadatas'][0]
+        documents = results["documents"][0]
+        metadatas = results["metadatas"][0]
 
         # Handle empty results
         if not documents:
             return []
 
-        distances = results.get('distances', [None] * len(documents))[0]
+        distances = results.get("distances", [None] * len(documents))[0]
 
         return [
             MemoryResult(
@@ -424,7 +428,7 @@ class BaseAgent(ABC):
                 timestamp=meta.get("timestamp"),
                 score=1.0 - dist if dist is not None else None,
             )
-            for doc, meta, dist in zip(documents, metadatas, distances)
+            for doc, meta, dist in zip(documents, metadatas, distances, strict=True)
         ]
 
     def get_memory_stats(self) -> dict[str, Any]:
@@ -444,11 +448,11 @@ class BaseAgent(ABC):
 
         # Count by type
         by_type: dict[str, int] = {}
-        for metadata in all_data['metadatas']:
+        for metadata in all_data["metadatas"]:
             event_type = metadata.get("type", "unknown")
             by_type[event_type] = by_type.get(event_type, 0) + 1
 
         return {
-            "total": len(all_data['ids']),
+            "total": len(all_data["ids"]),
             "by_type": by_type,
         }

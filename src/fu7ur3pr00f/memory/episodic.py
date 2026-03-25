@@ -47,7 +47,9 @@ class EpisodicMemory:
             "memory_type": self.memory_type.value,
             "context": self.context,
             "timestamp": self.timestamp.isoformat(),
-            **{k: str(v) for k, v in self.metadata.items()},  # ChromaDB needs string values
+            **{
+                k: str(v) for k, v in self.metadata.items()
+            },  # ChromaDB needs string values
         }
 
     @classmethod
@@ -64,7 +66,9 @@ class EpisodicMemory:
             memory_type=MemoryType(metadata.get("memory_type", "decision")),
             content=document,
             context=metadata.get("context", ""),
-            timestamp=datetime.fromisoformat(metadata.get("timestamp", datetime.now().isoformat())),
+            timestamp=datetime.fromisoformat(
+                metadata.get("timestamp", datetime.now().isoformat())
+            ),
             metadata={k: v for k, v in metadata.items() if k not in reserved},
         )
 
@@ -99,7 +103,9 @@ class EpisodicStore(ChromaDBStore):
             where = {"memory_type": memory_type.value}
 
         results = self._query(query, limit=limit, where=where)
-        return [EpisodicMemory.from_chromadb(id, doc, meta) for id, doc, meta in results]
+        return [
+            EpisodicMemory.from_chromadb(id, doc, meta) for id, doc, meta in results
+        ]
 
     def stats(self) -> dict[str, Any]:
         """Get statistics about the episodic store."""

@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     )
 
     # LLM Provider (auto-detected from available keys if empty)
-    llm_provider: str = ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
+    llm_provider: str = (
+        ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
+    )
 
     # FutureProof Proxy (default for new users — zero-config with starter tokens)
     fu7ur3pr00f_proxy_url: str = "https://llm.fu7ur3pr00f.dev"
@@ -58,6 +60,7 @@ class Settings(BaseSettings):
                 "Run /setup to fix."
             )
         return v
+
     azure_embedding_deployment: str = "text-embedding-3-small"
 
     # Azure purpose-specific deployments (predefined, overridable via env)
@@ -70,9 +73,9 @@ class Settings(BaseSettings):
     ollama_base_url: str = ""
 
     # Purpose-specific models (provider-agnostic, optional)
-    agent_model: str = ""      # e.g. "gpt-5-mini", "claude-sonnet-4-20250514"
-    analysis_model: str = ""   # e.g. "gpt-4.1", "claude-sonnet-4-20250514"
-    summary_model: str = ""    # e.g. "gpt-4o-mini", "claude-haiku-4-5-20251001"
+    agent_model: str = ""  # e.g. "gpt-5-mini", "claude-sonnet-4-20250514"
+    analysis_model: str = ""  # e.g. "gpt-4.1", "claude-sonnet-4-20250514"
+    summary_model: str = ""  # e.g. "gpt-4o-mini", "claude-haiku-4-5-20251001"
     synthesis_model: str = ""  # e.g. "o4-mini"
     embedding_model: str = ""  # e.g. "text-embedding-3-small", "nomic-embed-text"
 

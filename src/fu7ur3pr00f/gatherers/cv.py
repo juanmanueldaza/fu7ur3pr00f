@@ -8,7 +8,6 @@ import logging
 import re
 import shutil
 import subprocess  # nosec B404 — required for pdftotext CLI
-from functools import lru_cache
 from pathlib import Path
 
 from ..memory.chunker import Section
@@ -16,27 +15,32 @@ from ..services.exceptions import NoDataError, ServiceError
 
 logger = logging.getLogger(__name__)
 
-CV_SECTION_KEYWORDS: frozenset[str] = frozenset({
-    "profile",
-    "summary",
-    "objective",
-    "experience",
-    "work experience",
-    "employment",
-    "education",
-    "skills",
-    "technical skills",
-    "projects",
-    "certifications",
-    "languages",
-    "awards",
-    "achievements",
-    "publications",
-    "interests",
-    "references",
-    "volunteer",
-    "courses",
-})
+
+_pdf_text_cache: dict[tuple[str, float, int], str] = {}
+
+CV_SECTION_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "profile",
+        "summary",
+        "objective",
+        "experience",
+        "work experience",
+        "employment",
+        "education",
+        "skills",
+        "technical skills",
+        "projects",
+        "certifications",
+        "languages",
+        "awards",
+        "achievements",
+        "publications",
+        "interests",
+        "references",
+        "volunteer",
+        "courses",
+    }
+)
 
 # Regex for Markdown headings (# / ## / ###)
 _MD_HEADING_RE = re.compile(r"^#{1,3}\s+(.+)", re.MULTILINE)
@@ -46,10 +50,28 @@ _MD_HEADING_RE = re.compile(r"^#{1,3}\s+(.+)", re.MULTILINE)
 _PDF_ALLCAPS_RE = re.compile(r"^[A-Z][A-Z\s/&-]{2,}$")
 
 # Short all-caps words to exclude from section heading detection
-_PDF_ALLCAPS_EXCLUDE = frozenset({
-    "NO", "YES", "US", "UK", "IT", "AI", "OK", "ID", "CV",
-    "CEO", "CTO", "CFO", "COO", "VP", "SR", "JR", "MD", "PHD",
-})
+_PDF_ALLCAPS_EXCLUDE = frozenset(
+    {
+        "NO",
+        "YES",
+        "US",
+        "UK",
+        "IT",
+        "AI",
+        "OK",
+        "ID",
+        "CV",
+        "CEO",
+        "CTO",
+        "CFO",
+        "COO",
+        "VP",
+        "SR",
+        "JR",
+        "MD",
+        "PHD",
+    }
+)
 
 
 def _file_cache_key(path: Path) -> tuple[str, float, int]:
@@ -96,26 +118,30 @@ class CVGatherer:
 
         if not raw_text.strip():
             raise NoDataError(
-                f"No text could be extracted from '{path.name}'. "
+                f"No text could be extracted from {path.name!r}. "
                 "Is it a scanned/image PDF or an empty file?"
             )
 
         sections = self._parse_sections(raw_text, fmt)
         if not sections:
-            logger.debug("No section headers found in '%s', using fallback section.", path.name)
+            logger.debug(
+                "No section headers found in '%s', using fallback section.", path.name
+            )
             return [Section("CV Content", raw_text)]
 
         return sections
 
-    @lru_cache(maxsize=128)
     def _extract_text_pdf_cached(self, cache_key: tuple[str, float, int]) -> str:
         """Cached PDF text extraction.
 
         Cache is invalidated when file is modified (mtime/size change).
         """
-        # cache_key contains (path_str, mtime, size) - we only need path for extraction
+        if cache_key in _pdf_text_cache:
+            return _pdf_text_cache[cache_key]
         path = Path(cache_key[0])
-        return self._extract_text_pdf_uncached(path)
+        result = self._extract_text_pdf_uncached(path)
+        _pdf_text_cache[cache_key] = result
+        return result
 
     def _extract_text_pdf_uncached(self, path: Path) -> str:
         """Run pdftotext -layout and return stdout (uncached)."""
@@ -158,9 +184,7 @@ class CVGatherer:
         """
         content = path.read_text(encoding="utf-8")
         if not content.strip():
-            raise NoDataError(
-                f"File '{path.name}' is empty — no content to import."
-            )
+            raise NoDataError(f"File {path.name!r} is empty — no content to import.")
         return content
 
     def _parse_sections(self, text: str, fmt: str) -> list[Section]:
@@ -220,8 +244,14 @@ class CVGatherer:
         sections: list[Section] = []
         for i, (heading_line, heading_name) in enumerate(heading_indices):
             content_start = heading_line + 1
-            content_end = heading_indices[i + 1][0] if i + 1 < len(heading_indices) else len(lines)
-            content_lines = [ln for ln in lines[content_start:content_end] if ln.strip()]
+            content_end = (
+                heading_indices[i + 1][0]
+                if i + 1 < len(heading_indices)
+                else len(lines)
+            )
+            content_lines = [
+                ln for ln in lines[content_start:content_end] if ln.strip()
+            ]
             # Require at least 2 non-empty content lines to count as a real section
             if len(content_lines) >= 2:
                 sections.append(Section(heading_name, "\n".join(content_lines)))

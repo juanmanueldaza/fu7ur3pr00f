@@ -76,7 +76,10 @@ class MarkdownChunker:
                 for para in paragraphs:
                     para_tokens = self._estimate_tokens(para)
 
-                    if current_tokens + para_tokens > self.max_tokens and current_content:
+                    if (
+                        current_tokens + para_tokens > self.max_tokens
+                        and current_content
+                    ):
                         result.append(
                             MarkdownChunk(
                                 content="\n\n".join(current_content),

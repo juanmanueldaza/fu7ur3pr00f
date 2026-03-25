@@ -96,12 +96,15 @@ class HimalayasMCPClient(HTTPMCPClient):
                     "title": job.get("title", ""),
                     "company": job.get("companyName", ""),
                     "company_logo": job.get("companyLogo", ""),
-                    "location": ", ".join(job.get("locationRestrictions", [])) or "Worldwide",
+                    "location": ", ".join(job.get("locationRestrictions", []))
+                    or "Worldwide",
                     "timezone_restrictions": tz_readable,
                     "timezone_raw": tz_raw,
-                    "seniority": ", ".join(job.get("seniority", []))
-                    if job.get("seniority")
-                    else None,
+                    "seniority": (
+                        ", ".join(job.get("seniority", []))
+                        if job.get("seniority")
+                        else None
+                    ),
                     "categories": job.get("categories", []),
                     "parent_categories": job.get("parentCategories", []),
                     "employment_type": job.get("employmentType", ""),
@@ -109,9 +112,9 @@ class HimalayasMCPClient(HTTPMCPClient):
                     "salary_min": min_sal,
                     "salary_max": max_sal,
                     "currency": currency,
-                    "description": (job.get("excerpt", "") or job.get("description", "") or "")[
-                        :500
-                    ],
+                    "description": (
+                        job.get("excerpt", "") or job.get("description", "") or ""
+                    )[:500],
                     "url": job.get("applicationLink", ""),
                     "date_posted": job.get("pubDate", ""),
                     "expiry_date": expiry_date,

@@ -98,7 +98,9 @@ class KnowledgeService:
 
             display_indexing_result(source.value, len(chunk_ids), elapsed)
 
-        logger.info("Indexed %d chunks for %s in %.1fs", len(chunk_ids), source.value, elapsed)
+        logger.info(
+            "Indexed %d chunks for %s in %.1fs", len(chunk_ids), source.value, elapsed
+        )
         return len(chunk_ids)
 
     def index_all(self, verbose: bool = False) -> dict[str, int]:

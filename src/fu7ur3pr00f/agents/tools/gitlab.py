@@ -13,7 +13,10 @@ _RE_FILE_PATH = re.compile(r"^[a-zA-Z0-9._/ -]+$")
 
 
 def _validate_gitlab_input(
-    value: str, name: str, pattern: re.Pattern[str], max_len: int,
+    value: str,
+    name: str,
+    pattern: re.Pattern[str],
+    max_len: int,
 ) -> str | None:
     """Validate a GitLab CLI input. Returns error message or None if valid."""
     if not value or len(value) > max_len:
@@ -30,10 +33,11 @@ def _glab(args: list[str], timeout: int = 30) -> str:
     glab_path = shutil.which("glab")
     if not glab_path:
         return (
-            "GitLab CLI (glab) is not installed. Install it from https://gitlab.com/gitlab-org/cli"
+            "GitLab CLI (glab) is not installed. "
+            "Install it from https://gitlab.com/gitlab-org/cli"
         )
     try:
-        result = subprocess.run(  # nosec B603 — args are validated, glab resolved via which()
+        result = subprocess.run(  # nosec B603
             [glab_path, *args],
             capture_output=True,
             text=True,

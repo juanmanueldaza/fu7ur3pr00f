@@ -57,7 +57,9 @@ def analyze_market_task(state: dict[str, Any]) -> dict[str, Any]:
         return {"error": "No market data available. Run 'market gather' first."}
 
     action = state.get("action", "analyze_market_fit")
-    prompt = prompt_builder.build_market_analysis_prompt(action, career_data, market_context)
+    prompt = prompt_builder.build_market_analysis_prompt(
+        action, career_data, market_context
+    )
 
     return invoke_llm(prompt, get_result_key(action, "market_fit"), "Market analysis")
 

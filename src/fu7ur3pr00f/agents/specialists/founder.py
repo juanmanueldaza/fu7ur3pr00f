@@ -46,9 +46,21 @@ class FounderAgent(BaseAgent):
 
     # Keywords for intent matching
     KEYWORDS = {
-        "startup", "founder", "cofounder", "co-founder", "launch",
-        "product", "entrepreneur", "mvp", "side project", "business idea",
-        "company", "build", "launch", "venture", "seed", "funding",
+        "startup",
+        "founder",
+        "cofounder",
+        "co-founder",
+        "launch",
+        "product",
+        "entrepreneur",
+        "mvp",
+        "side project",
+        "business idea",
+        "company",
+        "build",
+        "venture",
+        "seed",
+        "funding",
     }
 
     def can_handle(self, intent: str) -> bool:
@@ -153,25 +165,31 @@ class FounderAgent(BaseAgent):
             has_problem = "problem" in content_lower or "solve" in content_lower
 
             if has_problem:
-                opportunities.append({
-                    "type": "Existing project",
-                    "description": project.content[:150],
-                    "signals": {
-                        "solves_problem": has_problem,
-                        "has_users": has_users,
-                        "growing": has_growth,
-                    },
-                    "recommendation": "Consider launching" if has_users else "Validate first",
-                })
+                opportunities.append(
+                    {
+                        "type": "Existing project",
+                        "description": project.content[:150],
+                        "signals": {
+                            "solves_problem": has_problem,
+                            "has_users": has_users,
+                            "growing": has_growth,
+                        },
+                        "recommendation": (
+                            "Consider launching" if has_users else "Validate first"
+                        ),
+                    }
+                )
 
         # If no projects, suggest idea validation
         if not opportunities:
-            opportunities.append({
-                "type": "New opportunity",
-                "description": "Look for problems in your daily work",
-                "signals": {"solves_problem": True},
-                "recommendation": "Start by identifying problems you face",
-            })
+            opportunities.append(
+                {
+                    "type": "New opportunity",
+                    "description": "Look for problems in your daily work",
+                    "signals": {"solves_problem": True},
+                    "recommendation": "Start by identifying problems you face",
+                }
+            )
 
         return opportunities
 
@@ -204,10 +222,12 @@ class FounderAgent(BaseAgent):
             content_lower = strength.content.lower()
             for theme, description in entrepreneurial_themes.items():
                 if theme in content_lower:
-                    fit["entrepreneurial_themes"].append({
-                        "theme": theme.title(),
-                        "description": description,
-                    })
+                    fit["entrepreneurial_themes"].append(
+                        {
+                            "theme": theme.title(),
+                            "description": description,
+                        }
+                    )
 
         # Calculate founder fit score
         theme_count = len(fit["entrepreneurial_themes"])
@@ -215,8 +235,12 @@ class FounderAgent(BaseAgent):
 
         # Add recommendations
         if theme_count < 2:
-            fit["gaps"].append("Consider finding co-founder with complementary strengths")
-            fit["recommendations"].append("Partner with someone who has Activator or Ideation")
+            fit["gaps"].append(
+                "Consider finding co-founder with complementary strengths"
+            )
+            fit["recommendations"].append(
+                "Partner with someone who has Activator or Ideation"
+            )
 
         if len(projects) < 2:
             fit["gaps"].append("Build more projects to test ideas quickly")
@@ -233,20 +257,24 @@ class FounderAgent(BaseAgent):
         candidates = []
 
         # Look for complementary skills in network
-        for connection in network[:5]:  # Top 5 connections
-            candidates.append({
-                "name": "Connection from network",
-                "why": "Past collaborator with complementary skills",
-                "approach": "Reach out about specific project idea",
-            })
+        for _connection in network[:5]:  # Top 5 connections
+            candidates.append(
+                {
+                    "name": "Connection from network",
+                    "why": "Past collaborator with complementary skills",
+                    "approach": "Reach out about specific project idea",
+                }
+            )
 
         # If no network data, provide general advice
         if not candidates:
-            candidates.append({
-                "name": "Look in your network",
-                "why": "Past colleagues who left to start companies",
-                "approach": "Attend startup events, reach out to alumni",
-            })
+            candidates.append(
+                {
+                    "name": "Look in your network",
+                    "why": "Past colleagues who left to start companies",
+                    "approach": "Attend startup events, reach out to alumni",
+                }
+            )
 
         return candidates
 
@@ -321,14 +349,14 @@ class FounderAgent(BaseAgent):
         lines.append("### Founder Fit Analysis")
         lines.append(f"**Fit score:** {founder_fit['score']}/100\n")
 
-        if founder_fit['entrepreneurial_themes']:
+        if founder_fit["entrepreneurial_themes"]:
             lines.append("**Your entrepreneurial strengths:**")
-            for theme in founder_fit['entrepreneurial_themes']:
+            for theme in founder_fit["entrepreneurial_themes"]:
                 lines.append(f"- {theme['theme']}: {theme['description']}")
 
-        if founder_fit['gaps']:
+        if founder_fit["gaps"]:
             lines.append("\n**Areas to address:**")
-            for gap in founder_fit['gaps']:
+            for gap in founder_fit["gaps"]:
                 lines.append(f"- {gap}")
 
         # Co-founders
@@ -341,9 +369,9 @@ class FounderAgent(BaseAgent):
         # Launch roadmap
         lines.append("### Launch Roadmap\n")
 
-        for phase, details in roadmap.items():
+        for _phase, details in roadmap.items():
             lines.append(f"**{details['name']}**")
-            for action in details['actions']:
+            for action in details["actions"]:
                 lines.append(f"- {action}")
             lines.append("")
 
@@ -368,7 +396,9 @@ class FounderAgent(BaseAgent):
         lines.append("> Open source business models are viable.")
         lines.append("> Success = impact + freedom, not just exit.\n")
 
-        lines.append("**The best time to start was yesterday. The second best time is now.**")
+        lines.append(
+            "**The best time to start was yesterday. The second best time is now.**"
+        )
 
         return "\n".join(lines)
 

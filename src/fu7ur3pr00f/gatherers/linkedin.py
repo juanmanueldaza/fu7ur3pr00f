@@ -257,7 +257,10 @@ def _parse_projects(rows: list[dict[str, str]]) -> Section | None:
 
 
 def _parse_recommendations(
-    rows: list[dict[str, str]], section_name: str, prefix: str, company_join: str,
+    rows: list[dict[str, str]],
+    section_name: str,
+    prefix: str,
+    company_join: str,
 ) -> Section | None:
     """Parse a recommendations CSV → blockquote section."""
     if not rows:
@@ -270,7 +273,7 @@ def _parse_recommendations(
         attribution = f"{prefix}{name}" if name else ""
         if company:
             attribution += f"{company_join}{company}"
-        lines.append(f'> "{text}" {attribution}'.strip())
+        lines.append(f'> "{text}" {attribution}'.strip())  # noqa: B907
     return Section(section_name, "\n\n".join(lines))
 
 
@@ -482,7 +485,9 @@ def _parse_messages(rows: list[dict[str, str]]) -> Section | None:
 
     for conv_id, messages in conversations.items():
         title = _get(messages[0], "CONVERSATION TITLE", "Conversation Title")
-        header = f"### Conversation: {title}" if title else f"### Conversation {conv_id}"
+        header = (
+            f"### Conversation: {title}" if title else f"### Conversation {conv_id}"
+        )
         msg_lines = [header]
 
         for msg in messages:
@@ -579,7 +584,8 @@ class LinkedInGatherer:
         with zipfile.ZipFile(zip_path, "r") as zf:
             for tier, csv_name, parser, use_variants in _CSV_PARSERS:
                 rows = (
-                    _read_csv_variants(zf, csv_name) if use_variants
+                    _read_csv_variants(zf, csv_name)
+                    if use_variants
                     else _read_csv(zf, csv_name)
                 )
                 result = parser(rows)

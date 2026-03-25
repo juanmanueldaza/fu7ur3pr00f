@@ -143,10 +143,13 @@ class PortfolioFetcher:
         # Resolve hostname and check ALL addresses (IPv4 + IPv6)
         try:
             addrinfo = socket.getaddrinfo(
-                hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM,
+                hostname,
+                None,
+                socket.AF_UNSPEC,
+                socket.SOCK_STREAM,
             )
-        except socket.gaierror:
-            raise ValueError(f"DNS resolution failed for {hostname}")
+        except socket.gaierror as exc:
+            raise ValueError(f"DNS resolution failed for {hostname}") from exc
 
         for _family, _type, _proto, _canonname, sockaddr in addrinfo:
             addr = str(sockaddr[0])
@@ -158,7 +161,9 @@ class PortfolioFetcher:
 
         return addrinfo
 
-    def _get_with_pinning(self, url: str, addrinfo: list[tuple] | None) -> httpx.Response:
+    def _get_with_pinning(
+        self, url: str, addrinfo: list[tuple] | None
+    ) -> httpx.Response:
         """Send GET request with optional DNS pinning."""
         assert self._client is not None
         if addrinfo:

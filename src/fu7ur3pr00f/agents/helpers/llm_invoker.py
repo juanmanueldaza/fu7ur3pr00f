@@ -40,7 +40,9 @@ def invoke_llm(
             model_desc = config.description
             response = model.invoke(prompt)
             content = (
-                response.content if isinstance(response.content, str) else str(response.content)
+                response.content
+                if isinstance(response.content, str)
+                else str(response.content)
             )
             return {result_key: content}
         except Exception as e:

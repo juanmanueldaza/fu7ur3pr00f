@@ -38,7 +38,8 @@ class MCPClientFactory:
     # Lazy-loaded to avoid circular imports
     _clients: dict[str, type[MCPClient]] | None = None
 
-    # Availability checkers registry (OCP: add entries here, no code changes to is_available)
+    # Availability checkers registry (OCP: add entries here, no code changes to
+    # is_available)
     # Maps server type to a callable that returns whether the server is available
     AVAILABILITY_CHECKERS: dict[str, Callable[[], bool]] = {
         # Career data sources (require authentication)

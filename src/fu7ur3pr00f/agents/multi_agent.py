@@ -92,6 +92,9 @@ class MultiAgentSystem:
         if not self._initialized:
             await self.initialize()
 
+        if self.orchestrator is None:
+            raise RuntimeError("Orchestrator not initialized. Call initialize() first.")
+
         if context is None:
             context = {}
 
@@ -152,6 +155,9 @@ class MultiAgentSystem:
         if not self._initialized:
             await self.initialize()
 
+        if self.orchestrator is None:
+            raise RuntimeError("Orchestrator not initialized. Call initialize() first.")
+
         if context is None:
             context = {}
         context["query"] = query
@@ -160,7 +166,7 @@ class MultiAgentSystem:
             agent_names = list(self.orchestrator.specialists.keys())
 
         async def stream_agent(name):
-            agent = self.orchestrator.specialists.get(name)
+            agent = self.orchestrator.specialists.get(name)  # type: ignore[union-attr]
             if agent:
                 response = await agent.process(context)
                 return {"agent": name, "content": response}
@@ -183,7 +189,7 @@ class MultiAgentSystem:
             >>> for agent in agents:
             ...     print(f"{agent['name']}: {agent['description']}")
         """
-        if not self._initialized:
+        if not self._initialized or self.orchestrator is None:
             return []
 
         return self.orchestrator.get_available_agents()

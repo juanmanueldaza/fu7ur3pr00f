@@ -63,9 +63,7 @@ class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
 
     def _truncate(self, texts: list[str]) -> list[str]:
         """Truncate texts that exceed the model's context limit."""
-        return [
-            t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts
-        ]
+        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
 
     def __call__(self, input: Documents) -> Embeddings:
         """Generate embeddings for a list of documents."""
@@ -114,9 +112,7 @@ class OpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
     MAX_CHARS = 15000
 
     def _truncate(self, texts: list[str]) -> list[str]:
-        return [
-            t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts
-        ]
+        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
 
     def __call__(self, input: Documents) -> Embeddings:
         """Generate embeddings for a list of documents."""
@@ -153,9 +149,7 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
         if self._client is None:
             import httpx
 
-            self._client = httpx.Client(
-                base_url=self._base_url, timeout=60.0
-            )
+            self._client = httpx.Client(base_url=self._base_url, timeout=60.0)
             logger.debug("Ollama embedding client initialized")
         return self._client
 
@@ -217,8 +211,8 @@ class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
 
             # Update results and cache
             for idx, doc, emb in zip(
-                uncached_indices, uncached_docs, new_embeddings
-            ):
+                uncached_indices, uncached_docs, new_embeddings, strict=True
+            ):  # noqa: E501
                 results[idx] = emb
 
                 # Add to cache (evict oldest if full)
@@ -267,9 +261,7 @@ def get_embedding_function() -> EmbeddingFunction[Documents]:
                 else settings.openai_api_key
             )
             base_url = (
-                settings.fu7ur3pr00f_proxy_url
-                if provider == "fu7ur3pr00f"
-                else None
+                settings.fu7ur3pr00f_proxy_url if provider == "fu7ur3pr00f" else None
             )
             logger.info("Using %s embeddings", provider)
             base = OpenAIEmbeddingFunction(

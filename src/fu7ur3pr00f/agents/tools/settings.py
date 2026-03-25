@@ -40,21 +40,41 @@ _AGENT_CONFIGURABLE: dict[str, str] = {
 
 # Keys that require an agent restart to take effect.
 _RESTART_KEYS = {
-    "agent_model", "analysis_model", "summary_model", "synthesis_model",
-    "embedding_model", "llm_provider",
+    "agent_model",
+    "analysis_model",
+    "summary_model",
+    "synthesis_model",
+    "embedding_model",
+    "llm_provider",
 }
 
 # Sensitive keys that must go through /setup.
 _SENSITIVE_KEYS = {
-    "fu7ur3pr00f_proxy_key", "openai_api_key", "anthropic_api_key",
-    "google_api_key", "azure_openai_api_key", "azure_openai_endpoint",
+    "fu7ur3pr00f_proxy_key",
+    "openai_api_key",
+    "anthropic_api_key",
+    "google_api_key",
+    "azure_openai_api_key",
+    "azure_openai_endpoint",
     "azure_embedding_deployment",
-    "github_personal_access_token", "github_mcp_token", "tavily_api_key",
-    "portfolio_url", "fu7ur3pr00f_proxy_url", "ollama_base_url",
+    "github_personal_access_token",
+    "github_mcp_token",
+    "tavily_api_key",
+    "portfolio_url",
+    "fu7ur3pr00f_proxy_url",
+    "ollama_base_url",
 }
 
 # Known valid LLM providers.
-_VALID_PROVIDERS = {"fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama", ""}
+_VALID_PROVIDERS = {
+    "fu7ur3pr00f",
+    "openai",
+    "anthropic",
+    "google",
+    "azure",
+    "ollama",
+    "",
+}
 
 
 def _validate_setting_value(key: str, value: str) -> str | None:
@@ -66,8 +86,10 @@ def _validate_setting_value(key: str, value: str) -> str | None:
                 return f"{key} must be between 0.0 and 2.0, got {value}"
 
         elif key in (
-            "market_cache_hours", "job_cache_hours",
-            "content_cache_hours", "forex_cache_hours",
+            "market_cache_hours",
+            "job_cache_hours",
+            "content_cache_hours",
+            "forex_cache_hours",
         ):
             v = int(value)
             if v < 1:
@@ -85,18 +107,18 @@ def _validate_setting_value(key: str, value: str) -> str | None:
 
         elif key in ("jobspy_enabled", "hn_mcp_enabled", "knowledge_auto_index"):
             if value.lower() not in ("true", "false", "1", "0", "yes", "no"):
-                return f"{key} must be true or false, got '{value}'"
+                return f"{key} must be true or false, got {value!r}"
 
         elif key == "llm_provider":
             if value.lower() not in _VALID_PROVIDERS:
                 valid = ", ".join(sorted(_VALID_PROVIDERS - {""}))
                 return (
-                    f"Unknown provider '{value}'. "
+                    f"Unknown provider {value!r}. "
                     f"Valid: {valid} (or empty to auto-detect)"
                 )
 
     except (ValueError, TypeError):
-        return f"Invalid value for {key}: '{value}'"
+        return f"Invalid value for {key}: {value!r}"
 
     return None
 
@@ -131,7 +153,9 @@ def get_current_config() -> str:
         providers.append("google")
     if settings.has_ollama:
         providers.append("ollama")
-    lines.append(f"Configured providers: {', '.join(providers) if providers else 'none'}")
+    lines.append(
+        f"Configured providers: {', '.join(providers) if providers else 'none'}"
+    )
     lines.append("")
 
     # Model routing
@@ -157,8 +181,12 @@ def get_current_config() -> str:
 
     # Integrations
     lines.append("Integrations:")
-    lines.append(f"  GitHub: {'configured' if settings.has_github_mcp else 'not configured'}")
-    lines.append(f"  Tavily: {'configured' if settings.has_tavily_mcp else 'not configured'}")
+    lines.append(
+        f"  GitHub: {'configured' if settings.has_github_mcp else 'not configured'}"
+    )
+    lines.append(
+        f"  Tavily: {'configured' if settings.has_tavily_mcp else 'not configured'}"
+    )
     lines.append("")
 
     # Cache
@@ -204,13 +232,13 @@ def update_setting(key: str, value: str) -> str:
 
     if key in _SENSITIVE_KEYS:
         return (
-            f"'{key}' is a sensitive setting (API key/token). "
+            f"{key!r} is a sensitive setting (API key/token). "
             "Ask the user to run /setup to configure it securely."
         )
 
     if key not in _AGENT_CONFIGURABLE:
         available = ", ".join(sorted(_AGENT_CONFIGURABLE))
-        return f"Unknown setting: '{key}'. Available settings: {available}"
+        return f"Unknown setting: {key!r}. Available settings: {available}"
 
     # Validate value type and range
     error = _validate_setting_value(key, value)

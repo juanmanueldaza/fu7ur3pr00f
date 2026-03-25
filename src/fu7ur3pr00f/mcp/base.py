@@ -94,7 +94,9 @@ class MCPClient(ABC):
         pass
 
     @abstractmethod
-    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> MCPToolResult:
+    async def call_tool(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
         """Call a tool on the MCP server.
 
         Args:

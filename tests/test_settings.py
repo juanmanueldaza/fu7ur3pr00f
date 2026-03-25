@@ -253,9 +253,9 @@ class TestUpdateSettingTool:
         from fu7ur3pr00f.agents.tools.settings import _AGENT_CONFIGURABLE
 
         for key in _AGENT_CONFIGURABLE:
-            assert key in Settings.model_fields, (
-                f"'{key}' in _AGENT_CONFIGURABLE but not in Settings"
-            )
+            assert (
+                key in Settings.model_fields
+            ), f"{key!r} in _AGENT_CONFIGURABLE but not in Settings"
 
     def test_sensitive_keys_not_in_configurable(self) -> None:
         """Ensure no sensitive key accidentally appears in the whitelist."""

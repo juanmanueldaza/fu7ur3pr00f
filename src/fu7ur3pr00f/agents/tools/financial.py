@@ -103,17 +103,13 @@ def compare_salary_ppp(
 
     # Step 2: Get PPP factor for source country
     source_ppp = _financial(
-        "get_ppp_factor", {"country": country},
+        "get_ppp_factor",
+        {"country": country},
     )
-    source_ratio = (
-        source_ppp.get("ppp_ratio")
-        if "error" not in source_ppp
-        else None
-    )
+    source_ratio = source_ppp.get("ppp_ratio") if "error" not in source_ppp else None
 
     parts = [
-        f"**Salary comparison: "
-        f"{currency} {salary:,.0f} ({country})**",
+        f"**Salary comparison: " f"{currency} {salary:,.0f} ({country})**",
         "",
         f"Nominal USD value: **USD {nominal_usd:,.2f}**",
         f"Exchange rate: 1 {currency} = {rate} USD",
@@ -134,58 +130,49 @@ def compare_salary_ppp(
 
     for target in targets:
         target_ppp = _financial(
-            "get_ppp_factor", {"country": target},
+            "get_ppp_factor",
+            {"country": target},
         )
         target_ratio = (
-            target_ppp.get("ppp_ratio")
-            if "error" not in target_ppp
-            else None
+            target_ppp.get("ppp_ratio") if "error" not in target_ppp else None
         )
         if target_ratio is not None:
-            ppp_adjusted = nominal_usd * (
-                target_ratio / source_ratio
-            )
+            ppp_adjusted = nominal_usd * (target_ratio / source_ratio)
             comparisons.append((target, ppp_adjusted))
         else:
             failed.append(target)
 
     if comparisons:
-        parts.extend([
-            "", "**Purchasing power equivalents:**", "",
-        ])
+        parts.extend(
+            [
+                "",
+                "**Purchasing power equivalents:**",
+                "",
+            ]
+        )
 
         # Table header
-        parts.append(
-            "| Country | PPP Equivalent | vs Nominal |"
-        )
-        parts.append(
-            "|---------|---------------|------------|"
-        )
+        parts.append("| Country | PPP Equivalent | vs Nominal |")
+        parts.append("|---------|---------------|------------|")
 
         for target, ppp_adjusted in comparisons:
-            multiplier = (
-                ppp_adjusted / nominal_usd
-                if nominal_usd
-                else 0
-            )
+            multiplier = ppp_adjusted / nominal_usd if nominal_usd else 0
             parts.append(
-                f"| {target} | USD {ppp_adjusted:,.0f} "
-                f"| {multiplier:.1f}x |"
+                f"| {target} | USD {ppp_adjusted:,.0f} " f"| {multiplier:.1f}x |"
             )
 
-        parts.extend([
-            "",
-            f"This means {currency} {salary:,.0f} in "
-            f"{country} buys roughly what "
-            f"USD {comparisons[0][1]:,.0f} buys in "
-            f"{comparisons[0][0]}.",
-            f"(PPP data: {source_year})",
-        ])
+        parts.extend(
+            [
+                "",
+                f"This means {currency} {salary:,.0f} in "
+                f"{country} buys roughly what "
+                f"USD {comparisons[0][1]:,.0f} buys in "
+                f"{comparisons[0][0]}.",
+                f"(PPP data: {source_year})",
+            ]
+        )
 
     if failed:
-        parts.append(
-            f"\nNo PPP data available for: "
-            f"{', '.join(failed)}"
-        )
+        parts.append(f"\nNo PPP data available for: " f"{', '.join(failed)}")
 
     return "\n".join(parts)

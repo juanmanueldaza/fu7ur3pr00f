@@ -12,10 +12,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent, KnowledgeResult
-from fu7ur3pr00f.agents.values import (
-    ValuesContext,
-    apply_values_filter,
-)
+from fu7ur3pr00f.agents.values import ValuesContext, apply_values_filter
 
 
 class JobsAgent(BaseAgent):
@@ -49,9 +46,23 @@ class JobsAgent(BaseAgent):
 
     # Keywords for intent matching
     KEYWORDS = {
-        "jobs", "hiring", "interview", "salary", "compensation", "benefits",
-        "remote", "work from home", "job search", "apply", "resume", "cv",
-        "job boards", "linkedin", "indeed", "glassdoor", "offer",
+        "jobs",
+        "hiring",
+        "interview",
+        "salary",
+        "compensation",
+        "benefits",
+        "remote",
+        "work from home",
+        "job search",
+        "apply",
+        "resume",
+        "cv",
+        "job boards",
+        "linkedin",
+        "indeed",
+        "glassdoor",
+        "offer",
     }
 
     def can_handle(self, intent: str) -> bool:
@@ -150,22 +161,24 @@ class JobsAgent(BaseAgent):
 
         # Mock job results
         if preferences.get("remote"):
-            jobs.extend([
-                {
-                    "title": "Senior Python Developer",
-                    "company": "TechCorp (Remote)",
-                    "salary": "$150k - $200k",
-                    "match": 85,
-                    "values_aligned": True,
-                },
-                {
-                    "title": "Staff Engineer",
-                    "company": "OpenSource Inc (Remote)",
-                    "salary": "$180k - $240k",
-                    "match": 90,
-                    "values_aligned": True,
-                },
-            ])
+            jobs.extend(
+                [
+                    {
+                        "title": "Senior Python Developer",
+                        "company": "TechCorp (Remote)",
+                        "salary": "$150k - $200k",
+                        "match": 85,
+                        "values_aligned": True,
+                    },
+                    {
+                        "title": "Staff Engineer",
+                        "company": "OpenSource Inc (Remote)",
+                        "salary": "$180k - $240k",
+                        "match": 90,
+                        "values_aligned": True,
+                    },
+                ]
+            )
 
         return jobs
 
@@ -215,7 +228,9 @@ class JobsAgent(BaseAgent):
             insights["factors"].append("Strong skill set")
 
         if preferences.get("remote"):
-            insights["factors"].append("Remote positions may have geographic adjustments")
+            insights["factors"].append(
+                "Remote positions may have geographic adjustments"
+            )
 
         insights["negotiation_tips"] = [
             "Research market rates for your level",
@@ -246,7 +261,7 @@ class JobsAgent(BaseAgent):
                 lines.append(f"**{job['title']}** at {job['company']}")
                 lines.append(f"- Salary: {job['salary']}")
                 lines.append(f"- Match: {job['match']}%")
-                if job.get('values_aligned'):
+                if job.get("values_aligned"):
                     lines.append("- ✅ Values-aligned company\n")
                 else:
                     lines.append("- ⚠️ Research company values\n")
@@ -258,22 +273,22 @@ class JobsAgent(BaseAgent):
         lines.append("### Market Fit Analysis")
         lines.append(f"**Fit score:** {market_fit['score']}/100\n")
 
-        if market_fit['in_demand_skills']:
+        if market_fit["in_demand_skills"]:
             lines.append("**In-demand skills you have:**")
-            for skill in market_fit['in_demand_skills']:
+            for skill in market_fit["in_demand_skills"]:
                 lines.append(f"- {skill}")
 
         # Salary insights
         lines.append("\n### Salary Insights")
         lines.append(f"**Estimated range:** {salary['range']}\n")
 
-        if salary['factors']:
+        if salary["factors"]:
             lines.append("**Factors:**")
-            for factor in salary['factors']:
+            for factor in salary["factors"]:
                 lines.append(f"- {factor}")
 
         lines.append("\n**Negotiation tips:**")
-        for tip in salary['negotiation_tips']:
+        for tip in salary["negotiation_tips"]:
             lines.append(f"- {tip}")
 
         # Job search tips
@@ -282,7 +297,9 @@ class JobsAgent(BaseAgent):
         lines.append("2. **Get multiple offers** — Increases negotiating power")
         lines.append("3. **Research thoroughly** — Glassdoor, Blind, network")
         lines.append("4. **Prepare stories** — STAR method for interviews")
-        lines.append("5. **Consider total comp** — Salary + equity + benefits + work-life\n")
+        lines.append(
+            "5. **Consider total comp** — Salary + equity + benefits + work-life\n"
+        )
 
         # Closing
         lines.append("### Remember")

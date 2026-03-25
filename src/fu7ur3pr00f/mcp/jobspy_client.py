@@ -54,7 +54,9 @@ class JobSpyMCPClient(MCPClient):
             "search_jobs_multi_site",
         ]
 
-    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> MCPToolResult:
+    async def call_tool(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
         """Call a job search tool."""
         if not self.is_connected():
             raise MCPToolError("Client not connected")
@@ -63,7 +65,8 @@ class JobSpyMCPClient(MCPClient):
             return MCPToolResult(
                 content=json.dumps(
                     {
-                        "error": "JobSpy not installed. Install with: pip install python-jobspy",
+                        "error": "JobSpy not installed. "
+                        "Install with: pip install python-jobspy",
                         "fallback": "Use Brave Search for job data instead",
                     }
                 ),
@@ -179,7 +182,8 @@ class JobSpyMCPClient(MCPClient):
 
         sites = site_names or ["linkedin", "indeed"]
 
-        # Resolve country for Indeed/Glassdoor/Google (they use country-specific domains)
+        # Resolve country for Indeed/Glassdoor/Google (they use country-specific
+        # domains)
         country = self._resolve_country(location)
 
         # Exclude Glassdoor for unsupported countries (avoids noisy errors)

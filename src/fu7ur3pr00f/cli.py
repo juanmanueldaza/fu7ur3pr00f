@@ -88,7 +88,7 @@ def main(
         console.print("\n[dim]Chat ended.[/dim]")
     except Exception as e:
         console.print(f"[red]Chat error: {e}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":

@@ -139,7 +139,9 @@ class HTTPMCPClient(MCPClient):
             return handler  # type: ignore[return-value]
         return None
 
-    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> MCPToolResult:
+    async def call_tool(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
         """Call a tool with the given arguments.
 
         Handles common error patterns and delegates to _tool_{tool_name} methods.

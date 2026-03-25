@@ -100,14 +100,18 @@ class TestLoadCareerDataForCV:
 class TestCombineCareerData:
     """Test combine_career_data function."""
 
-    def test_combines_all_data_sources(self, sample_career_data: dict[str, str]) -> None:
+    def test_combines_all_data_sources(
+        self, sample_career_data: dict[str, str]
+    ) -> None:
         """Test combines all provided data sources."""
         result = combine_career_data(sample_career_data)
 
         assert "LinkedIn" in result
         assert "Portfolio" in result
 
-    def test_uses_custom_header_prefix(self, sample_career_data: dict[str, str]) -> None:
+    def test_uses_custom_header_prefix(
+        self, sample_career_data: dict[str, str]
+    ) -> None:
         """Test uses custom header prefix."""
         result = combine_career_data(sample_career_data, header_prefix="###")
 

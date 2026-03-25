@@ -1,6 +1,7 @@
 """FutureProof - Career Intelligence System."""
 
-from importlib.metadata import PackageNotFoundError, version as _version  # noqa: I001
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _version  # noqa: I001
 
 try:
     __version__ = _version("fu7ur3pr00f")

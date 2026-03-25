@@ -14,7 +14,8 @@ Usage:
     config = get_agent_config(thread_id="main")
 
     # Stream responses
-    for chunk in agent.stream({"messages": [{"role": "user", "content": "..."}]}, config):
+    msgs = [{"role": "user", "content": "..."}]
+    for chunk in agent.stream({"messages": msgs}, config):
         print(chunk)
 """
 

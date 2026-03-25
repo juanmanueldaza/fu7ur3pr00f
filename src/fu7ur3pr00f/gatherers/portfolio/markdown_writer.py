@@ -167,10 +167,7 @@ class PortfolioMarkdownWriter:
         """Generate sections extracted from HTML."""
         if not content.sections:
             return []
-        return [
-            Section(name.title(), text)
-            for name, text in content.sections.items()
-        ]
+        return [Section(name.title(), text) for name, text in content.sections.items()]
 
     def _fallback_content(
         self,

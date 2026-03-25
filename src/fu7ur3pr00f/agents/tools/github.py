@@ -82,7 +82,7 @@ def _github_http(tool_name: str, args: dict) -> str:
                 response.raise_for_status()
                 return response.text
 
-            return f"GitHub API error: unsupported tool '{tool_name}'."
+            return f"GitHub API error: unsupported tool {tool_name!r}."
     except httpx.HTTPStatusError as exc:
         return f"GitHub API error: {exc.response.status_code} {exc.response.text}"
     except Exception as exc:
@@ -104,7 +104,10 @@ def _save_github_username(username: str) -> None:
 def _github(tool_name: str, args: dict) -> str:
     """Call GitHub MCP via pool, return content or error."""
     result = call_mcp("github", tool_name, args)
-    if isinstance(result, (str, dict)) and get_error_type(result) == MCPErrorType.CONNECTION_ERROR:
+    if (
+        isinstance(result, (str, dict))
+        and get_error_type(result) == MCPErrorType.CONNECTION_ERROR
+    ):
         logger.info("GitHub MCP unavailable, falling back to REST API: %s", result)
         return _github_http(tool_name, args)
     return result if isinstance(result, str) else str(result)
@@ -112,7 +115,8 @@ def _github(tool_name: str, args: dict) -> str:
 
 @tool
 def search_github_repos(
-    query: str, per_page: int = 10,
+    query: str,
+    per_page: int = 10,
 ) -> str:
     """Search GitHub repositories by name, description, or topic.
 
@@ -135,7 +139,9 @@ def search_github_repos(
 
 @tool
 def get_github_repo(
-    owner: str, repo: str, path: str = "",
+    owner: str,
+    repo: str,
+    path: str = "",
 ) -> str:
     """Get contents of a GitHub repository or file/directory.
 
@@ -201,7 +207,4 @@ def get_github_profile(include_repos: bool = False) -> str:
     if repos_content.startswith("GitHub"):
         return profile_content  # Repos failed, return profile
 
-    return (
-        profile_content
-        + f"\n\n## Recent Repositories\n{repos_content}"
-    )
+    return profile_content + f"\n\n## Recent Repositories\n{repos_content}"

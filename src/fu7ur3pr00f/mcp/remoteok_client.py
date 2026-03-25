@@ -61,7 +61,8 @@ class RemoteOKMCPClient(HTTPMCPClient):
             for job in jobs_raw:
                 job_tags = [t.lower() for t in job.get("tags", [])]
                 if any(
-                    tag in job_tags or tag in job.get("position", "").lower() for tag in tags_lower
+                    tag in job_tags or tag in job.get("position", "").lower()
+                    for tag in tags_lower
                 ):
                     filtered.append(job)
             jobs_raw = filtered

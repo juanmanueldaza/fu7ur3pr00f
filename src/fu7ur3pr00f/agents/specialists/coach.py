@@ -15,10 +15,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent, KnowledgeResult
-from fu7ur3pr00f.agents.values import (
-    ValuesContext,
-    apply_values_filter,
-)
+from fu7ur3pr00f.agents.values import ValuesContext, apply_values_filter
 
 
 class CoachAgent(BaseAgent):
@@ -237,23 +234,24 @@ class CoachAgent(BaseAgent):
         leadership_themes = self._identify_leadership_themes(strengths)
 
         # Assess against typical promotion criteria
-        readiness = {
+        years_ready = years >= 5
+        themes_ready = len(leadership_themes) >= 3
+        impact_ready = self._count_impact_examples(experience) >= 3
+        goals_aligned = self._goals_aligned_with_promotion(goals)
+        readiness: dict[str, object] = {
             "years_experience": years,
-            "years_ready": years >= 5,  # Typical for Senior → Staff
+            "years_ready": years_ready,
             "leadership_themes": leadership_themes,
-            "themes_ready": len(leadership_themes) >= 3,
+            "themes_ready": themes_ready,
             "impact_examples": self._count_impact_examples(experience),
-            "impact_ready": self._count_impact_examples(experience) >= 3,
-            "goals_aligned": self._goals_aligned_with_promotion(goals),
+            "impact_ready": impact_ready,
+            "goals_aligned": goals_aligned,
         }
 
         # Overall readiness score
-        readiness["score"] = sum([
-            readiness["years_ready"],
-            readiness["themes_ready"],
-            readiness["impact_ready"],
-            readiness["goals_aligned"],
-        ]) / 4 * 100
+        readiness["score"] = (
+            sum([years_ready, themes_ready, impact_ready, goals_aligned]) / 4 * 100
+        )
 
         return readiness
 
@@ -270,7 +268,9 @@ class CoachAgent(BaseAgent):
         # In production, would parse actual dates
         return max(len(experience) * 2, 0)
 
-    def _identify_leadership_themes(self, strengths: list[KnowledgeResult]) -> list[str]:
+    def _identify_leadership_themes(
+        self, strengths: list[KnowledgeResult]
+    ) -> list[str]:
         """Identify leadership-related CliftonStrengths themes.
 
         Args:
@@ -282,14 +282,29 @@ class CoachAgent(BaseAgent):
         Leadership themes include:
         - Influencing: Activator, Command, Communication, Competition, Maximizer,
           Self-Assurance, Significance, Woo
-        - Relationship Building: Developer, Empathy, Harmony, Includer, Positivity, Relator
+        - Relationship Building: Developer, Empathy, Harmony,
+          Includer, Positivity, Relator
         - Strategic Thinking: Ideation, Input, Intellection, Strategic
         """
         leadership_themes = {
-            "activator", "command", "communication", "competition",
-            "maximizer", "self-assurance", "significance", "woo",
-            "developer", "empathy", "harmony", "includer", "positivity", "relator",
-            "ideation", "input", "intellection", "strategic",
+            "activator",
+            "command",
+            "communication",
+            "competition",
+            "maximizer",
+            "self-assurance",
+            "significance",
+            "woo",
+            "developer",
+            "empathy",
+            "harmony",
+            "includer",
+            "positivity",
+            "relator",
+            "ideation",
+            "input",
+            "intellection",
+            "strategic",
         }
 
         found_themes = []
@@ -311,9 +326,20 @@ class CoachAgent(BaseAgent):
             Number of impact examples (metrics, percentages, etc.)
         """
         impact_keywords = {
-            "improved", "increased", "decreased", "reduced",
-            "%", "percent", "x", "led", "architected", "designed",
-            "mentored", "coached", "managed", "directed",
+            "improved",
+            "increased",
+            "decreased",
+            "reduced",
+            "%",
+            "percent",
+            "x",
+            "led",
+            "architected",
+            "designed",
+            "mentored",
+            "coached",
+            "managed",
+            "directed",
         }
 
         count = 0
@@ -334,8 +360,15 @@ class CoachAgent(BaseAgent):
             True if goals mention promotion, leadership, or growth
         """
         promotion_keywords = {
-            "staff", "principal", "lead", "manager", "director",
-            "promot", "growth", "leadership", "senior",
+            "staff",
+            "principal",
+            "lead",
+            "manager",
+            "director",
+            "promot",
+            "growth",
+            "leadership",
+            "senior",
         }
 
         for goal in goals:
@@ -359,54 +392,68 @@ class CoachAgent(BaseAgent):
         Returns:
             Development plan with actions and timeline
         """
-        plan = {
-            "actions": [],
+        actions: list[dict[str, str]] = []
+        focus_areas: list[str] = []
+        plan: dict[str, object] = {
+            "actions": actions,
             "timeline_months": 6,
-            "focus_areas": [],
+            "focus_areas": focus_areas,
         }
 
         # Identify gaps
         if not readiness["years_ready"]:
-            plan["focus_areas"].append("Gain more experience")
-            plan["actions"].append({
-                "action": "Document impact and achievements",
-                "timeline": "Ongoing",
-                "priority": "High",
-            })
+            focus_areas.append("Gain more experience")
+            actions.append(
+                {
+                    "action": "Document impact and achievements",
+                    "timeline": "Ongoing",
+                    "priority": "High",
+                }
+            )
 
         if not readiness["themes_ready"]:
-            plan["focus_areas"].append("Develop leadership strengths")
-            plan["actions"].append({
-                "action": "Take on mentorship responsibilities",
-                "timeline": "1-3 months",
-                "priority": "High",
-            })
-            plan["actions"].append({
-                "action": "Lead a cross-team initiative",
-                "timeline": "3-6 months",
-                "priority": "Medium",
-            })
+            focus_areas.append("Develop leadership strengths")
+            actions.append(
+                {
+                    "action": "Take on mentorship responsibilities",
+                    "timeline": "1-3 months",
+                    "priority": "High",
+                }
+            )
+            actions.append(
+                {
+                    "action": "Lead a cross-team initiative",
+                    "timeline": "3-6 months",
+                    "priority": "Medium",
+                }
+            )
 
         if not readiness["impact_ready"]:
-            plan["focus_areas"].append("Increase visible impact")
-            plan["actions"].append({
-                "action": "Quantify your achievements with metrics",
-                "timeline": "1 month",
-                "priority": "High",
-            })
-            plan["actions"].append({
-                "action": "Share work through talks, blogs, or documentation",
-                "timeline": "2-4 months",
-                "priority": "Medium",
-            })
+            focus_areas.append("Increase visible impact")
+            actions.append(
+                {
+                    "action": "Quantify your achievements with metrics",
+                    "timeline": "1 month",
+                    "priority": "High",
+                }
+            )
+            actions.append(
+                {
+                    "action": "Share work through talks, blogs, or documentation",
+                    "timeline": "2-4 months",
+                    "priority": "Medium",
+                }
+            )
 
         if not readiness["goals_aligned"]:
-            plan["focus_areas"].append("Clarify career goals")
-            plan["actions"].append({
-                "action": "Discuss career path with manager",
-                "timeline": "1 month",
-                "priority": "High",
-            })
+            focus_areas.append("Clarify career goals")
+            actions.append(
+                {
+                    "action": "Discuss career path with manager",
+                    "timeline": "1 month",
+                    "priority": "High",
+                }
+            )
 
         return plan
 
@@ -486,7 +533,9 @@ class CoachAgent(BaseAgent):
         lines.append("1. Review this plan with your manager")
         lines.append("2. Pick 1-2 high-priority actions to start")
         lines.append("3. Track your progress and celebrate wins")
-        lines.append("\nRemember: Leadership is service. Use strengths to help others succeed.")
+        lines.append(
+            "\nRemember: Leadership is service. Use strengths to help others succeed."
+        )
 
         return "\n".join(lines)
 

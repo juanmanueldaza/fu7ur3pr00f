@@ -8,7 +8,7 @@ This base class extracts that shared pattern.
 import logging
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .embeddings import get_embedding_function
 
@@ -81,7 +81,10 @@ class ChromaDBStore:
         metadatas: list[dict[str, Any]],
     ) -> None:
         """Add documents to the collection."""
-        self.collection.add(ids=ids, documents=documents, metadatas=metadatas)  # type: ignore[arg-type]
+        from chromadb.api.types import Metadata  # type: ignore[import-not-found]
+
+        metas = cast(list[Metadata], metadatas)
+        self.collection.add(ids=ids, documents=documents, metadatas=metas)
 
     def _query(
         self,

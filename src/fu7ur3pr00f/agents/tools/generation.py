@@ -28,7 +28,7 @@ def generate_cv(
     """
     # TODO: Pass target_role through to GenerationService for CV tailoring
     # Human-in-the-loop: confirm before generating
-    role_note = f" for '{target_role}'" if target_role else ""
+    role_note = f" for {target_role!r}" if target_role else ""
     lang_name = "English" if language == "en" else "Spanish"
     approved = interrupt(
         {

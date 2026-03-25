@@ -95,7 +95,9 @@ class HTMLExtractor:
                     elif isinstance(data, dict):
                         # Also handle @graph inside a dict
                         if "@graph" in data and isinstance(data["@graph"], list):
-                            results.extend(d for d in data["@graph"] if isinstance(d, dict))
+                            results.extend(
+                                d for d in data["@graph"] if isinstance(d, dict)
+                            )
                         else:
                             results.append(data)
             except (json.JSONDecodeError, TypeError) as e:
@@ -170,10 +172,12 @@ class HTMLExtractor:
         sections: dict[str, str] = {}
         for pattern in self.SECTION_PATTERNS:
             # Try finding by id first
-            section = soup.find(id=lambda x: bool(x and pattern in str(x).lower()))
+            section = soup.find(id=lambda x, p=pattern: bool(x and p in str(x).lower()))
             # If not found, try by class
             if not section:
-                section = soup.find(class_=lambda x: bool(x and pattern in str(x).lower()))
+                section = soup.find(
+                    class_=lambda x, p=pattern: bool(x and p in str(x).lower())
+                )
             if section:
                 text = section.get_text(separator=" ", strip=True)
                 if text:

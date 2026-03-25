@@ -141,9 +141,7 @@ class FinancialMCPClient(HTTPMCPClient):
         """List available tools."""
         return ["convert_currency", "get_ppp_factor"]
 
-    async def _tool_convert_currency(
-        self, args: dict[str, Any]
-    ) -> MCPToolResult:
+    async def _tool_convert_currency(self, args: dict[str, Any]) -> MCPToolResult:
         """Convert between currencies using real-time rates."""
         amount = float(args.get("amount", 1))
         from_cur = args.get("from_currency", "USD").upper()
@@ -172,7 +170,7 @@ class FinancialMCPClient(HTTPMCPClient):
         rates = data.get("rates", {})
         if to_cur not in rates:
             return self._format_response(
-                {"error": f"Currency '{to_cur}' not supported"},
+                {"error": f"Currency {to_cur!r} not supported"},
                 data,
                 "convert_currency",
             )
@@ -190,9 +188,7 @@ class FinancialMCPClient(HTTPMCPClient):
         }
         return self._format_response(output, data, "convert_currency")
 
-    async def _tool_get_ppp_factor(
-        self, args: dict[str, Any]
-    ) -> MCPToolResult:
+    async def _tool_get_ppp_factor(self, args: dict[str, Any]) -> MCPToolResult:
         """Get PPP conversion factor for a country."""
         country = args.get("country", "")
         code = resolve_country_code(country)
@@ -208,17 +204,13 @@ class FinancialMCPClient(HTTPMCPClient):
                 "country_code": code,
                 "ppp_ratio": ppp_ratio,
                 "year": year,
-                "interpretation": (
-                    f"Price level is {ppp_ratio * 100:.1f}% of the US"
-                ),
+                "interpretation": (f"Price level is {ppp_ratio * 100:.1f}% of the US"),
             }
             return self._format_response(output, {}, "get_ppp_factor")
 
         client = self._ensure_client()
         url = f"{self.PPP_URL}/{code}/indicator/{self.PPP_INDICATOR}"
-        response = await client.get(
-            url, params={"format": "json", "per_page": 5}
-        )
+        response = await client.get(url, params={"format": "json", "per_page": 5})
         response.raise_for_status()
         data = response.json()
 
@@ -226,8 +218,8 @@ class FinancialMCPClient(HTTPMCPClient):
         entries = data[1] if len(data) > 1 and data[1] else []
 
         # Find most recent non-null value
-        ppp_ratio = None
-        year = None
+        ppp_ratio = None  # type: ignore[assignment]
+        year = None  # type: ignore[assignment]
         for entry in entries:
             if entry.get("value") is not None:
                 ppp_ratio = entry["value"]
@@ -251,9 +243,7 @@ class FinancialMCPClient(HTTPMCPClient):
                 "country_code": code,
                 "ppp_ratio": ppp_ratio,
                 "year": year,
-                "interpretation": (
-                    f"Price level is {ppp_ratio * 100:.1f}% of the US"
-                ),
+                "interpretation": (f"Price level is {ppp_ratio * 100:.1f}% of the US"),
             }
 
         return self._format_response(output, data, "get_ppp_factor")

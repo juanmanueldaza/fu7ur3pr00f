@@ -45,7 +45,8 @@ class PromptBuilder:
             return load_prompt(name).format(career_data=safe_data)
 
         # Default: full analysis
-        return f"{load_prompt('analyze_career')}\n\n<career_data>\n{safe_data}\n</career_data>"
+        prompt = load_prompt("analyze_career")
+        return f"{prompt}\n\n" f"<career_data>\n{safe_data}\n</career_data>"
 
     def build_market_context(self, state: dict[str, Any]) -> str:
         """Build market context string from state.
@@ -76,7 +77,9 @@ class PromptBuilder:
 
         return "\n\n".join(parts)
 
-    def build_market_analysis_prompt(self, action: str, career_data: str, market_data: str) -> str:
+    def build_market_analysis_prompt(
+        self, action: str, career_data: str, market_data: str
+    ) -> str:
         """Build market analysis prompt.
 
         Args:
@@ -108,7 +111,8 @@ class PromptBuilder:
         """
         safe_data = sanitize_for_prompt(career_data)
         if market_context:
-            safe_data = f"{safe_data}\n\n## Market Context\n{sanitize_for_prompt(market_context)}"
+            market = sanitize_for_prompt(market_context)
+            safe_data = f"{safe_data}\n\n## Market Context\n{market}"
 
         return f"""{load_prompt("strategic_advice")}
 
@@ -121,7 +125,9 @@ CAREER DATA:
 
 Provide strategic, actionable advice for achieving the target goal."""
 
-    def enrich_with_market_context(self, career_data: str, state: dict[str, Any]) -> str:
+    def enrich_with_market_context(
+        self, career_data: str, state: dict[str, Any]
+    ) -> str:
         """Add market context to career data if available.
 
         Args:

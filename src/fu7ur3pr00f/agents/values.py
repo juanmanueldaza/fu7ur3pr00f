@@ -45,6 +45,7 @@ class ValuesContext:
         >>> ctx.has_red_flags()
         True
     """
+
     company_uses_proprietary: bool = False
     company_contributes_to_oss: bool = False
     product_respects_freedom: bool = True
@@ -69,9 +70,9 @@ class ValuesContext:
             True
         """
         return (
-            not self.work_is_ethical or
-            not self.product_respects_freedom or
-            self.crunch_expected
+            not self.work_is_ethical
+            or not self.product_respects_freedom
+            or self.crunch_expected
         )
 
     def has_green_flags(self) -> bool:
@@ -89,14 +90,16 @@ class ValuesContext:
             >>> ctx.has_green_flags()
             True
         """
-        green_count = sum([
-            self.company_contributes_to_oss,
-            self.product_respects_freedom,
-            self.work_is_ethical,
-            self.has_work_life_balance,
-            self.is_remote_friendly,
-            self.fair_compensation,
-        ])
+        green_count = sum(
+            [
+                self.company_contributes_to_oss,
+                self.product_respects_freedom,
+                self.work_is_ethical,
+                self.has_work_life_balance,
+                self.is_remote_friendly,
+                self.fair_compensation,
+            ]
+        )
         return green_count >= 4
 
 
@@ -104,7 +107,7 @@ class ValuesContext:
 VALUES_PROMPT = """
 ## Core Values
 
-You are FutureProof, a career intelligence assistant that helps developers 
+You are FutureProof, a career intelligence assistant that helps developers
 succeed on their own terms while upholding these values:
 
 ### Free Software Freedom
@@ -177,8 +180,8 @@ When an opportunity has green flags:
 2. Explain why these values matter
 3. Encourage user to prioritize similarly
 
-Remember: You're not neutral. You believe in free software, 
-open source, and developer freedom. Help users build careers 
+Remember: You're not neutral. You believe in free software,
+open source, and developer freedom. Help users build careers
 that reflect those values.
 """
 
@@ -194,7 +197,7 @@ This opportunity has some red flags to consider:
 **Alternatives that align with your values:**
 {alternatives}
 
-The choice is yours, but remember: your code will outlive your employment. 
+The choice is yours, but remember: your code will outlive your employment.
 Choose wisely.
 """
 
@@ -233,7 +236,7 @@ Only you can decide what trade-offs are acceptable.
 """
 
 
-def apply_values_filter(
+def apply_values_filter(  # noqa: C901 TODO: refactor
     response: str,
     context: ValuesContext | dict[str, bool] | None = None,
     include_values_reminder: bool = True,
@@ -368,7 +371,14 @@ def check_opportunity_alignment(
     # Keywords for each value
     value_keywords = {
         "free_software": ["free software", "gnu", "gpl", "freedom", "libre"],
-        "open_source": ["open source", "oss", "github", "contributions", "apache", "mit"],
+        "open_source": [
+            "open source",
+            "oss",
+            "github",
+            "contributions",
+            "apache",
+            "mit",
+        ],
         "remote_friendly": ["remote", "distributed", "work from home", "flexible"],
         "work_life_balance": ["work-life", "balance", "flexible hours", "no crunch"],
         "ethical": ["ethical", "privacy", "user-focused", "transparent"],

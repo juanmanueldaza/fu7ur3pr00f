@@ -63,7 +63,9 @@ class TestInvokeLLMFallback:
 
     @patch(_PATCH_GET_FALLBACK)
     @patch(_PATCH_GET_MODEL)
-    def test_no_fallback_on_non_recoverable_error(self, mock_get_model, mock_get_manager):
+    def test_no_fallback_on_non_recoverable_error(
+        self, mock_get_model, mock_get_manager
+    ):
         model = MagicMock()
         model.invoke.side_effect = ValueError("invalid prompt")
         mock_get_model.return_value = (model, _make_config("gpt-4.1"))
@@ -89,7 +91,7 @@ class TestInvokeLLMFallback:
             models.append(m)
             configs.append(_make_config(name))
 
-        mock_get_model.side_effect = list(zip(models, configs))
+        mock_get_model.side_effect = list(zip(models, configs, strict=True))
 
         manager = MagicMock()
         # First 3 calls return True (fallback available), last returns False

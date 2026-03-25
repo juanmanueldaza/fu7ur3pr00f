@@ -9,7 +9,7 @@ import os
 import re
 from collections.abc import Generator
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 
 def anonymize_career_data(data: str, preserve_professional_emails: bool = False) -> str:
@@ -34,23 +34,29 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
         # Replace local part but keep domain for professional emails
         # e.g., john.doe@company.com -> [USER]@company.com
         result = re.sub(
-            r"\b([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b", r"[USER]@\2", result
+            r"\b([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b",
+            r"[USER]@\2",
+            result,
         )
     else:
         # Full email anonymization
-        result = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", result)
+        result = re.sub(
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", result
+        )
 
     # Phone numbers
     result = re.sub(
         r"\+?1?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b", "[PHONE]", result
     )
     result = re.sub(
-        r"\+?[0-9]{1,3}[-.\s]?[0-9]{2,4}[-.\s]?[0-9]{2,4}[-.\s]?[0-9]{2,4}\b", "[PHONE]", result
+        r"\+?[0-9]{1,3}[-.\s]?[0-9]{2,4}[-.\s]?[0-9]{2,4}[-.\s]?[0-9]{2,4}\b",
+        "[PHONE]",
+        result,
     )
 
     # Physical addresses with apartment/unit numbers (likely personal addresses)
     result = re.sub(
-        r"\b\d{1,5}\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl)\.?(?:\s*,?\s*(?:Apt|Suite|Unit|#)\.?\s*\w+)\b",
+        r"\b\d{1,5}\s+[\w\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl)\.?(?:\s*,?\s*(?:Apt|Suite|Unit|#)\.?\s*\w+)\b",  # noqa: E501
         "[HOME_ADDRESS]",
         result,
         flags=re.IGNORECASE,
@@ -58,7 +64,7 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
 
     # Social media profile URLs with usernames (preserve platform name)
     result = re.sub(
-        r"(https?://(?:www\.)?(?:linkedin|github|gitlab|twitter|x)\.com/(?:in/)?)[a-zA-Z0-9._-]+",
+        r"(https?://(?:www\.)?(?:linkedin|github|gitlab|twitter|x)\.com/(?:in/)?)[a-zA-Z0-9._-]+",  # noqa: E501
         r"\1[USERNAME]",
         result,
         flags=re.IGNORECASE,
@@ -67,7 +73,8 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
     # SSN (US Social Security Number) — dashed, spaced, or contiguous
     result = re.sub(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "[SSN]", result)
 
-    # Date of birth (only labeled — bare dates preserved as they may be employment dates)
+    # Date of birth (only labeled — bare dates preserved as they may be employment
+    # dates)
     # Captures: "DOB: 1990-01-15", "Date of Birth: January 1, 1990", "Born: 01/15/1990"
     result = re.sub(
         r"\b(?:DOB|Date of Birth|Born|Birthday)[:\s]+\S+(?:[,\s]+\d{1,2}[,\s]+\d{4})?",
@@ -80,7 +87,7 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
     # double-matching addresses already caught by the apt/unit pattern above)
     result = re.sub(
         r"\b\d{1,5}\s+[\w\s]{1,40}"
-        r"(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl)"
+        r"(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl)"  # noqa: E501
         r"\.?(?!\s*,?\s*(?:Apt|Suite|Unit|#))",
         "[ADDRESS]",
         result,
@@ -92,8 +99,11 @@ def anonymize_career_data(data: str, preserve_professional_emails: bool = False)
 
 @contextlib.contextmanager
 def secure_open(
-    path: str | Path, mode: str = "w", *, file_mode: int = 0o600,
-) -> Generator[IO[str]]:
+    path: str | Path,
+    mode: str = "w",
+    *,
+    file_mode: int = 0o600,
+) -> Generator[IO[Any]]:
     """Open file for writing with atomic restrictive permissions.
 
     Uses ``os.open()`` so the file is *never* world-readable, even for a

@@ -15,7 +15,7 @@ def _parse_source(source: str):
         return KnowledgeSource(source)
     except ValueError:
         valid = ", ".join(s.value for s in KnowledgeSource)
-        return f"Invalid source '{source}'. Valid sources: {valid}"
+        return f"Invalid source {source!r}. Valid sources: {valid}"
 
 
 @tool
@@ -55,17 +55,20 @@ def search_career_knowledge(
 
     service = KnowledgeService()
     results = service.search(
-        query, limit=limit, sources=sources, section=section,
+        query,
+        limit=limit,
+        sources=sources,
+        section=section,
         include_social=include_social,
     )
 
     if not results:
         return (
-            f"No results found for '{query}'. "
+            f"No results found for {query!r}. "
             "Try a different query or check if career data has been indexed."
         )
 
-    result_parts = [f"Found {len(results)} relevant results for '{query}':"]
+    result_parts = [f"Found {len(results)} relevant results for {query!r}:"]
     result_parts.append("<search_results>")
     for i, result in enumerate(results, 1):
         source = result.get("source", "unknown")
@@ -77,9 +80,7 @@ def search_career_knowledge(
 
     output = "\n".join(result_parts)
     if len(output) > 8000:
-        output = output[:8000] + (
-            f"\n\n... (truncated, {len(output)} chars total)"
-        )
+        output = output[:8000] + (f"\n\n... (truncated, {len(output)} chars total)")
     return output
 
 
@@ -131,8 +132,8 @@ def index_career_knowledge(source: str = "") -> str:
             return ks
         count = results.get(ks.value, 0)
         if count > 0:
-            return f"'{source}' has {count} chunks indexed in the knowledge base."
-        return f"No data indexed for '{source}'. Gather the data first."
+            return f"{source!r} has {count} chunks indexed in the knowledge base."
+        return f"No data indexed for {source!r}. Gather the data first."
     else:
         total = sum(results.values())
         indexed = sum(1 for c in results.values() if c > 0)
@@ -153,7 +154,7 @@ def clear_career_knowledge(source: str = "") -> str:
 
     Use this to remove outdated indexed data before re-indexing.
     """
-    target = f"'{source}'" if source else "all"
+    target = f"{source!r}" if source else "all"
     approved = interrupt(
         {
             "question": f"Clear {target} indexed career data?",
@@ -173,7 +174,7 @@ def clear_career_knowledge(source: str = "") -> str:
         if isinstance(ks, str):
             return ks
         deleted = service.clear_source(ks)
-        return f"Cleared {deleted} chunks for '{source}' from the knowledge base."
+        return f"Cleared {deleted} chunks for {source!r} from the knowledge base."
     else:
         total_deleted = service.clear_all()
         return f"Cleared {total_deleted} chunks from the knowledge base."

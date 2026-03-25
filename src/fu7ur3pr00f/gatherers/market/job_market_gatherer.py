@@ -74,7 +74,7 @@ class JobMarketGatherer(MarketGatherer):
             "errors": [],
         }
 
-        logger.info(f"Gathering job market data for '{role}' in '{location}'")
+        logger.info(f"Gathering job market data for {role!r} in {location!r}")
 
         # Iterate over configured sources (OCP: no modification needed to add sources)
         for source_config in JOB_SOURCE_REGISTRY:
@@ -106,7 +106,8 @@ class JobMarketGatherer(MarketGatherer):
         results["summary"]["remote_positions"] = sum(
             1
             for j in results["job_listings"]
-            if "remote" in str(j.get("location", "")).lower() or j.get("is_remote", False)
+            if "remote" in str(j.get("location", "")).lower()
+            or j.get("is_remote", False)
         )
 
         # Gather salary data (special handling for different response format)
@@ -124,4 +125,3 @@ class JobMarketGatherer(MarketGatherer):
                 results["salary_data"] = salary_results
 
         return results
-

@@ -35,10 +35,10 @@ class WeWorkRemotelyMCPClient(HTTPMCPClient):
 
     # RSS feeds by category
     RSS_FEEDS = {
-        "programming": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
+        "programming": "https://weworkremotely.com/categories/remote-programming-jobs.rss",  # noqa: E501
         "design": "https://weworkremotely.com/categories/remote-design-jobs.rss",
-        "devops": "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss",
-        "management": "https://weworkremotely.com/categories/remote-management-jobs.rss",
+        "devops": "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss",  # noqa: E501
+        "management": "https://weworkremotely.com/categories/remote-management-jobs.rss",  # noqa: E501
         "all": "https://weworkremotely.com/remote-jobs.rss",
     }
 

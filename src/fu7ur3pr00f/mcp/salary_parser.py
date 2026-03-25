@@ -45,18 +45,18 @@ def parse_salary(text: str) -> ParsedSalary | None:
     patterns = [
         # Range with currency and period: "$65.00 - $70.00 per hour"
         (
-            r"[\$€£](?P<min>[\d,]+(?:\.\d+)?)\s*[-–to]+\s*[\$€£]?(?P<max>[\d,]+(?:\.\d+)?)"
+            r"[\$€£](?P<min>[\d,]+(?:\.\d+)?)\s*[-–to]+\s*[\$€£]?(?P<max>[\d,]+(?:\.\d+)?)"  # noqa: E501
             r"\s*(?:per\s+)?(?P<period>hour|hr|year|yr|month|mo|annually|annual)",
             "range_with_period",
         ),
         # Range without period: "$120,000 - $150,000"
         (
-            r"[\$€£](?P<min>[\d,]+(?:\.\d+)?)\s*[-–to]+\s*[\$€£]?(?P<max>[\d,]+(?:\.\d+)?)",
+            r"[\$€£](?P<min>[\d,]+(?:\.\d+)?)\s*[-–to]+\s*[\$€£]?(?P<max>[\d,]+(?:\.\d+)?)",  # noqa: E501
             "range_no_period",
         ),
         # Single value with period: "$70304/year" or "$50/hour"
         (
-            r"[\$€£](?P<min>[\d,]+(?:\.\d+)?)\s*[/]?\s*(?P<period>hour|hr|year|yr|month|mo|annually)",
+            r"[\$€£](?P<min>[\d,]+(?:\.\d+)?)\s*[/]?\s*(?P<period>hour|hr|year|yr|month|mo|annually)",  # noqa: E501
             "single_with_period",
         ),
         # K notation range: "120k - 150k" or "$120K-$150K"

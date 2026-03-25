@@ -28,7 +28,9 @@ def _check_llm() -> bool:
     configured = [p for p in providers if settings.is_provider_configured(p)]
     active = settings.active_provider or "none"
     _print_result("LLM provider active", bool(settings.active_provider), active)
-    _print_result("LLM providers configured", bool(configured), ", ".join(configured) or "none")
+    _print_result(
+        "LLM providers configured", bool(configured), ", ".join(configured) or "none"
+    )
     return bool(settings.active_provider)
 
 

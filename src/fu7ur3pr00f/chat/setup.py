@@ -128,10 +128,12 @@ def display_config_status(console: Console) -> None:
     provider = settings.active_provider
     if provider:
         pname = _PROVIDERS.get(provider, {}).get("name", provider)
-        lines.append(Text.assemble(
-            ("Active provider: ", "#e0d8c0"),
-            (pname, "bold #10b981"),
-        ))
+        lines.append(
+            Text.assemble(
+                ("Active provider: ", "#e0d8c0"),
+                (pname, "bold #10b981"),
+            )
+        )
     else:
         lines.append(Text("No LLM provider configured", style="bold #ff6b6b"))
     lines.append(Text(""))
@@ -142,22 +144,26 @@ def display_config_status(console: Console) -> None:
         info = _PROVIDERS[pid]
         locked = pid in _LOCKED_PROVIDERS
         if locked:
-            lines.append(Text.assemble(
-                ("  \u2014 ", "#555555"),
-                (info["name"], "#555555"),
-                (f" — {info['description']}", "#555555"),
-            ))
+            lines.append(
+                Text.assemble(
+                    ("  \u2014 ", "#555555"),
+                    (info["name"], "#555555"),
+                    (f" — {info['description']}", "#555555"),
+                )
+            )
             continue
         configured = _provider_status(pid)
         icon = "\u2714" if configured else "\u2718"
         color = "#10b981" if configured else "#ff6b6b"
         active = " (active)" if pid == provider else ""
-        lines.append(Text.assemble(
-            (f"  {icon} ", color),
-            (info["name"], "#e0d8c0"),
-            (f" — {info['description']}", "#415a77"),
-            (active, "bold #ffd700"),
-        ))
+        lines.append(
+            Text.assemble(
+                (f"  {icon} ", color),
+                (info["name"], "#e0d8c0"),
+                (f" — {info['description']}", "#415a77"),
+                (active, "bold #ffd700"),
+            )
+        )
 
     lines.append(Text(""))
 
@@ -168,20 +174,24 @@ def display_config_status(console: Console) -> None:
         configured = _integration_status(iid)
         icon = "\u2714" if configured else "\u2718"
         color = "#10b981" if configured else "#ff6b6b"
-        lines.append(Text.assemble(
-            (f"  {icon} ", color),
-            (info["name"], "#e0d8c0"),
-            (f" — {info['description']}", "#415a77"),
-        ))
+        lines.append(
+            Text.assemble(
+                (f"  {icon} ", color),
+                (info["name"], "#e0d8c0"),
+                (f" — {info['description']}", "#415a77"),
+            )
+        )
 
     content = Text("\n").join(lines)
-    console.print(Panel(
-        content,
-        title="[bold #ffd700]Configuration[/bold #ffd700]",
-        border_style="#ffd700",
-        box=box.ROUNDED,
-        padding=(1, 2),
-    ))
+    console.print(
+        Panel(
+            content,
+            title="[bold #ffd700]Configuration[/bold #ffd700]",
+            border_style="#ffd700",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        )
+    )
     console.print()
 
 
@@ -191,13 +201,12 @@ def _display_menu(console: Console) -> None:
     for i, pid in enumerate(_PROVIDER_ORDER, 1):
         info = _PROVIDERS[pid]
         if pid in _LOCKED_PROVIDERS:
-            console.print(
-                f"  [#555555]\u2014 [{i}] "
-                f"{info['name']}[/#555555]"
-            )
+            console.print(f"  [#555555]\u2014 [{i}] " f"{info['name']}[/#555555]")
             continue
         configured = _provider_status(pid)
-        status = "[#10b981]\u2714[/#10b981]" if configured else "[#ff6b6b]\u2718[/#ff6b6b]"
+        status = (
+            "[#10b981]\u2714[/#10b981]" if configured else "[#ff6b6b]\u2718[/#ff6b6b]"
+        )
         console.print(f"  {status} [{i}] {info['name']}")
 
     console.print()
@@ -206,7 +215,9 @@ def _display_menu(console: Console) -> None:
     for i, iid in enumerate(_INTEGRATION_ORDER, offset + 1):
         info = _INTEGRATIONS[iid]
         configured = _integration_status(iid)
-        status = "[#10b981]\u2714[/#10b981]" if configured else "[#ff6b6b]\u2718[/#ff6b6b]"
+        status = (
+            "[#10b981]\u2714[/#10b981]" if configured else "[#ff6b6b]\u2718[/#ff6b6b]"
+        )
         console.print(f"  {status} [{i}] {info['name']}")
 
     console.print()
@@ -227,44 +238,48 @@ _AZURE_MODELS = [
 
 def _show_azure_guide(console: Console) -> None:
     """Show step-by-step Azure OpenAI setup instructions."""
-    model_list = "\n".join(f"     [bold #5bc0be]{m}[/bold #5bc0be]" for m in _AZURE_MODELS)
-    console.print(Panel(
-        (
-            "[bold #ffd700]Step 1[/bold #ffd700]"
-            " [#e0d8c0]Create a free Azure account[/#e0d8c0]\n"
-            "  [#5bc0be]https://azure.microsoft.com/free[/#5bc0be]\n"
-            "  [#415a77]New accounts get $200 free credit"
-            " for 30 days.[/#415a77]\n"
-            "\n"
-            "[bold #ffd700]Step 2[/bold #ffd700]"
-            " [#e0d8c0]Go to Azure AI Foundry[/#e0d8c0]\n"
-            "  [#5bc0be]https://ai.azure.com[/#5bc0be]\n"
-            "  [#415a77]Create a new project (this creates"
-            " an OpenAI resource).[/#415a77]\n"
-            "\n"
-            "[bold #ffd700]Step 3[/bold #ffd700]"
-            " [#e0d8c0]Deploy these models[/#e0d8c0]\n"
-            "  [#415a77]Go to Models + endpoints > Deploy"
-            " model.[/#415a77]\n"
-            "  [#415a77]Deploy each of these (use the exact"
-            " name as deployment name):[/#415a77]\n"
-            f"{model_list}\n"
-            "\n"
-            "[bold #ffd700]Step 4[/bold #ffd700]"
-            " [#e0d8c0]Get your credentials[/#e0d8c0]\n"
-            "  [#415a77]Go to your project > Overview.[/#415a77]\n"
-            "  [#415a77]Copy the [bold]API key[/bold]"
-            " and [bold]Endpoint URL[/bold].[/#415a77]\n"
-            "  [#ff6b6b]Use only the base URL"
-            " (e.g. https://myresource.openai.azure.com).\n"
-            "  Remove /api/projects/... if present."
-            "[/#ff6b6b]"
-        ),
-        title="[bold #ffd700]Azure OpenAI Setup Guide[/bold #ffd700]",
-        border_style="#ffd700",
-        box=box.ROUNDED,
-        padding=(1, 2),
-    ))
+    model_list = "\n".join(
+        f"     [bold #5bc0be]{m}[/bold #5bc0be]" for m in _AZURE_MODELS
+    )
+    console.print(
+        Panel(
+            (
+                "[bold #ffd700]Step 1[/bold #ffd700]"
+                " [#e0d8c0]Create a free Azure account[/#e0d8c0]\n"
+                "  [#5bc0be]https://azure.microsoft.com/free[/#5bc0be]\n"
+                "  [#415a77]New accounts get $200 free credit"
+                " for 30 days.[/#415a77]\n"
+                "\n"
+                "[bold #ffd700]Step 2[/bold #ffd700]"
+                " [#e0d8c0]Go to Azure AI Foundry[/#e0d8c0]\n"
+                "  [#5bc0be]https://ai.azure.com[/#5bc0be]\n"
+                "  [#415a77]Create a new project (this creates"
+                " an OpenAI resource).[/#415a77]\n"
+                "\n"
+                "[bold #ffd700]Step 3[/bold #ffd700]"
+                " [#e0d8c0]Deploy these models[/#e0d8c0]\n"
+                "  [#415a77]Go to Models + endpoints > Deploy"
+                " model.[/#415a77]\n"
+                "  [#415a77]Deploy each of these (use the exact"
+                " name as deployment name):[/#415a77]\n"
+                f"{model_list}\n"
+                "\n"
+                "[bold #ffd700]Step 4[/bold #ffd700]"
+                " [#e0d8c0]Get your credentials[/#e0d8c0]\n"
+                "  [#415a77]Go to your project > Overview.[/#415a77]\n"
+                "  [#415a77]Copy the [bold]API key[/bold]"
+                " and [bold]Endpoint URL[/bold].[/#415a77]\n"
+                "  [#ff6b6b]Use only the base URL"
+                " (e.g. https://myresource.openai.azure.com).\n"
+                "  Remove /api/projects/... if present."
+                "[/#ff6b6b]"
+            ),
+            title="[bold #ffd700]Azure OpenAI Setup Guide[/bold #ffd700]",
+            border_style="#ffd700",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        )
+    )
     console.print()
 
 
@@ -330,7 +345,7 @@ def _prompt_keys(
     return changed
 
 
-def run_setup(
+def run_setup(  # noqa: C901 TODO: refactor
     console: Console,
     first_run: bool = False,
 ) -> bool:
@@ -344,19 +359,21 @@ def run_setup(
         True if any settings were changed (caller should restart agent).
     """
     if first_run:
-        console.print(Panel(
-            Text.assemble(
-                ("Welcome to FutureProof!\n\n", "bold #ffd700"),
-                ("An LLM provider is required to start. ", "#e0d8c0"),
-                ("Let's set one up.\n", "#e0d8c0"),
-                ("Your keys are stored locally at ", "#415a77"),
-                ("~/.fu7ur3pr00f/.env", "bold #415a77"),
-                (" and never sent to the agent.", "#415a77"),
-            ),
-            border_style="#ffd700",
-            box=box.ROUNDED,
-            padding=(1, 2),
-        ))
+        console.print(
+            Panel(
+                Text.assemble(
+                    ("Welcome to FutureProof!\n\n", "bold #ffd700"),
+                    ("An LLM provider is required to start. ", "#e0d8c0"),
+                    ("Let's set one up.\n", "#e0d8c0"),
+                    ("Your keys are stored locally at ", "#415a77"),
+                    ("~/.fu7ur3pr00f/.env", "bold #415a77"),
+                    (" and never sent to the agent.", "#415a77"),
+                ),
+                border_style="#ffd700",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            )
+        )
         console.print()
 
     any_changed = False

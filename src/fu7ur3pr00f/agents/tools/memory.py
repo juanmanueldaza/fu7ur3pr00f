@@ -25,12 +25,8 @@ def remember_decision(
     technology stack, or setting a career direction.
     """
     try:
-        from fu7ur3pr00f.memory.episodic import (
-            get_episodic_store,
-        )
-        from fu7ur3pr00f.memory.episodic import (
-            remember_decision as create_decision,
-        )
+        from fu7ur3pr00f.memory.episodic import get_episodic_store
+        from fu7ur3pr00f.memory.episodic import remember_decision as create_decision
 
         memory = create_decision(decision, context, outcome)
         get_episodic_store().remember(memory)
@@ -38,7 +34,7 @@ def remember_decision(
         logger.exception("Error storing decision to ChromaDB")
         return f"Could not store decision: {e}"
 
-    return f"Remembered: '{decision}'. I'll be able to recall this in future conversations."
+    return f"Remembered: {decision!r}. I'll be able to recall this in future conversations."  # noqa: E501
 
 
 @tool

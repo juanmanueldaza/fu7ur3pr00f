@@ -25,7 +25,7 @@ def gather_portfolio_data(url: str | None = None) -> str:
     return "Portfolio data gathered and indexed to knowledge base."
 
 
-def _auto_populate_profile() -> str | None:
+def _auto_populate_profile() -> str | None:  # noqa: C901 TODO: refactor
     """Populate empty profile fields from knowledge base after gathering.
 
     Searches for name, role, and location from LinkedIn data and updates
@@ -184,7 +184,7 @@ def gather_linkedin_data(zip_path: str) -> str:
     try:
         service.gather_linkedin(resolved)
     except FileNotFoundError:
-        return f"LinkedIn export not found at '{zip_path}'. Please check the path."
+        return f"LinkedIn export not found at {zip_path!r}. Please check the path."
     return "LinkedIn data processed and indexed to knowledge base."
 
 
@@ -209,15 +209,16 @@ def gather_cv_data(file_path: str) -> str:
     if not resolved.is_relative_to(Path.home()):
         return "Access denied: path must be within your home directory."
     if not resolved.is_file():
-        return f"CV file not found at '{file_path}'. Please check the path."
+        return f"CV file not found at {file_path!r}. Please check the path."
     suffix = resolved.suffix.lower()
     if suffix not in {".pdf", ".md", ".txt"}:
-        return f"Unsupported format '{suffix}'. Only .pdf, .md, and .txt are supported."
+        return f"Unsupported format {suffix!r}. Only .pdf, .md, and .txt are supported."
 
     # Check if CV data already exists
     from fu7ur3pr00f.memory.knowledge import get_knowledge_store
+
     store = get_knowledge_store()
-    existing_cv = store.get_by_source(KnowledgeSource.CV) if store else []
+    existing_cv = store.get_all_content(KnowledgeSource.CV) if store else ""
     has_existing_cv = bool(existing_cv)
 
     # Build interrupt prompt with auto-clear option if CV exists
@@ -230,19 +231,28 @@ def gather_cv_data(file_path: str) -> str:
             "Would you like to clear them first to avoid duplicates?"
         )
 
-    approved = interrupt({
-        "question": f"Index CV from '{resolved}'?",
-        "details": interrupt_details,
-        "options": [
-            (
-                {"label": "Import (clear existing CV first)", "value": "clear_first"}
+    approved = interrupt(
+        {
+            "question": f"Index CV from {resolved!r}?",
+            "details": interrupt_details,
+            "options": (
+                [
+                    (
+                        {
+                            "label": "Import (clear existing CV first)",
+                            "value": "clear_first",
+                        }
+                        if has_existing_cv
+                        else {"label": "Import", "value": "import"}
+                    ),
+                    {"label": "Import (keep existing)", "value": "keep"},
+                    {"label": "Cancel", "value": "cancel"},
+                ]
                 if has_existing_cv
-                else {"label": "Import", "value": "import"}
+                else None
             ),
-            {"label": "Import (keep existing)", "value": "keep"},
-            {"label": "Cancel", "value": "cancel"},
-        ] if has_existing_cv else None,
-    })
+        }
+    )
 
     if approved == "cancel" or not approved:
         return "CV import cancelled."
@@ -252,14 +262,15 @@ def gather_cv_data(file_path: str) -> str:
         # Clear existing CV data if user chose to clear first
         if approved == "clear_first":
             from fu7ur3pr00f.memory.knowledge import get_knowledge_store
+
             store = get_knowledge_store()
             if store:
-                store.clear_by_source(KnowledgeSource.CV)
+                store.clear_source(KnowledgeSource.CV)
             logger.info("Cleared existing CV data before re-import")
 
         sections = service.gather_cv(resolved)
     except FileNotFoundError:
-        return f"CV file not found at '{file_path}'. Please check the path."
+        return f"CV file not found at {file_path!r}. Please check the path."
     except NoDataError as e:
         return str(e)
     except ServiceError as e:
@@ -274,7 +285,8 @@ def gather_assessment_data(input_dir: str = "") -> str:
     """Process CliftonStrengths assessment PDFs from Gallup.
 
     Args:
-        input_dir: Directory containing Gallup PDF files. Defaults to ~/.fu7ur3pr00f/data/raw/.
+        input_dir: Directory containing Gallup PDF files. Defaults to
+            ~/.fu7ur3pr00f/data/raw/.
 
     Use this when the user has Gallup CliftonStrengths PDF reports and wants
     to import their strengths data. Looks for PDF files with names containing
@@ -295,7 +307,5 @@ def gather_assessment_data(input_dir: str = "") -> str:
         service.gather_assessment(dir_path)
     except FileNotFoundError:
         search_dir = input_dir or "~/.fu7ur3pr00f/data/raw/"
-        return f"No Gallup PDF files found in '{search_dir}'."
+        return f"No Gallup PDF files found in {search_dir!r}."
     return "CliftonStrengths assessment processed and indexed to knowledge base."
-
-

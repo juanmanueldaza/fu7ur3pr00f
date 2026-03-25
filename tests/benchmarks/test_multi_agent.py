@@ -21,13 +21,14 @@ async def test_routing_latency():
     """Test routing latency."""
     system = MultiAgentSystem()
     await system.initialize()
-    
+
+    assert system.orchestrator is not None
     start = time.perf_counter()
     for query in TEST_QUERIES:
         route = system.orchestrator._route_query(query)
         assert route in ["coach", "learning", "jobs", "code", "founder"]
     elapsed = time.perf_counter() - start
-    assert elapsed < 0.01, f"Routing took {elapsed*1000:.2f}ms"
+    assert elapsed < 0.01, f"Routing took {elapsed * 1000:.2f}ms"
 
 
 @pytest.mark.asyncio
@@ -46,10 +47,12 @@ async def test_concurrent_routing():
     """Test concurrent routing."""
     system = MultiAgentSystem()
     await system.initialize()
-    
+
+    assert system.orchestrator is not None
+
     async def route(q):
-        return system.orchestrator._route_query(q)
-    
+        return system.orchestrator._route_query(q)  # type: ignore[union-attr]
+
     start = time.perf_counter()
     tasks = [route(q) for q in TEST_QUERIES * 10]
     await asyncio.gather(*tasks)
@@ -62,7 +65,7 @@ async def test_routing_accuracy():
     """Test routing accuracy."""
     system = MultiAgentSystem()
     await system.initialize()
-    
+
     cases = [
         ("Get promoted", "coach"),
         ("Learn Python", "learning"),
@@ -70,11 +73,13 @@ async def test_routing_accuracy():
         ("GitHub", "code"),
         ("Startup", "founder"),
     ]
-    
+
+    assert system.orchestrator is not None
     correct = sum(
-        1 for query, expected in cases
+        1
+        for query, expected in cases
         if system.orchestrator._route_query(query) == expected
     )
-    
+
     accuracy = correct / len(cases)
-    assert accuracy > 0.9, f"Accuracy {accuracy*100:.1f}%"
+    assert accuracy > 0.9, f"Accuracy {accuracy * 100:.1f}%"

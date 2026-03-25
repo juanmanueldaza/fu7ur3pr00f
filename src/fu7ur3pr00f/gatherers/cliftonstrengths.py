@@ -141,7 +141,9 @@ class CliftonStrengthsGatherer:
         gallup_pdfs = [p for p in pdf_files if self._is_gallup_pdf(p)]
 
         if not gallup_pdfs:
-            raise FileNotFoundError(f"No Gallup CliftonStrengths PDFs found in {input_dir}")
+            raise FileNotFoundError(
+                f"No Gallup CliftonStrengths PDFs found in {input_dir}"
+            )
 
         logger.info(f"Found {len(gallup_pdfs)} Gallup PDF files")
 
@@ -154,7 +156,9 @@ class CliftonStrengthsGatherer:
         if data.top_5:
             domain_counts: dict[str, int] = {}
             for strength in data.top_5:
-                domain_counts[strength.domain] = domain_counts.get(strength.domain, 0) + 1
+                domain_counts[strength.domain] = (
+                    domain_counts.get(strength.domain, 0) + 1
+                )
             data.dominant_domain = max(domain_counts, key=lambda d: domain_counts[d])
 
         sections = self._build_sections(data)
@@ -167,7 +171,9 @@ class CliftonStrengthsGatherer:
         name = path.name.lower()
         return any(indicator in name for indicator in GALLUP_PDF_INDICATORS)
 
-    def _extract_ranked_strengths(self, text: str, max_rank: int = 34) -> list[StrengthInsight]:
+    def _extract_ranked_strengths(
+        self, text: str, max_rank: int = 34
+    ) -> list[StrengthInsight]:
         """Extract ranked strengths from text into StrengthInsight objects.
 
         Parses "N. StrengthName" patterns, filters valid CliftonStrengths names,
@@ -235,7 +241,9 @@ class CliftonStrengthsGatherer:
         report_type = self._get_report_type(filename)
 
         # Extract name and date
-        name_match = re.search(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*\|\s*(\d{2}-\d{2}-\d{4})", text)
+        name_match = re.search(
+            r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*\|\s*(\d{2}-\d{2}-\d{4})", text
+        )
         if name_match and not data.name:
             data.name = name_match.group(1).strip()
             data.date = name_match.group(2).strip()
@@ -656,7 +664,10 @@ class CliftonStrengthsGatherer:
             key = f"{rank}. {name}"
 
             # Only store if this section has meaningful content
-            if "HOW YOU CAN THRIVE" in section_text or "WHY YOU SUCCEED" in section_text:
+            if (
+                "HOW YOU CAN THRIVE" in section_text
+                or "WHY YOU SUCCEED" in section_text
+            ):
                 sections[key] = section_text
 
         return sections
@@ -688,8 +699,12 @@ class CliftonStrengthsGatherer:
             re.DOTALL | re.IGNORECASE,
         )
         if action_match:
-            items = re.findall(r"[•●]\s*(.+?)(?=[•●]|$)", action_match.group(1), re.DOTALL)
-            insight.action_items = [self._clean_text(item) for item in items if item.strip()]
+            items = re.findall(
+                r"[•●]\s*(.+?)(?=[•●]|$)", action_match.group(1), re.DOTALL
+            )
+            insight.action_items = [
+                self._clean_text(item) for item in items if item.strip()
+            ]
 
         # Extract blind spots
         blind_match = re.search(
@@ -698,8 +713,12 @@ class CliftonStrengthsGatherer:
             re.DOTALL | re.IGNORECASE,
         )
         if blind_match:
-            items = re.findall(r"[•●]\s*(.+?)(?=[•●]|$)", blind_match.group(1), re.DOTALL)
-            insight.blind_spots = [self._clean_text(item) for item in items if item.strip()]
+            items = re.findall(
+                r"[•●]\s*(.+?)(?=[•●]|$)", blind_match.group(1), re.DOTALL
+            )
+            insight.blind_spots = [
+                self._clean_text(item) for item in items if item.strip()
+            ]
 
     def _clean_text(self, text: str) -> str:
         """Clean extracted text by removing extra whitespace."""
@@ -708,7 +727,9 @@ class CliftonStrengthsGatherer:
         text = re.sub(r"\d+\s*$", "", text)
         return text.strip()
 
-    def _build_sections(self, data: CliftonStrengthsData) -> list[Section]:
+    def _build_sections(  # noqa: C901 TODO: refactor
+        self, data: CliftonStrengthsData
+    ) -> list[Section]:
         """Build labeled sections from parsed CliftonStrengths data."""
         sections: list[Section] = []
 
@@ -721,7 +742,9 @@ class CliftonStrengthsGatherer:
         if data.dominant_domain:
             header_lines.append(f"**Dominant Domain:** {data.dominant_domain}")
         if header_lines:
-            sections.append(Section("CliftonStrengths Assessment", "\n".join(header_lines)))
+            sections.append(
+                Section("CliftonStrengths Assessment", "\n".join(header_lines))
+            )
 
         # Top 5 Summary + Domain distribution
         if data.top_5:
@@ -763,7 +786,9 @@ class CliftonStrengthsGatherer:
                     for item in insight.blind_spots[:2]:
                         lines.append(f"- {item}")
                 lines.append("")
-            sections.append(Section("Detailed Strength Insights", "\n".join(lines).rstrip()))
+            sections.append(
+                Section("Detailed Strength Insights", "\n".join(lines).rstrip())
+            )
 
         # Personalized talent patterns
         all_strengths = data.top_10 if data.top_10 else data.top_5
@@ -776,7 +801,8 @@ class CliftonStrengthsGatherer:
             for insight in all_strengths:
                 if insight.unique_insights:
                     lines.append(
-                        f"### {insight.rank}. {insight.name} -- What Makes You Stand Out"
+                        f"### {insight.rank}. {insight.name}"
+                        " -- What Makes You Stand Out"
                     )
                     for paragraph in insight.unique_insights:
                         lines.append(paragraph)
@@ -834,6 +860,8 @@ class CliftonStrengthsGatherer:
                 "### Lesser Themes (24-34)",
                 ", ".join(data.all_34[23:]),
             ]
-            sections.append(Section("Complete Strength Ranking (All 34)", "\n".join(lines)))
+            sections.append(
+                Section("Complete Strength Ranking (All 34)", "\n".join(lines))
+            )
 
         return sections

@@ -61,7 +61,9 @@ class UserProfile:
     goals: list[CareerGoal] = field(default_factory=list)
     target_roles: list[str] = field(default_factory=list)
     target_companies: list[str] = field(default_factory=list)
-    deal_breakers: list[str] = field(default_factory=list)  # e.g., "no relocation", "remote only"
+    deal_breakers: list[str] = field(
+        default_factory=list
+    )  # e.g., "no relocation", "remote only"
 
     # Preferences
     preferred_work_style: str = ""  # remote, hybrid, onsite

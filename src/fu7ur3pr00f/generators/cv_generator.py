@@ -231,7 +231,9 @@ def _generate_with_llm(
 
     # Anonymize PII before sending to external LLM
     # For CV generation, we preserve professional email domains for context
-    safe_career_data = anonymize_career_data(career_data, preserve_professional_emails=True)
+    safe_career_data = anonymize_career_data(
+        career_data, preserve_professional_emails=True
+    )
 
     prompt = f"""{GENERATE_CV_PROMPT}
 

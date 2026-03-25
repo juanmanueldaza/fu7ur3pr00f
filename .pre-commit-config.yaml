@@ -1,0 +1,72 @@
+repos:
+  # Python formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        types: [python]
+        args: [--line-length=88]
+
+  # Python import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        types: [python]
+        args: ["--profile", "black", "--filter-files"]
+
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        types: [python]
+        additional_dependencies: [flake8-bugbear]
+
+  # Type checking with Pyright
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: npx pyright
+        language: node
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+  # Additional type checking with MyPy
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: venv/bin/mypy
+        language: system
+        args: [src, tests]
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        args: [-r, -lll]
+
+  # Test runner
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: .venv/bin/python -m pytest tests/ -x -q --tb=short
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # JSON validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-json
+      - id: check-yaml
+        exclude: .github/

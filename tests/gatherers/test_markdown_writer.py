@@ -205,7 +205,9 @@ class TestPortfolioMarkdownWriter:
         assert links is not None
         assert "[GitHub](https://github.com/johndoe)" in links.content
 
-    def test_fallback_content_when_no_sections(self, writer: PortfolioMarkdownWriter) -> None:
+    def test_fallback_content_when_no_sections(
+        self, writer: PortfolioMarkdownWriter
+    ) -> None:
         """Test fallback content (headings/paragraphs) when no sections or projects."""
         content = ExtractedContent(
             url="https://example.com",

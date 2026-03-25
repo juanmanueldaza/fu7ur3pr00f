@@ -109,7 +109,6 @@ class HackerNewsMCPClient(HTTPMCPClient):
         ],
     }
 
-
     async def list_tools(self) -> list[str]:
         """List available tools."""
         return [
@@ -140,11 +139,15 @@ class HackerNewsMCPClient(HTTPMCPClient):
         """Get top tech stories from HN."""
         return await self._get_top_stories(args.get("limit", 30))
 
-    async def _tool_get_freelancing_threads(self, args: dict[str, Any]) -> MCPToolResult:
+    async def _tool_get_freelancing_threads(
+        self, args: dict[str, Any]
+    ) -> MCPToolResult:
         """Get recent 'Freelancer? Seeking freelancer?' threads."""
         return await self._get_freelancing_threads(args.get("months", 3))
 
-    async def _tool_get_seeking_work_threads(self, args: dict[str, Any]) -> MCPToolResult:
+    async def _tool_get_seeking_work_threads(
+        self, args: dict[str, Any]
+    ) -> MCPToolResult:
         """Get recent 'Who wants to be hired?' threads."""
         return await self._get_seeking_work_threads(args.get("months", 3))
 
@@ -182,7 +185,10 @@ class HackerNewsMCPClient(HTTPMCPClient):
                     "points": hit.get("points", 0),
                     "num_comments": hit.get("num_comments", 0),
                     "created_at": hit.get("created_at", ""),
-                    "hn_url": f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}",
+                    "hn_url": (
+                        "https://news.ycombinator.com/"
+                        f"item?id={hit.get('objectID', '')}"
+                    ),
                 }
             )
 
@@ -220,7 +226,8 @@ class HackerNewsMCPClient(HTTPMCPClient):
         }
 
         response = await client.get(
-            f"{self.BASE_URL}/search_by_date", params=params,
+            f"{self.BASE_URL}/search_by_date",
+            params=params,
         )
         response.raise_for_status()
 
@@ -338,14 +345,19 @@ class HackerNewsMCPClient(HTTPMCPClient):
                     "points": hit.get("points", 0),
                     "num_comments": hit.get("num_comments", 0),
                     "created_at": hit.get("created_at", ""),
-                    "hn_url": f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}",
+                    "hn_url": (
+                        "https://news.ycombinator.com/"
+                        f"item?id={hit.get('objectID', '')}"
+                    ),
                 }
             )
 
         output = {"stories": stories, "total": len(stories)}
         return self._format_response(output, data, "get_top_stories")
 
-    def _group_by_category(self, tech_counts: Counter[str]) -> dict[str, list[dict[str, Any]]]:
+    def _group_by_category(
+        self, tech_counts: Counter[str]
+    ) -> dict[str, list[dict[str, Any]]]:
         """Group tech mentions by category."""
         categories: dict[str, list[dict[str, Any]]] = {}
 
@@ -384,7 +396,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
             include_hn_url=True,
         )
 
-    async def _extract_job_postings(self, months: int = 1, limit: int = 100) -> MCPToolResult:
+    async def _extract_job_postings(
+        self, months: int = 1, limit: int = 100
+    ) -> MCPToolResult:
         """Extract and parse individual job postings from hiring threads.
 
         This fetches actual comment text from "Who is hiring?" threads and
@@ -455,7 +469,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         return self._format_response(output, output, "extract_job_postings")
 
-    def _parse_job_posting(self, text: str, comment: dict[str, Any]) -> dict[str, Any] | None:
+    def _parse_job_posting(
+        self, text: str, comment: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Parse a job posting comment into structured data.
 
         Extracts: company, location, remote status, salary, tech stack.
@@ -503,7 +519,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "tech_stack": tech_stack,
             "text_preview": clean_text[:500],
             "full_text": clean_text,
-            "hn_url": f"https://news.ycombinator.com/item?id={comment.get('objectID', '')}",
+            "hn_url": (
+                "https://news.ycombinator.com/" f"item?id={comment.get('objectID', '')}"
+            ),
             "author": comment.get("author", ""),
             "created_at": comment.get("created_at", ""),
             "site": "hn_hiring",
@@ -525,7 +543,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 return potential
 
         # Pattern 3: First line before pipe or dash
-        first_line = clean_text.split("\n")[0] if "\n" in clean_text else clean_text[:100]
+        first_line = (
+            clean_text.split("\n")[0] if "\n" in clean_text else clean_text[:100]
+        )
         pipe_match = re.match(r"^([^|–—\-]+)", first_line)
         if pipe_match:
             potential = pipe_match.group(1).strip()
@@ -597,7 +617,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
         text_lower = text.lower()
         found_tech: list[str] = []
 
-        for category, terms in self.TECH_TERMS.items():
+        for _category, terms in self.TECH_TERMS.items():
             for term in terms:
                 if re.search(rf"\b{re.escape(term)}\b", text_lower):
                     found_tech.append(term)
@@ -611,7 +631,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         # Regex patterns for job titles (split for readability)
         seniority = r"(senior|sr\.?|staff|principal|lead|junior|jr\.?)"
-        roles = r"(software|backend|frontend|full[- ]?stack|ml|ai|data|devops|sre|platform)"
+        roles = (
+            r"(software|backend|frontend|full[- ]?stack|ml|ai|data|devops|sre|platform)"
+        )
         title_patterns = [
             rf"\b{seniority}\s*{roles}\s*(engineer|developer)?\b",
             rf"\b{roles}\s*(engineer|developer)\b",

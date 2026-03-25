@@ -51,7 +51,9 @@ class TechTrendsGatherer(MarketGatherer):
             "errors": [],
         }
 
-        logger.info(f"Gathering tech trends from Hacker News (topic: {topic or 'general'})")
+        logger.info(
+            f"Gathering tech trends from Hacker News (topic: {topic or 'general'})"
+        )
 
         if not MCPClientFactory.is_available("hn"):
             logger.warning("Hacker News MCP not available")
@@ -63,7 +65,7 @@ class TechTrendsGatherer(MarketGatherer):
             async with client:
                 # Get trending stories
                 if topic:
-                    logger.info(f"HN: Searching for stories about '{topic}'...")
+                    logger.info(f"HN: Searching for stories about {topic!r}...")
                     stories_result = await client.call_tool(
                         "search_hn",
                         {"query": topic},
@@ -87,7 +89,9 @@ class TechTrendsGatherer(MarketGatherer):
                     results["errors"].append(f"Stories: {stories_result.error_message}")
 
                 # Get hiring trends (analyze_tech_trends provides richer data)
-                logger.info("HN: Analyzing 'Who is Hiring?' threads (this may take a moment)...")
+                logger.info(
+                    "HN: Analyzing 'Who is Hiring?' threads (this may take a moment)..."
+                )
                 hiring_result = await client.call_tool(
                     "analyze_tech_trends",
                     {"months": 3},
@@ -98,7 +102,11 @@ class TechTrendsGatherer(MarketGatherer):
                     results["hiring_trends"] = hiring
                     total_jobs = hiring.get("total_job_postings", 0)
                     threads = hiring.get("threads_analyzed", 0)
-                    logger.info(f"HN: Analyzed {threads} hiring threads ({total_jobs} job posts)")
+                    logger.info(
+                        "HN: Analyzed %d hiring threads " "(%d job posts)",
+                        threads,
+                        total_jobs,
+                    )
                 else:
                     logger.warning(f"HN hiring trends: {hiring_result.error_message}")
                     results["errors"].append(f"Hiring: {hiring_result.error_message}")
@@ -124,11 +132,12 @@ class TechTrendsGatherer(MarketGatherer):
                     )
                 else:
                     logger.warning(f"HN job extraction: {jobs_result.error_message}")
-                    results["errors"].append(f"Job extraction: {jobs_result.error_message}")
+                    results["errors"].append(
+                        f"Job extraction: {jobs_result.error_message}"
+                    )
 
         except Exception as e:
             logger.exception("Error gathering tech trends")
             results["errors"].append(str(e))
 
         return results
-

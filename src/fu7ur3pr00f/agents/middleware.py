@@ -44,10 +44,7 @@ def build_dynamic_prompt(request: ModelRequest) -> str:
 
     now = time.monotonic()
     with _prompt_cache_lock:
-        if (
-            _prompt_cache is not None
-            and (now - _prompt_cache_time) < _PROMPT_TTL
-        ):
+        if _prompt_cache is not None and (now - _prompt_cache_time) < _PROMPT_TTL:
             return _prompt_cache
 
     result = _build_prompt_uncached()
@@ -76,9 +73,7 @@ def _build_prompt_uncached() -> str:
     if summary == "No profile information available.":
         if stats.get("total_chunks", 0) > 0:
             with contextlib.suppress(Exception):
-                from fu7ur3pr00f.agents.tools.gathering import (
-                    _auto_populate_profile,
-                )
+                from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
 
                 _auto_populate_profile()
                 profile = load_profile()
@@ -104,9 +99,7 @@ def _build_prompt_uncached() -> str:
     if total > 0:
         by_source = stats.get("by_source", {})
         sources = [
-            f"- {src}: {count} chunks"
-            for src, count in by_source.items()
-            if count > 0
+            f"- {src}: {count} chunks" for src, count in by_source.items() if count > 0
         ]
         data_section = (
             "\n\n## Data Availability (live)\n"
@@ -137,11 +130,13 @@ def _invalidate_prompt_cache() -> None:
 # Analysis tools whose results are displayed directly to the user in Rich panels.
 # The outer agent doesn't need to see (and rewrite) these — it just needs to know
 # the analysis ran successfully.
-_ANALYSIS_TOOLS = frozenset({
-    "analyze_skill_gaps",
-    "analyze_career_alignment",
-    "get_career_advice",
-})
+_ANALYSIS_TOOLS = frozenset(
+    {
+        "analyze_skill_gaps",
+        "analyze_career_alignment",
+        "get_career_advice",
+    }
+)
 
 _ANALYSIS_MARKER = (
     "[Detailed analysis was displayed directly to the user. "
@@ -201,9 +196,7 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
                 modified.append(msg)
 
         if analysis_results:
-            logger.info(
-                "Masked %d analysis tool result(s)", len(analysis_results)
-            )
+            logger.info("Masked %d analysis tool result(s)", len(analysis_results))
             response = handler(request.override(messages=modified))
         else:
             return handler(request)
@@ -220,7 +213,9 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         # Final response detected — replace with synthesis
         logger.info("Synthesizing final response (replacing generic agent text)")
         return self._synthesize(
-            request.messages, analysis_results, last_human_idx,
+            request.messages,
+            analysis_results,
+            last_human_idx,
         )
 
     def _synthesize(
@@ -258,7 +253,10 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         tool_results = "\n\n---\n\n".join(parts)
 
         # Anonymize PII and escape XML boundaries in tool results
-        from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
+        from fu7ur3pr00f.utils.security import (
+            anonymize_career_data,
+            sanitize_for_prompt,
+        )
 
         tool_results = sanitize_for_prompt(
             anonymize_career_data(tool_results, preserve_professional_emails=True)
@@ -275,13 +273,17 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         model, config = get_model_with_fallback(purpose="synthesis")
         logger.info("Synthesis model: %s", config.description)
 
-        # Google Gemini requires HumanMessage for synthesis (SystemMessage not supported)
+        # Google Gemini requires HumanMessage for synthesis
+        # (SystemMessage not supported)
         # Other providers use SystemMessage for proper behavioral context
         if config.provider == "google":
             result = model.invoke([HumanMessage(content=prompt)])
         else:
             from langchain_core.messages import SystemMessage
-            result = model.invoke([SystemMessage(content=prompt), HumanMessage(content=prompt)])
+
+            result = model.invoke(
+                [SystemMessage(content=prompt), HumanMessage(content=prompt)]
+            )
 
         return ModelResponse(result=[result])
 
@@ -298,7 +300,9 @@ class ToolCallRepairMiddleware(AgentMiddleware):
     so repairs happen before any message summarization.
     """
 
-    def before_model(self, state: AgentState[Any], runtime: Runtime) -> dict[str, Any] | None:
+    def before_model(
+        self, state: AgentState[Any], runtime: Runtime
+    ) -> dict[str, Any] | None:
         messages = state["messages"]
         if not messages:
             return None

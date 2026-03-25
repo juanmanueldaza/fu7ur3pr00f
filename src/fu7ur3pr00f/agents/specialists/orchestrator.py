@@ -54,28 +54,82 @@ class OrchestratorAgent(BaseAgent):
     # Intent routing keywords
     ROUTING_KEYWORDS = {
         "coach": {
-            "promotion", "promoted", "leadership", "lead", "manager",
-            "staff", "principal", "senior", "career growth", "career path",
-            "influence", "office politics", "cliftonstrengths", "strengths",
-            "coaching", "mentor", "mentoring",
+            "promotion",
+            "promoted",
+            "leadership",
+            "lead",
+            "manager",
+            "staff",
+            "principal",
+            "senior",
+            "career growth",
+            "career path",
+            "influence",
+            "office politics",
+            "cliftonstrengths",
+            "strengths",
+            "coaching",
+            "mentor",
+            "mentoring",
         },
         "learning": {
-            "learning", "study", "learn", "skills", "courses", "certification",
-            "expert", "authority", "teaching", "mentoring", "conference",
-            "talk", "blog", "write", "publish",
+            "learning",
+            "study",
+            "learn",
+            "skills",
+            "courses",
+            "certification",
+            "expert",
+            "authority",
+            "teaching",
+            "mentoring",
+            "conference",
+            "talk",
+            "blog",
+            "write",
+            "publish",
         },
         "jobs": {
-            "jobs", "job", "hiring", "interview", "salary", "compensation", "benefits",
-            "remote", "work from home", "job search", "apply", "resume", "cv",
+            "jobs",
+            "job",
+            "hiring",
+            "interview",
+            "salary",
+            "compensation",
+            "benefits",
+            "remote",
+            "work from home",
+            "job search",
+            "apply",
+            "resume",
+            "cv",
         },
         "code": {
-            "github", "gitlab", "repos", "repositories", "code", "commits",
-            "open source", "oss", "contributions", "projects", "portfolio",
+            "github",
+            "gitlab",
+            "repos",
+            "repositories",
+            "code",
+            "commits",
+            "open source",
+            "oss",
+            "contributions",
+            "projects",
+            "portfolio",
         },
         "founder": {
-            "startup", "founder", "cofounder", "co-founder", "launch",
-            "product", "entrepreneur", "mvp", "side project", "business idea",
-            "company", "build", "launch",
+            "startup",
+            "founder",
+            "cofounder",
+            "co-founder",
+            "launch",
+            "product",
+            "entrepreneur",
+            "mvp",
+            "side project",
+            "business idea",
+            "company",
+            "build",
         },
     }
 
@@ -148,9 +202,7 @@ class OrchestratorAgent(BaseAgent):
             return name, ""
 
         # Run agents in parallel
-        results = await asyncio.gather(*[
-            process_agent(name) for name in agent_names
-        ])
+        results = await asyncio.gather(*[process_agent(name) for name in agent_names])
 
         return dict(results)
 

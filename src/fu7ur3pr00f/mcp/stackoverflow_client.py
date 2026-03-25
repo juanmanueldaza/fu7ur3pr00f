@@ -25,7 +25,12 @@ class StackOverflowMCPClient(HTTPMCPClient):
 
     async def list_tools(self) -> list[str]:
         """List available tools."""
-        return ["get_tag_popularity", "get_trending_tags", "get_tag_info", "get_popular_questions"]
+        return [
+            "get_tag_popularity",
+            "get_trending_tags",
+            "get_tag_info",
+            "get_popular_questions",
+        ]
 
     async def _tool_get_tag_popularity(self, args: dict[str, Any]) -> MCPToolResult:
         """Get popularity metrics for specific tags."""
@@ -80,7 +85,9 @@ class StackOverflowMCPClient(HTTPMCPClient):
         params = self._base_params()
 
         # Use /tags/{tags}/info endpoint for exact matches
-        response = await client.get(f"{self.BASE_URL}/tags/{tags_param}/info", params=params)
+        response = await client.get(
+            f"{self.BASE_URL}/tags/{tags_param}/info", params=params
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -270,9 +277,13 @@ class StackOverflowMCPClient(HTTPMCPClient):
 
         # Calculate some aggregate stats
         total_views = sum(q["view_count"] for q in questions)
-        avg_score = sum(q["score"] for q in questions) / len(questions) if questions else 0
+        avg_score = (
+            sum(q["score"] for q in questions) / len(questions) if questions else 0
+        )
         answered_pct = (
-            sum(1 for q in questions if q["is_answered"]) / len(questions) * 100 if questions else 0
+            sum(1 for q in questions if q["is_answered"]) / len(questions) * 100
+            if questions
+            else 0
         )
 
         output = {

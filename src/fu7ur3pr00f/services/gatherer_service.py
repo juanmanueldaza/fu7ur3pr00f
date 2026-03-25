@@ -134,7 +134,9 @@ class GathererService:
                     display_gather_result(name, elapsed, success=False)
                 return False
 
-        results["portfolio"] = _timed_gather("portfolio", self.gather_portfolio, verbose=verbose)
+        results["portfolio"] = _timed_gather(
+            "portfolio", self.gather_portfolio, verbose=verbose
+        )
 
         # Auto-detect LinkedIn ZIP in data/raw/
         raw_dir = settings.raw_dir
@@ -173,7 +175,9 @@ class GathererService:
         return results
 
     def gather_portfolio(
-        self, url: str | None = None, verbose: bool = False,
+        self,
+        url: str | None = None,
+        verbose: bool = False,
     ) -> list[Section]:
         """Gather data from portfolio website."""
         gatherer = self._get_gatherer("portfolio")
@@ -182,7 +186,9 @@ class GathererService:
         return sections
 
     def gather_linkedin(
-        self, zip_path: Path, verbose: bool = False,
+        self,
+        zip_path: Path,
+        verbose: bool = False,
     ) -> list[Section]:
         """Gather data from LinkedIn export."""
         gatherer = self._get_gatherer("linkedin")
@@ -191,7 +197,9 @@ class GathererService:
         return sections
 
     def gather_assessment(
-        self, input_dir: Path | None = None, verbose: bool = False,
+        self,
+        input_dir: Path | None = None,
+        verbose: bool = False,
     ) -> list[Section]:
         """Gather CliftonStrengths assessment data from PDFs."""
         gatherer = self._get_gatherer("assessment")

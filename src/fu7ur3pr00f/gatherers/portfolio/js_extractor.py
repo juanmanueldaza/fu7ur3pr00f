@@ -117,7 +117,9 @@ class JSExtractor:
 
                 # Size limit check
                 if len(result.content) > MAX_JSON_SIZE:
-                    logger.warning("Content file too large: %d bytes", len(result.content))
+                    logger.warning(
+                        "Content file too large: %d bytes", len(result.content)
+                    )
                     continue
 
                 content = self._parse_content_file(result.content)
@@ -158,7 +160,7 @@ class JSExtractor:
     def _extract_content_object(self, js_text: str) -> dict:
         """Extract the main content object."""
         match = re.search(
-            r"(?:const|let|var)\s+content\s*=\s*(\{[\s\S]*?\});?\s*(?:const|let|var|export|$)",
+            r"(?:const|let|var)\s+content\s*=\s*(\{[\s\S]*?\});?\s*(?:const|let|var|export|$)",  # noqa: E501
             js_text,
         )
         if not match:

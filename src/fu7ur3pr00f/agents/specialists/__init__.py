@@ -15,11 +15,7 @@ Example:
     >>> response = await orchestrator.handle("How can I get promoted?")
 """
 
-from fu7ur3pr00f.agents.specialists.base import (
-    BaseAgent,
-    KnowledgeResult,
-    MemoryResult,
-)
+from fu7ur3pr00f.agents.specialists.base import BaseAgent, KnowledgeResult, MemoryResult
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
 from fu7ur3pr00f.agents.specialists.founder import FounderAgent
@@ -59,7 +55,7 @@ def get_agent(name: str) -> BaseAgent:
         >>> isinstance(agent, CoachAgent)
         True
     """
-    agents = {
+    agents: dict[str, type[BaseAgent]] = {
         "coach": CoachAgent,
         "learning": LearningAgent,
         "jobs": JobsAgent,
@@ -69,9 +65,7 @@ def get_agent(name: str) -> BaseAgent:
     }
 
     if name not in agents:
-        raise ValueError(
-            f"Unknown agent: {name}. Available: {list(agents.keys())}"
-        )
+        raise ValueError(f"Unknown agent: {name}. Available: {list(agents.keys())}")
 
     return agents[name]()
 

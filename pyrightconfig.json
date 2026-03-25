@@ -1,9 +1,25 @@
 {
-  "include": ["src"],
+  "include": [
+    "src",
+    "tests"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "dist",
+    "build"
+  ],
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.13",
-  "typeCheckingMode": "standard",
+  "pythonPlatform": "Linux",
+  "extraPaths": ["./src"],
   "reportMissingImports": true,
-  "reportMissingTypeStubs": false
+  "reportMissingTypeStubs": false,
+  "reportMissingModuleSource": false,
+  "reportPrivateUsage": false,
+  "reportUntypedFunctionDecorator": false
 }

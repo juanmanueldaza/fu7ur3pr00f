@@ -119,17 +119,13 @@ class OrchestratorAgent:
         # Check if this is a multi-specialist query
         if self._should_route_multi(query):
             # Return top 3-4 specialists for comprehensive answer
-            sorted_specialists = sorted(
-                scores.items(), key=lambda x: x[1], reverse=True
-            )
+            sorted_specialists = sorted(scores.items(), key=lambda x: x[1], reverse=True)
             # Always include coach, then top 2-3 others
             result = ["coach"]
             for name, score in sorted_specialists:
                 if name != "coach" and len(result) < 4 and score >= 0:
                     result.append(name)
-            logger.debug(
-                "route_multi(%r) → %s (comprehensive query)", query[:60], result
-            )
+            logger.debug("route_multi(%r) → %s (comprehensive query)", query[:60], result)
             return result
 
         # Single specialist routing
@@ -153,9 +149,7 @@ class OrchestratorAgent:
         """
         specialist = self._specialists.get(specialist_name)
         if specialist is None:
-            logger.warning(
-                "Unknown specialist %r, falling back to coach", specialist_name
-            )
+            logger.warning("Unknown specialist %r, falling back to coach", specialist_name)
             specialist = self._specialists["coach"]
         return specialist.get_compiled_agent()
 
@@ -167,10 +161,7 @@ class OrchestratorAgent:
 
     def list_agents(self) -> list[dict[str, str]]:
         """List all available specialists."""
-        return [
-            {"name": a.name, "description": a.description}
-            for a in self._specialists.values()
-        ]
+        return [{"name": a.name, "description": a.description} for a in self._specialists.values()]
 
     def get_model_name(self, specialist_name: str | None = None) -> str | None:
         """Return the model description used by the given specialist (or coach)."""
@@ -220,9 +211,7 @@ class OrchestratorAgent:
             Executor ready to run blackboard-based analysis
         """
         if scheduler is None:
-            scheduler = BlackboardScheduler(
-                strategy="linear_iterative", max_iterations=5
-            )
+            scheduler = BlackboardScheduler(strategy="linear_iterative", max_iterations=5)
 
         return BlackboardExecutor(
             specialists=self._specialists,

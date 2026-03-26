@@ -93,9 +93,7 @@ class BlackboardExecutor:
         final_state: CareerBlackboard = initial
         started_specialists: set[str] = set()
 
-        for chunk in graph.stream(
-            initial, config, stream_mode=["updates", "custom"]
-        ):
+        for chunk in graph.stream(initial, config, stream_mode=["updates", "custom"]):
             mode, data = chunk  # Unpack tuple (always a 2-tuple)
 
             if mode == "updates":
@@ -103,22 +101,27 @@ class BlackboardExecutor:
                     if not isinstance(node_output, dict):
                         continue
 
-                    # Fire start callback once per specialist
-                    if (
-                        node_name in self.specialists
-                        and node_name not in started_specialists
-                    ):
-                        started_specialists.add(node_name)
-                        if on_specialist_start:
-                            on_specialist_start(node_name)
-
                     # Fire complete callback when specialist produces findings
                     if node_name in self.specialists:
                         finding = node_output.get("findings", {}).get(node_name)
                         if finding and on_specialist_complete:
                             on_specialist_complete(node_name, finding)
 
-            # "custom" events are for UI progress — no state update needed
+            elif mode == "custom":
+                # Forward custom events from specialist nodes to callbacks
+                if isinstance(data, dict):
+                    event_type = data.get("type")
+                    specialist = data.get("specialist")
+
+                    # Fire start callback on specialist_start event
+                    if (
+                        event_type == "specialist_start"
+                        and specialist in self.specialists
+                        and specialist not in started_specialists
+                    ):
+                        started_specialists.add(specialist)
+                        if on_specialist_start:
+                            on_specialist_start(specialist)
 
         # Get final state from graph (checkpointer is authoritative)
         snap = graph.get_state(config)
@@ -128,8 +131,7 @@ class BlackboardExecutor:
         execution_time = time.time() - execution_start
 
         logger.info(
-            "Blackboard execution complete: %d specialists, "
-            "%d iterations, %.2fs total",
+            "Blackboard execution complete: %d specialists, %d iterations, %.2fs total",
             len(final_state.get("findings", {})),
             final_state.get("iteration", 0) + 1,
             execution_time,

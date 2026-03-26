@@ -262,13 +262,19 @@ class BlackboardScheduler:
         """
         plan = []
         current = None
+        # Make a copy of the blackboard to simulate iteration advancement
+        sim_blackboard = dict(blackboard)
 
         for _ in range(self.max_iterations * len(self.DEFAULT_ORDER)):
-            next_specialist = self.get_next_specialist(blackboard, current)
+            next_specialist = self.get_next_specialist(sim_blackboard, current)
             if next_specialist is None:
                 break
             plan.append(next_specialist)
             current = next_specialist
+
+            # Simulate iteration increment when wrapping back to first specialist
+            if next_specialist == self.DEFAULT_ORDER[0] and current is not None:
+                sim_blackboard["iteration"] = sim_blackboard.get("iteration", 0) + 1
 
         return plan
 

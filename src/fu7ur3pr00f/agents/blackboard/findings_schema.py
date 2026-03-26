@@ -29,5 +29,20 @@ class SpecialistFindingsModel(BaseModel):
     confidence: float = Field(default=0.75, ge=0.0, le=1.0)
     """Confidence score (0.0-1.0) for these findings."""
 
+    target_role: str = ""
+    """Target role identified (coach specialist)."""
+
+    portfolio_items: list[dict[str, Any]] = Field(default_factory=list)
+    """Portfolio projects or contributions (code specialist)."""
+
+    recommended_path: list[str] = Field(default_factory=list)
+    """Recommended path or next steps (founder specialist)."""
+
+    projects: list[str] = Field(default_factory=list)
+    """Projects or portfolio items."""
+
+    salary: dict[str, Any] = Field(default_factory=dict)
+    """Salary/compensation data (jobs specialist)."""
+
     extra: dict[str, Any] = Field(default_factory=dict)
     """Specialist-specific extra fields."""

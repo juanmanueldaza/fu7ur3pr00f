@@ -116,9 +116,7 @@ def _is_summary_echo(text: str) -> bool:
     """
     lower = text.lower().lstrip()
     # Pattern 1: explicit summary preamble
-    if lower.startswith(
-        ("here is a summary", "here's a summary", "summary of the conversation")
-    ):
+    if lower.startswith(("here is a summary", "here's a summary", "summary of the conversation")):
         return True
     # Pattern 2: starts with a known summary section header
     first_line = lower.split("\n", 1)[0].strip().strip("#*").strip()
@@ -291,8 +289,7 @@ def handle_command(  # noqa: C901 TODO: refactor
             sections = service.gather_all()
 
             console.print(
-                f"\n[#10b981]✓ Gathered {len(sections)} "
-                f"sections from all sources[/#10b981]"
+                f"\n[#10b981]✓ Gathered {len(sections)} sections from all sources[/#10b981]"
             )
             console.print("[#10b981]✓ Data indexed to knowledge base[/#10b981]\n")
         except ImportError as e:
@@ -321,17 +318,14 @@ def handle_command(  # noqa: C901 TODO: refactor
                     elapsed = time.time() - start
                     total += len(sections)
                     console.print(
-                        f" [#10b981]✓ {len(sections)} sections "
-                        f"in {elapsed:.1f}s[/#10b981]"
+                        f" [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
                     )
             else:
                 console.print("  [#ff6b6b]No LinkedIn ZIP found[/#ff6b6b]")
             console.print()
 
             # CliftonStrengths
-            pdf_files = [
-                f for f in data_dir.glob("*.pdf") if "strength" in f.name.lower()
-            ]
+            pdf_files = [f for f in data_dir.glob("*.pdf") if "strength" in f.name.lower()]
             if pdf_files:
                 console.print("[bold]CliftonStrengths:[/bold]")
                 gatherer = CliftonStrengthsGatherer()
@@ -340,9 +334,7 @@ def handle_command(  # noqa: C901 TODO: refactor
                 sections = gatherer.gather(data_dir)
                 elapsed = time.time() - start
                 total += len(sections)
-                console.print(
-                    f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
-                )
+                console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
             else:
                 console.print("  [#ff6b6b]No CliftonStrengths PDFs found[/#ff6b6b]")
             console.print()
@@ -364,13 +356,10 @@ def handle_command(  # noqa: C901 TODO: refactor
                         elapsed = time.time() - start
                         total += len(sections)
                         console.print(
-                            f" [#10b981]✓ {len(sections)} "
-                            f"sections in {elapsed:.1f}s[/#10b981]"
+                            f" [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
                         )
                     except Exception as e:
-                        console.print(
-                            f"  [#ff6b6b]✗ Skip: {cv_file.name} ({e})[/#ff6b6b]"
-                        )
+                        console.print(f"  [#ff6b6b]✗ Skip: {cv_file.name} ({e})[/#ff6b6b]")
             else:
                 console.print("  [#ff6b6b]No CV files found[/#ff6b6b]")
             console.print()
@@ -384,13 +373,10 @@ def handle_command(  # noqa: C901 TODO: refactor
                 sections = gatherer.gather(settings.portfolio_url)
                 elapsed = time.time() - start
                 total += len(sections)
-                console.print(
-                    f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
-                )
+                console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
             else:
                 console.print(
-                    "[bold]Portfolio:[/bold] "
-                    "[#ff6b6b]No PORTFOLIO_URL configured[/#ff6b6b]"
+                    "[bold]Portfolio:[/bold] [#ff6b6b]No PORTFOLIO_URL configured[/#ff6b6b]"
                 )
             console.print()
 
@@ -398,16 +384,12 @@ def handle_command(  # noqa: C901 TODO: refactor
                 console.print(
                     "\n[bold #10b981]═══════════════════════════════════════[/bold #10b981]"  # noqa: E501
                 )
-                console.print(
-                    f"[bold #10b981]  Total: {total} sections indexed[/bold #10b981]"
-                )
+                console.print(f"[bold #10b981]  Total: {total} sections indexed[/bold #10b981]")
                 console.print(
                     "[bold #10b981]═══════════════════════════════════════[/bold #10b981]\n"  # noqa: E501
                 )
             else:
-                console.print(
-                    "\n[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n"
-                )
+                console.print("\n[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n")
                 console.print("Expected files:")
                 console.print("  - LinkedIn: linkedin.zip (from LinkedIn export)")
                 console.print("  - CliftonStrengths: *.pdf (Gallup PDF reports)")
@@ -426,9 +408,7 @@ def handle_command(  # noqa: C901 TODO: refactor
         agents = orchestrator.list_agents()
         console.print("[bold #5bc0be]Specialist Agents[/bold #5bc0be]\n")
         for a in agents:
-            console.print(
-                f"  [bold #ffd700]{a['name']}[/bold #ffd700]: {a['description']}"
-            )
+            console.print(f"  [bold #ffd700]{a['name']}[/bold #ffd700]: {a['description']}")
         console.print()
         return False
 
@@ -459,15 +439,9 @@ def handle_command(  # noqa: C901 TODO: refactor
         console.print(f"LLM Provider: {settings.llm_provider or 'auto-detect'}")
         console.print(f"Model: {model_name}")
         console.print(f"Portfolio URL: {settings.portfolio_url or 'Not configured'}")
-        console.print(
-            f"GitHub MCP: {'Enabled' if settings.has_github_mcp else 'Disabled'}"
-        )
-        console.print(
-            f"Tavily MCP: {'Enabled' if settings.has_tavily_mcp else 'Disabled'}"
-        )
-        console.print(
-            f"Debug level: {logging.getLevelName(logging.getLogger().level)}\n"
-        )
+        console.print(f"GitHub MCP: {'Enabled' if settings.has_github_mcp else 'Disabled'}")
+        console.print(f"Tavily MCP: {'Enabled' if settings.has_tavily_mcp else 'Disabled'}")
+        console.print(f"Debug level: {logging.getLevelName(logging.getLogger().level)}\n")
         return False
 
     if cmd == "/reset":
@@ -525,15 +499,11 @@ def handle_command(  # noqa: C901 TODO: refactor
             deleted += 1
 
         settings.ensure_directories()
-        console.print(
-            f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items."
-        )
+        console.print(f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items.")
         console.print("[#415a77]Restart FutureProof to start fresh.[/#415a77]")
         return True
 
-    console.print(
-        f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]"
-    )
+    console.print(f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]")
     return False
 
 
@@ -713,9 +683,7 @@ def _stream_response(
 
         logger.debug("Resume stream ended")
 
-        resume_text = (
-            _strip_summary_echo(resume_acc.full_response) or resume_acc.full_response
-        )
+        resume_text = _strip_summary_echo(resume_acc.full_response) or resume_acc.full_response
         if resume_text:
             full_response += resume_text
 
@@ -748,10 +716,7 @@ def _run_blackboard_query(
         "goals": [g.description for g in (profile.goals or [])],
     }
 
-    con.print(
-        "[dim][ BLACKBOARD ] Running comprehensive multi-specialist analysis..."
-        "[/dim]"
-    )
+    con.print("[dim][ BLACKBOARD ] Running comprehensive multi-specialist analysis...[/dim]")
     con.print()
 
     executor = orchestrator.get_blackboard_executor()
@@ -761,12 +726,8 @@ def _run_blackboard_query(
         blackboard = executor.execute(
             query=user_input,
             user_profile=user_profile,
-            on_specialist_start=lambda name: display_specialist_progress(
-                name, "working"
-            ),
-            on_specialist_complete=lambda name, finding: display_specialist_progress(
-                name, "done"
-            ),
+            on_specialist_start=lambda name: display_specialist_progress(name, "working"),
+            on_specialist_complete=lambda name, finding: display_specialist_progress(name, "done"),
         )
     except Exception as e:
         logger.exception("Blackboard execution failed")
@@ -819,8 +780,7 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
 
         if isinstance(e, ValidationError) or isinstance(e.__cause__, ValidationError):
             display_error(
-                "Configuration error — check your settings.\n"
-                f"{e}\n\nLaunching /setup to fix..."
+                f"Configuration error — check your settings.\n{e}\n\nLaunching /setup to fix..."
             )
             from fu7ur3pr00f.chat.setup import run_setup
 
@@ -876,14 +836,13 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
             # Route to the right specialist(s), then stream their compiled agents
             console.print()  # Blank line before response
 
-            routing_result = orchestrator.route(user_input)
-
-            # Use blackboard pattern for comprehensive queries
+            # Check for blackboard pattern first (comprehensive queries)
             if orchestrator.should_use_blackboard(user_input):
                 _run_blackboard_query(orchestrator, user_input, console)
                 continue
 
-            # Otherwise, stream each specialist's response in sequence
+            # Otherwise, use traditional streaming with standard routing
+            routing_result = orchestrator.route(user_input)
             specialist_names = (
                 routing_result if isinstance(routing_result, list) else [routing_result]
             )
@@ -895,10 +854,7 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
             for specialist_name in specialist_names:
                 agent = orchestrator.get_compiled_agent(specialist_name)
                 specialist = orchestrator.get_specialist(specialist_name)
-                console.print(
-                    f"[dim][ {specialist_name.upper()} ] "
-                    f"{specialist.description}[/dim]"
-                )
+                console.print(f"[dim][ {specialist_name.upper()} ] {specialist.description}[/dim]")
 
                 input_message = _make_input(user_input)
 
@@ -921,8 +877,7 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
                                 max_retries,
                             )
                             console.print(
-                                "[#ffd700]Recovering from tool state "
-                                "error, retrying...[/#ffd700]"
+                                "[#ffd700]Recovering from tool state error, retrying...[/#ffd700]"
                             )
                             continue
 

@@ -127,6 +127,7 @@ class BaseAgent(ABC):
         """Default contribution implementation using direct LLM call.
 
         Builds a context-aware prompt that includes:
+        - The user's profile (role, skills, goals, etc.)
         - The original user query
         - Findings from previous specialists (for context)
 
@@ -137,15 +138,31 @@ class BaseAgent(ABC):
         from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 
         query = blackboard.get("query", "")
+        user_profile = blackboard.get("user_profile", {})
         previous_findings = blackboard.get("findings", {})
+
+        # Build user profile context
+        profile_parts = []
+        if user_profile:
+            if user_profile.get("role"):
+                profile_parts.append(f"Current role: {user_profile['role']}")
+            if user_profile.get("years_experience"):
+                profile_parts.append(f"Years of experience: {user_profile['years_experience']}")
+            if user_profile.get("technical_skills"):
+                skills = ", ".join(user_profile["technical_skills"][:10])
+                profile_parts.append(f"Technical skills: {skills}")
+            if user_profile.get("goals"):
+                goals = ", ".join(user_profile["goals"][:3])
+                profile_parts.append(f"Goals: {goals}")
+        profile_context = "\n".join(profile_parts) if profile_parts else "No profile data available"
 
         # Build context from previous specialists
         context_msg = self._format_previous_findings(previous_findings)
 
-        # Build full prompt with context
-        full_prompt = query
+        # Build full prompt with user profile + query + context
+        full_prompt = f"User Profile:\n{profile_context}\n\nQuery: {query}"
         if context_msg:
-            full_prompt = f"{query}\n\nContext from other specialists:\n{context_msg}"
+            full_prompt = f"{full_prompt}\n\nContext from other specialists:\n{context_msg}"
 
         try:
             model, _ = get_model_with_fallback(purpose="analysis")
@@ -165,9 +182,7 @@ class BaseAgent(ABC):
                 "confidence": 0.0,
             }
 
-    def _format_previous_findings(
-        self, previous_findings: dict[str, SpecialistFinding]
-    ) -> str:
+    def _format_previous_findings(self, previous_findings: dict[str, SpecialistFinding]) -> str:
         """Format findings from previous specialists for context (with truncation).
 
         Args:
@@ -274,9 +289,7 @@ class BaseAgent(ABC):
 
             agent = self._build_agent()
             _compiled_agents[key] = agent
-            logger.info(
-                "Compiled %s specialist agent (%d tools)", self.name, len(self.tools)
-            )
+            logger.info("Compiled %s specialist agent (%d tools)", self.name, len(self.tools))
             return agent
 
     def _build_agent(self) -> Any:

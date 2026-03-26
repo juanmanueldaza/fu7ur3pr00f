@@ -51,13 +51,14 @@ def _make_specialist_node(specialist: Any):
         except (ImportError, RuntimeError):
             stream_writer = None
 
-        # Emit start event
+        # Emit start event before contribution
         if stream_writer:
             stream_writer(
                 {
                     "type": "specialist_start",
                     "specialist": specialist_name,
                     "iteration": state.get("iteration", 0),
+                    "timestamp": time.time(),
                 }
             )
 
@@ -118,16 +119,15 @@ def _make_specialist_node(specialist: Any):
                     }
                 )
 
-            errors = state.get("errors", [])
-            errors.append(
-                {
-                    "specialist": specialist_name,
-                    "error": str(e),
-                    "iteration": state.get("iteration", 0),
-                }
-            )
+            # Create new error entry
+            error_entry = {
+                "specialist": specialist_name,
+                "error": str(e),
+                "iteration": state.get("iteration", 0),
+            }
+            # Return immutable: new list with error appended
             return {
-                "errors": errors,
+                "errors": [*state.get("errors", []), error_entry],
                 "current_specialist": specialist_name,
             }
 
@@ -236,9 +236,7 @@ def build_blackboard_graph(
         Compiled CompiledStateGraph ready for .stream() / .invoke()
     """
     if scheduler is None:
-        scheduler = BlackboardScheduler(
-            strategy="linear_iterative", max_iterations=5
-        )
+        scheduler = BlackboardScheduler(strategy="linear_iterative", max_iterations=5)
 
     graph = StateGraph(CareerBlackboard)
 
@@ -273,8 +271,7 @@ def build_blackboard_graph(
 
     compiled = graph.compile(checkpointer=checkpointer)
     logger.info(
-        "Built blackboard graph: %d specialists, strategy=%s, "
-        "max_iterations=%d",
+        "Built blackboard graph: %d specialists, strategy=%s, max_iterations=%d",
         len(specialists),
         scheduler.strategy,
         scheduler.max_iterations,

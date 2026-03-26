@@ -318,9 +318,7 @@ class TestStreamingEvents:
         """Specialist node should work gracefully without stream writer."""
         specialist = Mock()
         specialist.name = "coach"
-        specialist.contribute = Mock(
-            return_value={"gaps": ["AI"], "confidence": 0.8}
-        )
+        specialist.contribute = Mock(return_value={"gaps": ["AI"], "confidence": 0.8})
 
         node_fn = _make_specialist_node(specialist)
         state = make_initial_blackboard(

@@ -258,6 +258,14 @@ class BaseAgent(ABC):
         context_msg = self._format_previous_findings(previous_findings)
 
         full_prompt = f"User Profile:\n{profile_context}\n\nQuery: {query}"
+
+        # Nudge specialists to use knowledge base tools for richer data
+        full_prompt += (
+            "\n\nIMPORTANT: The user may have career data indexed in the"
+            " knowledge base (LinkedIn, GitHub, portfolio). Always use"
+            " search_career_knowledge to find relevant information before"
+            " responding. Do NOT say you lack data without searching first."
+        )
         if context_msg:
             full_prompt += f"\n\nContext from other specialists:\n{context_msg}"
 

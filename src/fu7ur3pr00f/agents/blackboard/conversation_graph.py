@@ -151,17 +151,23 @@ def build_conversation_graph(
         synthesis = dict(blackboard.get("synthesis", {}))
 
         # Inner graph already produced a narrative — pass through
-        if synthesis.get("narrative"):
+        if synthesis.get("narrative", "").strip():
             return {"synthesis": synthesis}
 
-        # Fallback: pull reasoning from the single/first finding
+        # Fallback: build narrative from all specialist findings
         findings = blackboard.get("findings", {})
         if findings:
-            first_finding = next(iter(findings.values()))
-            synthesis["narrative"] = first_finding.get("reasoning", "No findings")
-        else:
-            synthesis["narrative"] = "No findings"
+            reasoning_parts = []
+            for name, finding in findings.items():
+                reasoning = finding.get("reasoning", "").strip()
+                if reasoning:
+                    reasoning_parts.append(reasoning)
+            if reasoning_parts:
+                synthesis["narrative"] = "\n\n".join(reasoning_parts)
+                return {"synthesis": synthesis}
 
+        # Last resort
+        synthesis["narrative"] = "Analysis complete."
         return {"synthesis": synthesis}
 
     def suggest_next_node(state: dict[str, Any]) -> dict[str, Any]:

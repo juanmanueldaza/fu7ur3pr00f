@@ -1,11 +1,27 @@
 """Data gathering tools for the career agent."""
 
 import logging
+from pathlib import Path
 
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_home_path(raw: str) -> tuple[Path, str | None]:
+    """Expand and validate path is within home directory.
+
+    Args:
+        raw: Raw path string (may contain ~ or relative components)
+
+    Returns:
+        (resolved_path, None) on success, (_, error_str) on denial
+    """
+    resolved = Path(raw).expanduser().resolve()
+    if not resolved.is_relative_to(Path.home()):
+        return resolved, "Access denied: path must be within your home directory."
+    return resolved, None
 
 
 @tool
@@ -172,13 +188,11 @@ def gather_linkedin_data(zip_path: str) -> str:
     to import it. LinkedIn exports can be requested from LinkedIn Settings >
     Data Privacy > Get a copy of your data.
     """
-    from pathlib import Path
-
     from fu7ur3pr00f.services import GathererService
 
-    resolved = Path(zip_path).expanduser().resolve()
-    if not resolved.is_relative_to(Path.home()):
-        return "Access denied: path must be within your home directory."
+    resolved, err = _resolve_home_path(zip_path)
+    if err:
+        return err
 
     service = GathererService()
     try:
@@ -199,15 +213,13 @@ def gather_cv_data(file_path: str) -> str:
     Use this when the user wants to import their CV or resume.
     The file is parsed into sections and indexed for semantic search.
     """
-    from pathlib import Path
-
     from fu7ur3pr00f.memory.knowledge import KnowledgeSource
     from fu7ur3pr00f.services import GathererService
     from fu7ur3pr00f.services.exceptions import NoDataError, ServiceError
 
-    resolved = Path(file_path).expanduser().resolve()
-    if not resolved.is_relative_to(Path.home()):
-        return "Access denied: path must be within your home directory."
+    resolved, err = _resolve_home_path(file_path)
+    if err:
+        return err
     if not resolved.is_file():
         return f"CV file not found at {file_path!r}. Please check the path."
     suffix = resolved.suffix.lower()
@@ -292,15 +304,13 @@ def gather_assessment_data(input_dir: str = "") -> str:
     to import their strengths data. Looks for PDF files with names containing
     keywords like "cliftonstrengths", "gallup", "top_5", etc.
     """
-    from pathlib import Path
-
     from fu7ur3pr00f.services import GathererService
 
     dir_path: Path | None = None
     if input_dir:
-        dir_path = Path(input_dir).expanduser().resolve()
-        if not dir_path.is_relative_to(Path.home()):
-            return "Access denied: path must be within your home directory."
+        dir_path, err = _resolve_home_path(input_dir)
+        if err:
+            return err
 
     service = GathererService()
     try:

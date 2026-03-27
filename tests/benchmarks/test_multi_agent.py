@@ -33,12 +33,16 @@ def orchestrator() -> OrchestratorAgent:
     return orch
 
 
+VALID_SPECIALISTS = {"coach", "learning", "jobs", "code", "founder"}
+
+
 def test_routing_latency(orchestrator: OrchestratorAgent) -> None:
     """Routing should be sub-millisecond."""
     start = time.perf_counter()
     for query in TEST_QUERIES:
         route = orchestrator.route(query)
-        assert route in {"coach", "learning", "jobs", "code", "founder"}
+        assert isinstance(route, list)
+        assert all(name in VALID_SPECIALISTS for name in route)
     elapsed = time.perf_counter() - start
     assert elapsed < 0.01, f"Routing took {elapsed * 1000:.2f}ms"
 
@@ -53,7 +57,7 @@ def test_routing_accuracy(orchestrator: OrchestratorAgent) -> None:
         ("Launch my SaaS startup", "founder"),
     ]
     correct = sum(
-        1 for query, expected in cases if orchestrator.route(query) == expected
+        1 for query, expected in cases if expected in orchestrator.route(query)
     )
     accuracy = correct / len(cases)
     assert accuracy >= 0.8, f"Routing accuracy {accuracy * 100:.0f}% < 80%"

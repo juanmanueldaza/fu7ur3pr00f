@@ -2,12 +2,9 @@
 
 from unicodedata import normalize
 
-from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 
-from fu7ur3pr00f.llm.fallback import get_model_with_fallback
-from fu7ur3pr00f.memory.profile import load_profile
-from fu7ur3pr00f.services.knowledge_service import KnowledgeService
+from fu7ur3pr00f.agents.tools._analysis_helpers import run_market_analysis
 
 from ._async import run_async
 
@@ -389,42 +386,17 @@ def analyze_market_fit() -> str:
     Use this when the user asks how well they fit the current job market
     or wants to know if their skills are in demand.
     """
-    try:
-        from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
-
-        profile = load_profile()
-        service = KnowledgeService()
-        gatherer = TechTrendsGatherer()
-
-        market_data = run_async(gatherer.gather_with_cache())
-        trends = market_data.get("hiring_trends", {})
-        tech_list = ", ".join(t[0] for t in trends.get("top_technologies", [])[:8])
-
-        career_data = service.search("skills experience", limit=10)
-        career_context = (
-            "\n".join(f"- {r.content}" for r in career_data)
-            if career_data
-            else "No career data available."
-        )
-
-        prompt = (
-            f"Analyze market fit for this profile:\n{profile.summary()}\n\n"
-            f"Career context:\n{career_context}\n\n"
-            f"Current market demand (top tech): {tech_list}\n\n"
-            f"How well does their profile align with market demands? "
-            f"What's in/out of demand? Be specific."
-        )
-
-        model, _ = get_model_with_fallback(purpose="analysis")
-        result = model.invoke([HumanMessage(content=prompt)])
-
-        return f"Market fit analysis:\n\n{result.content}"
-
-    except Exception as e:
-        return (
-            "Could not complete market fit analysis: "
-            f"{type(e).__name__}. Check logs for details."
-        )
+    return run_market_analysis(
+        search_query="skills experience",
+        prompt_fn=lambda tech: (
+            "Analyze market fit for this profile:\n{profile_summary}\n\n"
+            "Career context:\n{career_context}\n\n"
+            f"Current market demand (top tech): {tech}\n\n"
+            "How well does their profile align with market demands? "
+            "What's in/out of demand? Be specific."
+        ),
+        noun="Market fit analysis",
+    )
 
 
 @tool
@@ -437,42 +409,17 @@ def analyze_market_skills() -> str:
     Use this when the user asks what skills they should learn or
     how to stay competitive in the job market.
     """
-    try:
-        from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
-
-        profile = load_profile()
-        service = KnowledgeService()
-        gatherer = TechTrendsGatherer()
-
-        market_data = run_async(gatherer.gather_with_cache())
-        trends = market_data.get("hiring_trends", {})
-        tech_list = ", ".join(t[0] for t in trends.get("top_technologies", [])[:8])
-
-        career_data = service.search("skills learning", limit=10)
-        career_context = (
-            "\n".join(f"- {r.content}" for r in career_data)
-            if career_data
-            else "No career data available."
-        )
-
-        prompt = (
-            f"Identify market-driven skill gaps:\n{profile.summary()}\n\n"
-            f"Career context:\n{career_context}\n\n"
-            f"Trending technologies: {tech_list}\n\n"
-            f"What skills should they learn to stay competitive? "
-            f"Prioritize by market demand and impact on career growth."
-        )
-
-        model, _ = get_model_with_fallback(purpose="analysis")
-        result = model.invoke([HumanMessage(content=prompt)])
-
-        return f"Market skills analysis:\n\n{result.content}"
-
-    except Exception as e:
-        return (
-            "Could not complete market skills analysis: "
-            f"{type(e).__name__}. Check logs for details."
-        )
+    return run_market_analysis(
+        search_query="skills learning",
+        prompt_fn=lambda tech: (
+            "Identify market-driven skill gaps:\n{profile_summary}\n\n"
+            "Career context:\n{career_context}\n\n"
+            f"Trending technologies: {tech}\n\n"
+            "What skills should they learn to stay competitive? "
+            "Prioritize by market demand and impact on career growth."
+        ),
+        noun="Market skills analysis",
+    )
 
 
 @tool

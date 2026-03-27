@@ -337,7 +337,8 @@ class TestConnections:
         assert "Company: Accenture" in result.content
         assert "Position: Senior Developer" in result.content
         assert "Connected: 15 Jan 2023" in result.content
-        assert "Email: maria@accenture.com" in result.content
+        # Email is anonymized for PII protection
+        assert "Email: [EMAIL]" in result.content
         assert "URL: https://linkedin.com/in/mariagarcia" in result.content
         assert "**John Smith**" in result.content
         assert "Company: Google" in result.content

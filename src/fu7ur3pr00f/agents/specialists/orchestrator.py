@@ -1,43 +1,14 @@
-"""Orchestrator — routes queries to the right specialist(s) and exposes their agents.
+"""Orchestrator — routes queries to the right specialist(s) via the blackboard.
 
-The orchestrator is the single entry point for all user messages. It does
-keyword-based routing (no LLM call, sub-millisecond) and then returns the
-compiled specialist agent(s) for the chat client to stream against directly.
-
-For targeted queries, it returns a single specialist. For comprehensive queries
-(e.g., "5-year prediction"), it auto-detects and returns multiple specialists
-to provide well-rounded perspectives.
-
-Additionally, the orchestrator can execute queries using the blackboard pattern,
-where specialists collaborate iteratively with shared state.
+All queries run through the blackboard pattern. The orchestrator does
+keyword-based routing (no LLM call, deterministic) to select which
+specialists contribute, then delegates execution to BlackboardExecutor.
 
 Usage (from the chat client):
     orchestrator = get_orchestrator()
-
-    # Option 1: Traditional streaming (one specialist or multiple in sequence)
-    result = orchestrator.route(user_input)
-    # result is either a string (single specialist) or list[str] (multiple)
-
-    if isinstance(result, list):
-        # Multiple specialists - loop and stream each
-        for specialist_name in result:
-            agent = orchestrator.get_compiled_agent(specialist_name)
-            agent.stream({...}, config, ...)
-    else:
-        # Single specialist
-        agent = orchestrator.get_compiled_agent(result)
-        agent.stream({...}, config, ...)
-
-    # Option 2: Blackboard pattern (multi-specialist collaboration)
-    if orchestrator.should_use_blackboard(user_input):
-        executor = orchestrator.get_blackboard_executor()
-        blackboard = executor.execute(
-            query=user_input,
-            user_profile=user_profile,
-            on_specialist_start=lambda name: print(f"[{name}] working..."),
-            on_specialist_complete=lambda name, f: print(f"[{name}] done"),
-        )
-        # Now display the integrated advice from blackboard.synthesis
+    specialist_names = orchestrator.route(user_input)  # always list[str]
+    executor = orchestrator.get_blackboard_executor(specialist_names)
+    blackboard = executor.execute(query=..., user_profile=..., callbacks=...)
 """
 
 import logging
@@ -46,7 +17,7 @@ from typing import Any
 
 from fu7ur3pr00f.agents.blackboard.executor import BlackboardExecutor
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
-from fu7ur3pr00f.agents.specialists.base import BaseAgent, reset_all_specialists
+from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
 from fu7ur3pr00f.agents.specialists.founder import FounderAgent
@@ -55,14 +26,34 @@ from fu7ur3pr00f.agents.specialists.learning import LearningAgent
 
 logger = logging.getLogger(__name__)
 
+# Keyword groups that indicate a comprehensive, multi-specialist query
+_MULTI_SPECIALIST_KEYWORDS: list[str] = [
+    "5 year",
+    "future",
+    "predict",
+    "overall",
+    "complete",
+    "all agent",
+    "make all",
+    "comprehensive",
+    "full picture",
+    "career path",
+    "trajectory",
+    "opportunity",
+    "option",
+    "possibility",
+    "alternative",
+    "strategy",
+    "plan",
+    "roadmap",
+]
+
 
 class OrchestratorAgent:
-    """Routes user queries to specialist agents.
+    """Routes user queries to specialist agents via the blackboard pattern.
 
     Routing is keyword-based — no LLM call, deterministic and fast.
-    Each specialist is a compiled LangGraph agent (cached on first use).
-    All specialists share the same SqliteSaver checkpointer so conversation
-    history is continuous across specialist switches within a thread.
+    route() always returns a list[str] of specialist names to involve.
     """
 
     def __init__(self) -> None:
@@ -74,97 +65,104 @@ class OrchestratorAgent:
             "founder": FounderAgent(),
         }
 
-    # ── Multi-specialist detection ───────────────────────────────────────
-
-    # Keywords that indicate a complex query needing multiple perspectives
-    _MULTI_SPECIALIST_KEYWORDS = {
-        "5 year|future|predict|overall|complete|all agent|make all|"
-        "comprehensive|full picture|career path|trajectory",
-        "opportunity|option|possibility|alternative|strategy",
-    }
-
-    def _should_route_multi(self, query: str) -> bool:
-        """Check if query needs multiple specialist perspectives."""
-        intent = query.lower()
-        for keywords in self._MULTI_SPECIALIST_KEYWORDS:
-            for keyword in keywords.split("|"):
-                if keyword in intent:
-                    return True
-        return False
-
     # ── Routing ──────────────────────────────────────────────────────────
 
-    def route(self, query: str) -> str | list[str]:
-        """Route to specialist(s).
+    def route(self, query: str) -> list[str]:
+        """Route query to one or more specialists.
 
-        Returns:
-            - Single specialist name (str) for targeted queries
-            - List of specialist names for comprehensive queries
+        Returns a list of specialist names to involve (always a list).
+        - Single targeted query → ["jobs"] or ["coach"], etc.
+        - Comprehensive query → ["coach", "learning", "jobs", ...] up to all 5
 
-        Scores each specialist by counting keyword matches. For single-specialist
-        queries, returns the name with highest score (default "coach").
-
-        For multi-specialist queries (e.g., "5-year prediction"), returns top 3-4
-        specialists to give comprehensive perspective.
+        Scoring: count keyword matches per specialist.
+        For comprehensive queries, include all specialists with score >= 0
+        (capped at 4); for targeted queries, return only the best match.
         """
-        intent = query.lower()
+        # Normalize hyphens so "5-year" matches "5 year"
+        intent = query.lower().replace("-", " ")
 
-        # Score all specialists
+        # Score all specialists by keyword match count
         scores: dict[str, int] = {}
         for name, agent in self._specialists.items():
             keywords: frozenset[str] = getattr(agent, "KEYWORDS", frozenset())
-            score = sum(1 for kw in keywords if kw in intent)
-            scores[name] = score
+            scores[name] = sum(1 for kw in keywords if kw in intent)
 
-        # Check if this is a multi-specialist query
-        if self._should_route_multi(query):
-            # Return top 3-4 specialists for comprehensive answer
-            sorted_specialists = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            # Always include coach, then top 2-3 others
+        # Detect comprehensive / multi-specialist queries
+        is_comprehensive = any(kw in intent for kw in _MULTI_SPECIALIST_KEYWORDS)
+
+        if is_comprehensive:
+            sorted_specs = sorted(scores.items(), key=lambda x: x[1], reverse=True)
             result = ["coach"]
-            for name, score in sorted_specialists:
-                if name != "coach" and len(result) < 4 and score >= 0:
+            for name, _score in sorted_specs:
+                if name != "coach" and len(result) < 4:
                     result.append(name)
-            logger.debug("route_multi(%r) → %s (comprehensive query)", query[:60], result)
+            logger.debug("route_multi(%r) → %s", query[:60], result)
             return result
 
-        # Single specialist routing
-        best_name = "coach"
-        best_score = 0
-        for name, score in scores.items():
-            if score > best_score:
-                best_score = score
-                best_name = name
+        # Single specialist: highest scorer, default coach
+        best_name = max(scores, key=lambda n: scores[n], default="coach")
+        if scores.get(best_name, 0) == 0:
+            best_name = "coach"
+        logger.debug(
+            "route(%r) → [%s] (score=%d)",
+            query[:60],
+            best_name,
+            scores.get(best_name, 0),
+        )
+        return [best_name]
 
-        logger.debug("route(%r) → %s (score=%d)", query[:60], best_name, best_score)
-        return best_name
+    # ── Blackboard execution ──────────────────────────────────────────────
 
-    # ── Agent access ─────────────────────────────────────────────────────
+    def get_blackboard_executor(
+        self,
+        specialist_names: list[str] | None = None,
+    ) -> BlackboardExecutor:
+        """Get a BlackboardExecutor with only the requested specialists.
 
-    def get_compiled_agent(self, specialist_name: str) -> Any:
-        """Return the compiled LangGraph agent for the given specialist.
+        Args:
+            specialist_names: Which specialists to include (from route()).
+                If None, includes all specialists.
 
-        Lazily compiled and cached on first call — subsequent calls return
-        the same graph without re-building.
+        Returns:
+            Executor ready to run blackboard-based analysis
         """
-        specialist = self._specialists.get(specialist_name)
-        if specialist is None:
-            logger.warning("Unknown specialist %r, falling back to coach", specialist_name)
-            specialist = self._specialists["coach"]
-        return specialist.get_compiled_agent()
+        if specialist_names is None:
+            selected = self._specialists
+        else:
+            selected = {
+                name: self._specialists[name]
+                for name in specialist_names
+                if name in self._specialists
+            }
+            if not selected:
+                selected = {"coach": self._specialists["coach"]}
+
+        scheduler = BlackboardScheduler(
+            strategy="linear",
+            max_iterations=1,
+            execution_order=list(selected.keys()),
+        )
+
+        return BlackboardExecutor(
+            specialists=selected,
+            scheduler=scheduler,
+        )
+
+    # ── Info ─────────────────────────────────────────────────────────────
 
     def get_specialist(self, name: str) -> BaseAgent:
         """Return the specialist agent object by name."""
         return self._specialists.get(name, self._specialists["coach"])
 
-    # ── Info ─────────────────────────────────────────────────────────────
-
     def list_agents(self) -> list[dict[str, str]]:
         """List all available specialists."""
-        return [{"name": a.name, "description": a.description} for a in self._specialists.values()]
+        return [
+            {"name": a.name, "description": a.description}
+            for a in self._specialists.values()
+        ]
 
     def get_model_name(self, specialist_name: str | None = None) -> str | None:
-        """Return the model description used by the given specialist (or coach)."""
+        """Return the model description used by specialists."""
         try:
             from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 
@@ -174,49 +172,8 @@ class OrchestratorAgent:
             return None
 
     def reset(self) -> None:
-        """Clear all compiled specialist agent caches.
-
-        Call after a model fallback or provider change so the next
-        invocation recompiles with the new model.
-        """
-        reset_all_specialists()
-
-    # ── Blackboard pattern execution ──────────────────────────────────────
-
-    def should_use_blackboard(self, query: str) -> bool:
-        """Determine if a query should use blackboard pattern.
-
-        Blackboard pattern is best for comprehensive queries like:
-        - "5-year prediction"
-        - "Complete career portrait"
-        - "What should I do?"
-
-        Traditional streaming is better for targeted queries like:
-        - "How do I get promoted?"
-        - "What skills should I learn?"
-
-        Currently, we use blackboard for multi-specialist queries.
-        """
-        return self._should_route_multi(query)
-
-    def get_blackboard_executor(
-        self, scheduler: BlackboardScheduler | None = None
-    ) -> BlackboardExecutor:
-        """Get a BlackboardExecutor configured with our specialists.
-
-        Args:
-            scheduler: Optional custom scheduler (default: linear_iterative)
-
-        Returns:
-            Executor ready to run blackboard-based analysis
-        """
-        if scheduler is None:
-            scheduler = BlackboardScheduler(strategy="linear_iterative", max_iterations=5)
-
-        return BlackboardExecutor(
-            specialists=self._specialists,
-            scheduler=scheduler,
-        )
+        """No-op: kept for API compatibility. No compiled agents to clear."""
+        logger.debug("Orchestrator.reset() called (no-op in blackboard-only mode)")
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────
@@ -241,11 +198,9 @@ def get_orchestrator() -> OrchestratorAgent:
 
 
 def reset_orchestrator() -> None:
-    """Reset the orchestrator singleton and all compiled agent caches."""
+    """Reset the orchestrator singleton."""
     global _orchestrator
     with _orchestrator_lock:
-        if _orchestrator is not None:
-            _orchestrator.reset()
         _orchestrator = None
 
 
@@ -253,15 +208,7 @@ def get_agent_config(
     thread_id: str = "main",
     user_id: str = "default",
 ) -> dict[str, Any]:
-    """Build the LangGraph config dict for invoking a specialist agent.
-
-    Args:
-        thread_id: Conversation thread identifier for checkpointing
-        user_id: User identifier for profile/memory scoping
-
-    Returns:
-        Config dict to pass to agent.invoke() or agent.stream()
-    """
+    """Build the LangGraph config dict for blackboard execution."""
     return {
         "configurable": {
             "thread_id": thread_id,

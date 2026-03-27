@@ -70,6 +70,8 @@ class KnowledgeService:
         Safe-swap: indexes new content first, then deletes old chunks.
         If embedding fails, old data is preserved.
 
+        Excludes sensitive sections (Connections, Messages, etc.) to protect PII.
+
         Args:
             source: The knowledge source
             sections: List of Section(name, content) tuples
@@ -80,11 +82,14 @@ class KnowledgeService:
         """
         t0 = time.monotonic()
 
+        # Filter out excluded sections to prevent PII indexing
+        sections_to_index = [s for s in sections if s.name not in _EXCLUDED_SECTIONS]
+
         # Get existing chunk IDs BEFORE indexing new content
         old_ids = self.store.get_ids_by_filter({"source": source.value})
 
         # Index new sections first — if embedding fails, old data is preserved
-        chunk_ids = self.store.index_sections(source=source, sections=sections)
+        chunk_ids = self.store.index_sections(source=source, sections=sections_to_index)
 
         # Only delete old chunks AFTER successful indexing
         if old_ids:

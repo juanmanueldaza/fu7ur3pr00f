@@ -1,48 +1,101 @@
 """Pydantic schema for structured specialist findings."""
 
-from typing import Any
+from pydantic import BaseModel, ConfigDict, Field
 
-from pydantic import BaseModel, Field
+_STR_MAX = 4000
+_LIST_MAX = 50
+_SHORT_MAX = 500
 
 
 class SpecialistFindingsModel(BaseModel):
-    """Structured extraction of specialist findings from agent output."""
+    """Structured extraction of specialist findings from agent output.
 
-    gaps: list[str] = Field(default_factory=list)
-    """Skill or knowledge gaps identified."""
+    Enforces strict bounds to prevent injection attacks and resource exhaustion.
+    """
 
-    opportunities: list[str] = Field(default_factory=list)
-    """Career opportunities identified."""
+    model_config = ConfigDict(extra="forbid")
 
-    skills: list[str] = Field(default_factory=list)
-    """Relevant skills identified or recommended."""
+    gaps: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Skill or knowledge gaps identified",
+    )
 
-    roles: list[str] = Field(default_factory=list)
-    """Target roles or career paths identified."""
+    strengths: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Strengths, assets, and capabilities identified",
+    )
 
-    timeline: str = ""
-    """Recommended timeline for goals or transitions."""
+    opportunities: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Career opportunities identified",
+    )
 
-    reasoning: str = ""
-    """Specialist's reasoning and analysis."""
+    skills: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Relevant skills identified or recommended",
+    )
 
-    confidence: float = Field(default=0.75, ge=0.0, le=1.0)
-    """Confidence score (0.0-1.0) for these findings."""
+    roles: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Target roles or career paths identified",
+    )
 
-    target_role: str = ""
-    """Target role identified (coach specialist)."""
+    timeline: str = Field(
+        default="",
+        max_length=_SHORT_MAX,
+        description="Recommended timeline for goals or transitions",
+    )
 
-    portfolio_items: list[dict[str, Any]] = Field(default_factory=list)
-    """Portfolio projects or contributions (code specialist)."""
+    reasoning: str = Field(
+        default="",
+        max_length=_STR_MAX,
+        description="Specialist's reasoning and analysis",
+    )
 
-    recommended_path: list[str] = Field(default_factory=list)
-    """Recommended path or next steps (founder specialist)."""
+    confidence: float = Field(
+        default=0.75,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score (0.0-1.0) for these findings",
+    )
 
-    projects: list[str] = Field(default_factory=list)
-    """Projects or portfolio items."""
+    target_role: str = Field(
+        default="",
+        max_length=_SHORT_MAX,
+        description="Target role identified (coach specialist)",
+    )
 
-    salary: dict[str, Any] = Field(default_factory=dict)
-    """Salary/compensation data (jobs specialist)."""
+    portfolio_items: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Portfolio projects or contributions (code specialist)",
+    )
 
-    extra: dict[str, Any] = Field(default_factory=dict)
-    """Specialist-specific extra fields."""
+    recommended_path: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Recommended path or next steps (founder specialist)",
+    )
+
+    projects: list[str] = Field(
+        default_factory=list,
+        max_length=_LIST_MAX,
+        description="Projects or portfolio items",
+    )
+
+    salary: str = Field(
+        default="",
+        max_length=_SHORT_MAX,
+        description="Salary/compensation data (jobs specialist)",
+    )
+
+    extra: str = Field(
+        default="",
+        max_length=_SHORT_MAX,
+        description="Specialist-specific extra findings (limited)",
+    )

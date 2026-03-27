@@ -5,12 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fu7ur3pr00f.agents.specialists.base import (
-    BaseAgent,
-    KnowledgeResult,
-    MemoryResult,
-    reset_all_specialists,
-)
+from fu7ur3pr00f.agents.specialists.base import BaseAgent, KnowledgeResult, MemoryResult
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
 from fu7ur3pr00f.agents.specialists.founder import FounderAgent
@@ -22,6 +17,12 @@ from fu7ur3pr00f.agents.specialists.orchestrator import (
     get_orchestrator,
     reset_orchestrator,
 )
+
+
+def _tool_names(agent_cls) -> set[str]:
+    """Extract tool names from an agent class."""
+    return {t.name for t in agent_cls().tools}
+
 
 # =============================================================================
 # Dataclass Tests
@@ -92,30 +93,35 @@ class TestBaseAgent:
         assert agent.can_handle("this is a test") is True
         assert agent.can_handle("no match") is False
 
-    def test_get_compiled_agent_cached(self):
-        """get_compiled_agent() should return the same object on repeated calls."""
+    def test_contribute_returns_finding(self):
+        """contribute() should return a dict with at least reasoning key."""
         agent = self._make_agent()
-        mock_graph = MagicMock()
+        blackboard = {
+            "query": "How do I improve?",
+            "user_profile": {"role": "Engineer"},
+            "findings": {},
+        }
+        mock_model = MagicMock()
+        mock_response = MagicMock()
+        mock_response.tool_calls = []
+        mock_response.content = "You should focus on X and Y."
+        mock_model.bind_tools.return_value = mock_model
+        mock_model.invoke.return_value = mock_response
 
-        with patch.object(agent, "_build_agent", return_value=mock_graph) as mock_build:
-            first = agent.get_compiled_agent()
-            second = agent.get_compiled_agent()
+        mock_extractor = MagicMock()
+        mock_finding = MagicMock()
+        mock_finding.model_dump.return_value = {
+            "reasoning": "Focus on X and Y.",
+            "confidence": 0.75,
+        }
+        mock_extractor.invoke.return_value = mock_finding
 
-        # _build_agent called at most once (may be skipped if cache already warm)
-        assert first is second or mock_build.call_count <= 1
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_fallback:
+            mock_fallback.return_value = (mock_model, MagicMock())
+            mock_model.with_structured_output.return_value = mock_extractor
+            finding = agent.contribute(blackboard)
 
-    def test_reset_all_clears_cache(self):
-        """reset_all_specialists() should allow recompilation."""
-        agent = self._make_agent()
-        mock_graph = MagicMock()
-
-        with patch.object(agent, "_build_agent", return_value=mock_graph):
-            agent.get_compiled_agent()
-            reset_all_specialists()
-            # After reset the cache entry is gone — next call will rebuild
-            # (we just verify the call doesn't raise)
-            with patch.object(agent, "_build_agent", return_value=mock_graph):
-                agent.get_compiled_agent()
+        assert isinstance(finding, dict)
 
 
 # =============================================================================
@@ -141,14 +147,14 @@ class TestCoachAgent:
             get_career_advice,
         )
 
-        names = {t.name for t in CoachAgent().tools}
+        names = _tool_names(CoachAgent)
         assert analyze_skill_gaps.name in names
         assert get_career_advice.name in names
 
     def test_has_gathering_tools(self):
         from fu7ur3pr00f.agents.tools.gathering import gather_all_career_data
 
-        names = {t.name for t in CoachAgent().tools}
+        names = _tool_names(CoachAgent)
         assert gather_all_career_data.name in names
 
 
@@ -166,7 +172,7 @@ class TestLearningAgent:
     def test_has_tech_trends_tool(self):
         from fu7ur3pr00f.agents.tools.market import get_tech_trends
 
-        names = {t.name for t in LearningAgent().tools}
+        names = _tool_names(LearningAgent)
         assert get_tech_trends.name in names
 
 
@@ -185,7 +191,7 @@ class TestJobsAgent:
         from fu7ur3pr00f.agents.tools.financial import compare_salary_ppp
         from fu7ur3pr00f.agents.tools.market import search_jobs
 
-        names = {t.name for t in JobsAgent().tools}
+        names = _tool_names(JobsAgent)
         assert search_jobs.name in names
         assert compare_salary_ppp.name in names
 
@@ -205,7 +211,7 @@ class TestCodeAgent:
         from fu7ur3pr00f.agents.tools.github import get_github_profile
         from fu7ur3pr00f.agents.tools.gitlab import search_gitlab_projects
 
-        names = {t.name for t in CodeAgent().tools}
+        names = _tool_names(CodeAgent)
         assert get_github_profile.name in names
         assert search_gitlab_projects.name in names
 
@@ -225,7 +231,7 @@ class TestFounderAgent:
         from fu7ur3pr00f.agents.tools.financial import convert_currency
         from fu7ur3pr00f.agents.tools.market import analyze_market_fit
 
-        names = {t.name for t in FounderAgent().tools}
+        names = _tool_names(FounderAgent)
         assert analyze_market_fit.name in names
         assert convert_currency.name in names
 
@@ -246,32 +252,44 @@ class TestOrchestratorAgent:
 
     def test_routing_coach(self):
         orch = self._make_orchestrator()
-        assert orch.route("How do I get promoted to Staff?") == "coach"
+        result = orch.route("How do I get promoted to Staff?")
+        assert isinstance(result, list)
+        assert result == ["coach"]
 
     def test_routing_learning(self):
         orch = self._make_orchestrator()
-        assert orch.route("I want to learn Python") == "learning"
+        result = orch.route("I want to learn Python")
+        assert isinstance(result, list)
+        assert "learning" in result
 
     def test_routing_jobs(self):
         orch = self._make_orchestrator()
-        assert orch.route("Find remote senior developer jobs") == "jobs"
+        result = orch.route("Find remote senior developer jobs")
+        assert isinstance(result, list)
+        assert "jobs" in result
 
     def test_routing_code(self):
         orch = self._make_orchestrator()
-        assert orch.route("Review my GitHub repos and profile") == "code"
+        result = orch.route("Review my GitHub repos and profile")
+        assert isinstance(result, list)
+        assert "code" in result
 
     def test_routing_founder(self):
         orch = self._make_orchestrator()
-        assert orch.route("Launch my SaaS startup idea") == "founder"
+        result = orch.route("Launch my SaaS startup idea")
+        assert isinstance(result, list)
+        assert "founder" in result
 
     def test_routing_default(self):
         orch = self._make_orchestrator()
-        assert orch.route("Help me") == "coach"
+        result = orch.route("Help me")
+        assert isinstance(result, list)
+        assert "coach" in result
 
     def test_routing_multi_5year_prediction(self):
         """Queries about 5-year predictions should route to multiple specialists."""
         orch = self._make_orchestrator()
-        result = orch.route("Give me a 5-year prediction for my career")
+        result = orch.route("Give me a 5 year prediction for my career")
         assert isinstance(result, list)
         assert len(result) >= 3
         assert "coach" in result
@@ -291,11 +309,12 @@ class TestOrchestratorAgent:
         assert "coach" in result
 
     def test_routing_single_narrow_query(self):
-        """Narrow, targeted queries should still route to single specialist."""
+        """Narrow, targeted queries should route to a single-element list."""
         orch = self._make_orchestrator()
-        assert orch.route("How do I get promoted to Staff?") == "coach"
-        assert isinstance(orch.route("Find remote senior developer jobs"), str)
-        assert isinstance(orch.route("Help me"), str)
+        result = orch.route("How do I get promoted to Staff?")
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0] == "coach"
 
     def test_list_agents(self):
         orch = self._make_orchestrator()
@@ -304,36 +323,26 @@ class TestOrchestratorAgent:
         names = {a["name"] for a in agents}
         assert names == {"coach", "learning", "jobs", "code", "founder"}
 
-    def test_get_compiled_agent_returns_graph(self):
-        orch = self._make_orchestrator()
-        mock_graph = MagicMock()
-        with patch.object(
-            orch._specialists["coach"], "get_compiled_agent", return_value=mock_graph
-        ):
-            agent = orch.get_compiled_agent("coach")
-        assert agent is mock_graph
-
-    def test_get_compiled_agent_unknown_falls_back_to_coach(self):
-        orch = self._make_orchestrator()
-        mock_graph = MagicMock()
-        with patch.object(
-            orch._specialists["coach"], "get_compiled_agent", return_value=mock_graph
-        ):
-            agent = orch.get_compiled_agent("nonexistent")
-        assert agent is mock_graph
-
     def test_get_specialist(self):
         orch = self._make_orchestrator()
         specialist = orch.get_specialist("jobs")
         assert isinstance(specialist, JobsAgent)
 
-    def test_reset_clears_caches(self):
+    def test_get_blackboard_executor_with_names(self):
         orch = self._make_orchestrator()
-        with patch(
-            "fu7ur3pr00f.agents.specialists.orchestrator.reset_all_specialists"
-        ) as mock_reset:
-            orch.reset()
-        mock_reset.assert_called_once()
+        executor = orch.get_blackboard_executor(["coach", "jobs"])
+        assert "coach" in executor.specialists
+        assert "jobs" in executor.specialists
+        assert "learning" not in executor.specialists
+
+    def test_get_blackboard_executor_default(self):
+        orch = self._make_orchestrator()
+        executor = orch.get_blackboard_executor()
+        assert len(executor.specialists) == 5
+
+    def test_reset_is_noop(self):
+        orch = self._make_orchestrator()
+        orch.reset()  # should not raise
 
 
 # =============================================================================
@@ -402,11 +411,11 @@ class TestIntegration:
         from fu7ur3pr00f.agents.tools.knowledge import search_career_knowledge
 
         orch = OrchestratorAgent()
-        name = orch.route("How can I get promoted to Staff Engineer?")
-        assert isinstance(name, str)
-        assert name == "coach"
+        names = orch.route("How can I get promoted to Staff Engineer?")
+        assert isinstance(names, list)
+        assert "coach" in names
 
-        specialist = orch.get_specialist(name)
+        specialist = orch.get_specialist("coach")
         tool_names = {t.name for t in specialist.tools}
         assert get_career_advice.name in tool_names
         assert search_career_knowledge.name in tool_names
@@ -417,11 +426,11 @@ class TestIntegration:
         from fu7ur3pr00f.agents.tools.market import search_jobs
 
         orch = OrchestratorAgent()
-        name = orch.route("Search for remote Python jobs paying over $150k")
-        assert isinstance(name, str)
-        assert name == "jobs"
+        names = orch.route("Search for remote Python jobs paying over $150k")
+        assert isinstance(names, list)
+        assert "jobs" in names
 
-        specialist = orch.get_specialist(name)
+        specialist = orch.get_specialist("jobs")
         tool_names = {t.name for t in specialist.tools}
         assert search_jobs.name in tool_names
         assert compare_salary_ppp.name in tool_names

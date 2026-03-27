@@ -4,47 +4,45 @@ Combines prompt-toolkit for input handling with Rich for output display.
 Provides both sync and async chat loops for different use cases.
 """
 
-import logging
-import re
-import time
-from pathlib import Path
-from typing import Any, cast
+import warnings
 
-from langchain_core.messages import HumanMessage
-from langchain_core.runnables import RunnableConfig
-from langgraph.types import Command
-from prompt_toolkit import PromptSession
-from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.styles import Style as PTStyle
-from rich.console import Console
-from rich.live import Live
-from rich.markdown import Markdown
+# Suppress noisy Pydantic serialization warnings from structured output
+# Must be set before third-party imports that trigger model validation.
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
-from fu7ur3pr00f.agents.specialists.orchestrator import (
+import logging  # noqa: E402
+import re  # noqa: E402
+import time  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any  # noqa: E402
+
+from prompt_toolkit import PromptSession  # noqa: E402
+from prompt_toolkit.formatted_text import HTML  # noqa: E402
+from prompt_toolkit.history import FileHistory  # noqa: E402
+from prompt_toolkit.styles import Style as PTStyle  # noqa: E402
+from rich.console import Console  # noqa: E402
+from rich.markdown import Markdown  # noqa: E402
+
+from fu7ur3pr00f.agents.specialists.orchestrator import (  # noqa: E402
     get_agent_config,
     get_orchestrator,
     reset_orchestrator,
 )
-from fu7ur3pr00f.chat.ui import (
+from fu7ur3pr00f.chat.ui import (  # noqa: E402
     console,
     display_blackboard_result,
     display_error,
     display_goals,
     display_help,
     display_model_info,
-    display_model_switch,
-    display_node_transition,
     display_profile_summary,
     display_specialist_progress,
-    display_timing,
     display_tool_result,
     display_tool_start,
     display_welcome,
 )
-from fu7ur3pr00f.config import settings
-from fu7ur3pr00f.llm.fallback import get_fallback_manager
-from fu7ur3pr00f.memory.checkpointer import get_data_dir
+from fu7ur3pr00f.config import settings  # noqa: E402
+from fu7ur3pr00f.memory.checkpointer import get_data_dir  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -53,140 +51,22 @@ logger = logging.getLogger(__name__)
 _PROMPT_STYLE = PTStyle.from_dict({"prompt": "#ffd700 bold"})
 _PROMPT_MSG = HTML("<prompt>\u25b6 </prompt>")
 
-# Known section headers from SummarizationMiddleware output.
-# The LLM sometimes echoes these verbatim at the start of a response.
-_SUMMARY_SECTIONS = (
-    "session intent",
-    "summary",
-    "artifacts",
-    "next steps",
-    "key context",
-)
-
-# Detects period immediately followed by a capital letter (no space) — a sign
-# that the LLM concatenated summary content with the real response.
-# Matches ".I " (pronoun), ".The", ".However", etc.
-_CONCAT_RE = re.compile(r"\.([A-Z](?:[a-z]| ))")
-
 # Patterns that might leak API keys or tokens in error messages
-_SECRET_RE = re.compile(r"(sk-[A-Za-z0-9]{8})[A-Za-z0-9]+")
+# Extended to cover OpenAI, Anthropic, Google, and bearer tokens
+_SECRET_RE = re.compile(
+    r"(sk-(?:ant-)?[A-Za-z0-9]{8})[A-Za-z0-9-]+|" r"(AIza[A-Za-z0-9]{8})[A-Za-z0-9_-]+"
+)
 _BEARER_RE = re.compile(r"(Bearer\s+)[^\s\"']+", re.IGNORECASE)
+
+# Thread ID validation (alphanumeric, dash, underscore only, max 64 chars)
+_VALID_THREAD_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _sanitize_error(msg: str) -> str:
     """Redact API keys and bearer tokens from error messages."""
-    msg = _SECRET_RE.sub(r"\1...", msg)
+    msg = _SECRET_RE.sub(r"\1\2...", msg)
     msg = _BEARER_RE.sub(r"\1[REDACTED]", msg)
     return msg
-
-
-def _is_tool_call_state_error(error: Exception) -> bool:
-    """Check if error is caused by orphaned tool_calls in state.
-
-    This happens when parallel tool execution via the Send API fails to
-    merge ToolMessage results back into the messages channel. Azure rejects
-    the next model call with "tool_call_ids did not have response messages".
-    """
-    error_str = str(error).lower()
-    return "tool_call_ids" in error_str and "response messages" in error_str
-
-
-def _might_be_summary_start(text: str) -> bool:
-    """Check if partial streaming text could be the start of a summary echo.
-
-    Used during streaming to suppress display of text that might become
-    a full summary section header once more chunks arrive. Requires at
-    least 4 characters to avoid false positives on common words.
-    """
-    first_line = text.lower().lstrip().split("\n", 1)[0].strip("#*").strip()
-    if len(first_line) < 4:
-        return False
-    for section in _SUMMARY_SECTIONS:
-        if section.startswith(first_line) or first_line.startswith(section):
-            return True
-    return first_line.startswith(("here is a summ", "here's a summ", "summary of the"))
-
-
-def _is_summary_echo(text: str) -> bool:
-    """Detect if text starts with a SummarizationMiddleware echo.
-
-    Matches two patterns:
-    1. "Here is a summary of the conversation..." preamble
-    2. Direct section headers like "SESSION INTENT" at the start
-    """
-    lower = text.lower().lstrip()
-    # Pattern 1: explicit summary preamble
-    if lower.startswith(("here is a summary", "here's a summary", "summary of the conversation")):
-        return True
-    # Pattern 2: starts with a known summary section header
-    first_line = lower.split("\n", 1)[0].strip().strip("#*").strip()
-    return first_line in _SUMMARY_SECTIONS
-
-
-def _strip_summary_echo(text: str) -> str:
-    """Remove an echoed conversation summary from the start of a response.
-
-    When SummarizationMiddleware compresses history, the LLM sometimes echoes
-    the injected summary verbatim before giving its real answer. This function
-    detects that pattern and returns only the real answer portion.
-
-    Returns the cleaned text, or empty string if the entire text so far is
-    still part of the summary (caller should skip the display update).
-    """
-    if not _is_summary_echo(text):
-        return text
-
-    # Find the position just after the last summary section header in the text.
-    # Section headers appear as standalone lines like "SESSION INTENT", "SUMMARY",
-    # "NEXT STEPS", etc. (possibly with markdown formatting).
-    last_header_end = 0
-    for section in _SUMMARY_SECTIONS:
-        pattern = re.compile(
-            r"^[#*\s]*" + re.escape(section) + r"[*\s]*$",
-            re.IGNORECASE | re.MULTILINE,
-        )
-        for match in pattern.finditer(text):
-            if match.end() > last_header_end:
-                last_header_end = match.end()
-
-    if last_header_end == 0:
-        return text
-
-    # Content after the last section header — this contains the section body
-    # and potentially the real response concatenated to it.
-    remaining = text[last_header_end:]
-
-    # Check for period-capital concatenation (e.g., "...for each.I can't debug...")
-    # This happens when the LLM glues the last summary bullet to the real response.
-    concat_match = _CONCAT_RE.search(remaining)
-    if concat_match:
-        return remaining[concat_match.start() + 1 :]
-
-    # Look for a double-newline boundary: the first paragraph block is section
-    # content, subsequent blocks that aren't section headers are the real response.
-    blocks = remaining.split("\n\n")
-    found_content = False
-    for i, block in enumerate(blocks):
-        if not block.strip():
-            continue
-        if not found_content:
-            found_content = True
-            continue
-        # If this block is another summary section header, skip it and its content
-        header_text = block.strip().lower().strip("#*").strip()
-        if header_text in _SUMMARY_SECTIONS:
-            found_content = False  # next non-empty block is this section's content
-            continue
-        # Real response
-        return "\n\n".join(blocks[i:])
-
-    # Everything parsed so far is still summary
-    return ""
-
-
-def _make_input(content: str) -> dict[str, Any]:
-    """Build the agent input dict from user text."""
-    return {"messages": [HumanMessage(content=content)]}
 
 
 def get_history_path() -> Path:
@@ -239,6 +119,13 @@ def handle_command(  # noqa: C901 TODO: refactor
                 f"[#415a77]Current thread: [bold]{chat_state['thread_id']}[/bold][/#415a77]"  # noqa: E501
             )
         else:
+            # Validate thread ID to prevent injection attacks
+            if not _VALID_THREAD_ID_RE.match(arg):
+                console.print(
+                    "[#ff6b6b]Invalid thread ID: use alphanumeric characters, "
+                    "dashes, and underscores only (max 64 chars).[/#ff6b6b]"
+                )
+                return False
             chat_state["thread_id"] = arg
             chat_state["config"] = get_agent_config(thread_id=arg)
             console.print(f"[#10b981]Switched to thread: [bold]{arg}[/bold][/#10b981]")
@@ -325,7 +212,9 @@ def handle_command(  # noqa: C901 TODO: refactor
             console.print()
 
             # CliftonStrengths
-            pdf_files = [f for f in data_dir.glob("*.pdf") if "strength" in f.name.lower()]
+            pdf_files = [
+                f for f in data_dir.glob("*.pdf") if "strength" in f.name.lower()
+            ]
             if pdf_files:
                 console.print("[bold]CliftonStrengths:[/bold]")
                 gatherer = CliftonStrengthsGatherer()
@@ -334,7 +223,9 @@ def handle_command(  # noqa: C901 TODO: refactor
                 sections = gatherer.gather(data_dir)
                 elapsed = time.time() - start
                 total += len(sections)
-                console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
+                console.print(
+                    f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
+                )
             else:
                 console.print("  [#ff6b6b]No CliftonStrengths PDFs found[/#ff6b6b]")
             console.print()
@@ -359,7 +250,9 @@ def handle_command(  # noqa: C901 TODO: refactor
                             f" [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
                         )
                     except Exception as e:
-                        console.print(f"  [#ff6b6b]✗ Skip: {cv_file.name} ({e})[/#ff6b6b]")
+                        console.print(
+                            f"  [#ff6b6b]✗ Skip: {cv_file.name} ({e})[/#ff6b6b]"
+                        )
             else:
                 console.print("  [#ff6b6b]No CV files found[/#ff6b6b]")
             console.print()
@@ -373,7 +266,9 @@ def handle_command(  # noqa: C901 TODO: refactor
                 sections = gatherer.gather(settings.portfolio_url)
                 elapsed = time.time() - start
                 total += len(sections)
-                console.print(f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]")
+                console.print(
+                    f"  [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
+                )
             else:
                 console.print(
                     "[bold]Portfolio:[/bold] [#ff6b6b]No PORTFOLIO_URL configured[/#ff6b6b]"
@@ -384,12 +279,16 @@ def handle_command(  # noqa: C901 TODO: refactor
                 console.print(
                     "\n[bold #10b981]═══════════════════════════════════════[/bold #10b981]"  # noqa: E501
                 )
-                console.print(f"[bold #10b981]  Total: {total} sections indexed[/bold #10b981]")
+                console.print(
+                    f"[bold #10b981]  Total: {total} sections indexed[/bold #10b981]"
+                )
                 console.print(
                     "[bold #10b981]═══════════════════════════════════════[/bold #10b981]\n"  # noqa: E501
                 )
             else:
-                console.print("\n[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n")
+                console.print(
+                    "\n[#ff6b6b]No data files found. Add files to data/raw/[/#ff6b6b]\n"
+                )
                 console.print("Expected files:")
                 console.print("  - LinkedIn: linkedin.zip (from LinkedIn export)")
                 console.print("  - CliftonStrengths: *.pdf (Gallup PDF reports)")
@@ -408,7 +307,9 @@ def handle_command(  # noqa: C901 TODO: refactor
         agents = orchestrator.list_agents()
         console.print("[bold #5bc0be]Specialist Agents[/bold #5bc0be]\n")
         for a in agents:
-            console.print(f"  [bold #ffd700]{a['name']}[/bold #ffd700]: {a['description']}")
+            console.print(
+                f"  [bold #ffd700]{a['name']}[/bold #ffd700]: {a['description']}"
+            )
         console.print()
         return False
 
@@ -439,9 +340,15 @@ def handle_command(  # noqa: C901 TODO: refactor
         console.print(f"LLM Provider: {settings.llm_provider or 'auto-detect'}")
         console.print(f"Model: {model_name}")
         console.print(f"Portfolio URL: {settings.portfolio_url or 'Not configured'}")
-        console.print(f"GitHub MCP: {'Enabled' if settings.has_github_mcp else 'Disabled'}")
-        console.print(f"Tavily MCP: {'Enabled' if settings.has_tavily_mcp else 'Disabled'}")
-        console.print(f"Debug level: {logging.getLevelName(logging.getLogger().level)}\n")
+        console.print(
+            f"GitHub MCP: {'Enabled' if settings.has_github_mcp else 'Disabled'}"
+        )
+        console.print(
+            f"Tavily MCP: {'Enabled' if settings.has_tavily_mcp else 'Disabled'}"
+        )
+        console.print(
+            f"Debug level: {logging.getLevelName(logging.getLogger().level)}\n"
+        )
         return False
 
     if cmd == "/reset":
@@ -499,211 +406,32 @@ def handle_command(  # noqa: C901 TODO: refactor
             deleted += 1
 
         settings.ensure_directories()
-        console.print(f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items.")
+        console.print(
+            f"\n[#10b981]Factory reset complete.[/#10b981] Cleared {deleted} items."
+        )
         console.print("[#415a77]Restart FutureProof to start fresh.[/#415a77]")
         return True
 
-    console.print(f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]")
+    console.print(
+        f"[#ffd700]Unknown command: {cmd}. Type /help for available commands.[/#ffd700]"
+    )
     return False
-
-
-class _ChunkAccumulator:
-    """Accumulates streamed chunks, tracking the latest AI message buffer."""
-
-    __slots__ = ("full_response", "msg_id", "msg_buf")
-
-    def __init__(self) -> None:
-        self.full_response = ""
-        self.msg_id: str | None = None
-        self.msg_buf = ""
-
-    def accumulate(self, chunk: Any) -> str:
-        """Extract text from a chunk and append to buffers.
-
-        Returns the extracted content string (empty if chunk had no text).
-        """
-        if not (hasattr(chunk, "content") and chunk.content):  # type: ignore[union-attr]  # noqa: E501
-            return ""
-        content = chunk.content  # type: ignore[union-attr]
-        if isinstance(content, list):
-            content = "".join(
-                block.get("text", "") if isinstance(block, dict) else str(block)
-                for block in content
-            )
-        chunk_id = getattr(chunk, "id", None)
-        if chunk_id and chunk_id != self.msg_id:
-            self.msg_id = chunk_id
-            self.msg_buf = ""
-        self.full_response += content
-        self.msg_buf += content
-        return content
-
-
-def _stream_to_live(
-    stream_iter,
-    acc: _ChunkAccumulator,
-    con: Console,
-    verbose_fn=None,
-) -> None:
-    """Stream chunks to a Rich Live widget, stripping summary echoes.
-
-    Args:
-        stream_iter: Iterable of (chunk, metadata) pairs
-        acc: Chunk accumulator for the stream
-        con: Rich console for display
-        verbose_fn: Optional callback(chunk, metadata) -> bool.
-            If it returns True, the chunk is considered consumed
-            (tool display) and won't be accumulated.
-    """
-    start = time.monotonic()
-    with Live(Markdown(""), console=con, refresh_per_second=10) as live:
-        for chunk, metadata in stream_iter:
-            if verbose_fn and verbose_fn(chunk, metadata):
-                continue
-            if acc.accumulate(chunk):
-                buf = acc.msg_buf
-                if _might_be_summary_start(buf):
-                    if "\n" in buf:
-                        stripped = _strip_summary_echo(buf)
-                        # Strip returns buf unchanged when preamble is
-                        # detected but section headers haven't arrived —
-                        # still in echo territory, suppress display.
-                        if stripped and stripped != buf:
-                            live.update(Markdown(stripped))
-                            continue
-                    live.update(Markdown(""))
-                    continue
-                live.update(Markdown(buf))
-    display_timing(time.monotonic() - start)
-
-
-def _stream_response(
-    agent: Any,
-    input_message: Any,
-    config: dict[str, Any],
-    console: Console,
-    session: PromptSession,  # type: ignore[type-arg]
-) -> tuple[str, set[str]]:
-    """Stream agent response, handling interrupts for human-in-the-loop.
-
-    Returns:
-        Tuple of (full_response_text, shown_tool_names)
-    """
-    shown_tools: set[str] = set()
-    tool_start_times: dict[str, float] = {}
-    last_node = ""
-    acc = _ChunkAccumulator()
-
-    def _verbose_print(chunk, metadata) -> bool:
-        """Print verbose tool/node info. Returns True if chunk was consumed."""
-        nonlocal last_node
-        node = metadata.get("langgraph_node", "")
-        if node and node != last_node:
-            display_node_transition(node)
-            last_node = node
-        tool_calls = getattr(chunk, "tool_calls", None)
-        if tool_calls:
-            for tc in tool_calls:
-                name = tc.get("name", "unknown")
-                if name not in shown_tools:
-                    shown_tools.add(name)
-                    tool_start_times[name] = time.monotonic()
-                    args = tc.get("args", {})
-                    display_tool_start(name, args)
-        if getattr(chunk, "type", None) == "tool":
-            tool_content = getattr(chunk, "content", "")
-            tool_name = getattr(chunk, "name", None)
-            # Skip synthetic repair messages (no name, injected by
-            # ToolCallRepairMiddleware)
-            if not tool_name:
-                return True
-            elapsed: float | None = None
-            if tool_name in tool_start_times:
-                elapsed = time.monotonic() - tool_start_times.pop(tool_name)
-            if tool_content:
-                display_tool_result(tool_name, tool_content, elapsed)
-            return True
-        return False
-
-    def _stream_iter():
-        return agent.stream(
-            input_message,
-            cast(RunnableConfig, config),
-            stream_mode="messages",
-        )
-
-    logger.debug("Stream started")
-    _stream_to_live(_stream_iter(), acc, console, _verbose_print)
-    logger.debug("Stream ended")
-
-    # Use the cleaned version as the final response
-    full_response = _strip_summary_echo(acc.full_response) or acc.full_response
-
-    # Handle human-in-the-loop interrupts (loop instead of recursion to avoid
-    # deep stacks when multiple HITL tools fire in sequence)
-    while True:
-        logger.debug("Checking for HITL interrupts...")
-        state = agent.get_state(cast(RunnableConfig, config))
-        logger.debug("State retrieved, interrupts=%d", len(state.interrupts))
-        if not state.interrupts:
-            break
-
-        interrupt_data = state.interrupts[0].value
-        question = interrupt_data.get("question", "Proceed?")
-        details = interrupt_data.get("details", "")
-
-        console.print(f"[bold #ffd700]{question}[/bold #ffd700]")
-        if details:
-            console.print(f"[#415a77]{details}[/#415a77]")
-
-        answer = (
-            session.prompt(
-                HTML("<prompt>[Y/n]: </prompt>"),
-                style=_PROMPT_STYLE,
-                is_password=False,
-            )
-            .strip()
-            .lower()
-        )
-        approved = answer in ("", "y", "yes")
-
-        logger.info("HITL resume: approved=%s", approved)
-        console.print()  # spacing before resume output
-
-        # Resume the graph with the user's decision
-        resume_acc = _ChunkAccumulator()
-        logger.debug("Resume stream started")
-
-        resume_iter = agent.stream(
-            Command(resume=approved),
-            cast(RunnableConfig, config),
-            stream_mode="messages",
-        )
-        _stream_to_live(resume_iter, resume_acc, console, _verbose_print)
-
-        logger.debug("Resume stream ended")
-
-        resume_text = _strip_summary_echo(resume_acc.full_response) or resume_acc.full_response
-        if resume_text:
-            full_response += resume_text
-
-    return full_response, shown_tools
 
 
 def _run_blackboard_query(
     orchestrator: Any,
     user_input: str,
+    specialist_names: list[str],
     con: Console,
 ) -> None:
-    """Execute a query using the blackboard multi-specialist pattern.
+    """Execute a query through the blackboard with the given specialists.
 
     Args:
         orchestrator: The OrchestratorAgent instance
         user_input: The user's query
+        specialist_names: Which specialists to involve (from route())
         con: Rich console for output
     """
-    import time
-
     from fu7ur3pr00f.memory.profile import load_profile
 
     profile = load_profile()
@@ -716,18 +444,42 @@ def _run_blackboard_query(
         "goals": [g.description for g in (profile.goals or [])],
     }
 
-    con.print("[dim][ BLACKBOARD ] Running comprehensive multi-specialist analysis...[/dim]")
+    # Show which specialists will run
+    spec_label = " · ".join(s.upper() for s in specialist_names)
+    con.print(f"[dim][ {spec_label} ][/dim]")
     con.print()
 
-    executor = orchestrator.get_blackboard_executor()
+    executor = orchestrator.get_blackboard_executor(specialist_names)
     start = time.monotonic()
+    tool_start_times: dict[str, float] = {}
+
+    def _on_specialist_complete(name: str, finding: dict) -> None:
+        display_specialist_progress(name, "done")
+        reasoning = finding.get("reasoning", "")
+        if reasoning and len(specialist_names) > 1:
+            # Only show intermediate reasoning for multi-specialist (single will show via synthesis)
+            con.print(Markdown(reasoning))
+            con.print()
+
+    def _on_tool_start(specialist: str, tool_name: str, args: dict) -> None:
+        tool_start_times[f"{specialist}:{tool_name}"] = time.monotonic()
+        display_tool_start(tool_name, args)
+
+    def _on_tool_result(specialist: str, tool_name: str, result: str) -> None:
+        key = f"{specialist}:{tool_name}"
+        elapsed = time.monotonic() - tool_start_times.pop(key, time.monotonic())
+        display_tool_result(tool_name, result, elapsed)
 
     try:
         blackboard = executor.execute(
             query=user_input,
             user_profile=user_profile,
-            on_specialist_start=lambda name: display_specialist_progress(name, "working"),
-            on_specialist_complete=lambda name, finding: display_specialist_progress(name, "done"),
+            on_specialist_start=lambda name: display_specialist_progress(
+                name, "working"
+            ),
+            on_specialist_complete=_on_specialist_complete,
+            on_tool_start=_on_tool_start,
+            on_tool_result=_on_tool_result,
         )
     except Exception as e:
         logger.exception("Blackboard execution failed")
@@ -736,11 +488,11 @@ def _run_blackboard_query(
 
     elapsed = time.monotonic() - start
     synthesis = blackboard.get("synthesis", {})
-    specialists = list(blackboard.get("findings", {}).keys())
+    specialists_ran = list(blackboard.get("findings", {}).keys())
 
     display_blackboard_result(
         synthesis=synthesis,
-        specialists_contributed=specialists,
+        specialists_contributed=specialists_ran,
         elapsed=elapsed,
     )
 
@@ -833,96 +585,11 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
                 config = chat_state["config"]
                 continue
 
-            # Route to the right specialist(s), then stream their compiled agents
+            # All queries go through the blackboard
             console.print()  # Blank line before response
 
-            # Check for blackboard pattern first (comprehensive queries)
-            if orchestrator.should_use_blackboard(user_input):
-                _run_blackboard_query(orchestrator, user_input, console)
-                continue
-
-            # Otherwise, use traditional streaming with standard routing
-            routing_result = orchestrator.route(user_input)
-            specialist_names = (
-                routing_result if isinstance(routing_result, list) else [routing_result]
-            )
-
-            full_response = ""
-            shown_tools: set[str] = set()
-
-            # Stream each specialist's response in sequence
-            for specialist_name in specialist_names:
-                agent = orchestrator.get_compiled_agent(specialist_name)
-                specialist = orchestrator.get_specialist(specialist_name)
-                console.print(f"[dim][ {specialist_name.upper()} ] {specialist.description}[/dim]")
-
-                input_message = _make_input(user_input)
-
-                # Retry loop for automatic fallback on rate limits / tool state errors
-                max_retries = 8
-                for attempt in range(max_retries):
-                    try:
-                        response, tools = _stream_response(
-                            agent, input_message, config, console, session
-                        )
-                        full_response += f"\n\n[{specialist_name.upper()}]\n{response}"
-                        shown_tools.update(tools)
-                        break
-
-                    except Exception as e:
-                        if _is_tool_call_state_error(e) and attempt < max_retries - 1:
-                            logger.warning(
-                                "Tool state error (attempt %d/%d), retrying",
-                                attempt + 1,
-                                max_retries,
-                            )
-                            console.print(
-                                "[#ffd700]Recovering from tool state error, retrying...[/#ffd700]"
-                            )
-                            continue
-
-                        fallback_mgr = get_fallback_manager()
-                        if fallback_mgr.handle_error(e) and attempt < max_retries - 1:
-                            status = fallback_mgr.get_status()
-                            available = status.get("available_models", [])
-                            next_model = available[0] if available else "unknown"
-                            logger.warning(
-                                "Model error (attempt %d/%d): %s — switching to %s",
-                                attempt + 1,
-                                max_retries,
-                                e,
-                                next_model,
-                            )
-                            display_model_switch(next_model)
-                            # Reset all compiled agents so they rebuild with new model
-                            reset_orchestrator()
-                            orchestrator = get_orchestrator()
-                            agent = orchestrator.get_compiled_agent(specialist_name)
-                            continue
-                        else:
-                            logger.exception("Unhandled agent error")
-                            error_msg = _sanitize_error(f"Agent error: {e}")
-
-                            if "Connection error" in str(e) or "ConnectError" in str(
-                                type(e).__name__
-                            ):
-                                error_msg = (
-                                    "Cannot connect to LLM provider. "
-                                    "Check your internet and API credentials. "
-                                    "Run '/setup' to reconfigure."
-                                )
-                            elif "APIConnectionError" in str(type(e).__name__):
-                                error_msg = (
-                                    "Cannot connect to LLM provider. "
-                                    "Check your internet and API credentials. "
-                                    "Run '/setup' to reconfigure."
-                                )
-
-                            display_error(error_msg)
-                            break
-
-                # Continue to next specialist even if this one failed
-                console.print()  # Blank line between specialists
+            specialist_names = orchestrator.route(user_input)
+            _run_blackboard_query(orchestrator, user_input, specialist_names, console)
 
         except KeyboardInterrupt:
             console.print("\n[#415a77]Use /quit to exit[/#415a77]")

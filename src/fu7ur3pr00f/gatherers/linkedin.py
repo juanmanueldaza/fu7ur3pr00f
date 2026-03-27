@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from ..memory.chunker import Section
+from ..utils.security import anonymize_career_data
 
 logger = logging.getLogger(__name__)
 
@@ -436,7 +437,9 @@ def _parse_connections(rows: list[dict[str, str]]) -> Section | None:
         if connected_on:
             details.append(f"Connected: {connected_on}")
         if email:
-            details.append(f"Email: {email}")
+            # Anonymize email before indexing to ChromaDB
+            anonymized_email = anonymize_career_data(email)
+            details.append(f"Email: {anonymized_email}")
         if url:
             details.append(f"URL: {url}")
         entries.append(" | ".join(details))
@@ -582,6 +585,16 @@ class LinkedInGatherer:
         sections: list[Section] = []
 
         with zipfile.ZipFile(zip_path, "r") as zf:
+            # Prevent ZIP bomb: check total uncompressed size
+            _MAX_ZIP_UNCOMPRESSED = 500 * 1024 * 1024  # 500 MB
+            total_size = sum(info.file_size for info in zf.infolist())
+            if total_size > _MAX_ZIP_UNCOMPRESSED:
+                raise ValueError(
+                    f"LinkedIn export too large: {total_size // 1024 // 1024}MB "
+                    f"(max {_MAX_ZIP_UNCOMPRESSED // 1024 // 1024}MB). "
+                    f"This may be a ZIP bomb attack or corrupted file."
+                )
+
             for tier, csv_name, parser, use_variants in _CSV_PARSERS:
                 rows = (
                     _read_csv_variants(zf, csv_name)

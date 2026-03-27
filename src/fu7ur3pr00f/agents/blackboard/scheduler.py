@@ -40,19 +40,35 @@ class BlackboardScheduler:
         "founder": {"startup", "saas", "founder", "business", "revenue"},
     }
 
-    def __init__(self, strategy: str = "linear_iterative", max_iterations: int = 5):
+    def __init__(
+        self,
+        strategy: str = "linear",
+        max_iterations: int = 1,
+        execution_order: list[str] | None = None,
+    ):
         """Initialize the scheduler.
 
         Args:
             strategy: How to select next specialist. Options:
-                - "linear": Fixed order [coach, learning, code, jobs, founder]
+                - "linear": Fixed order, one pass
                 - "linear_iterative": Linear order, repeat until max iterations
                 - "conditional": Only activate specialists whose keywords match
                 - "smart": Use blackboard state to decide what's needed next
-            max_iterations: Maximum iterations before stopping (default 5)
+            max_iterations: Maximum iterations before stopping (default 1)
+            execution_order: Custom specialist order. If provided, overrides
+                DEFAULT_ORDER. The router determines which specialists run.
         """
         self.strategy = strategy
         self.max_iterations = max_iterations
+        if execution_order is not None:
+            self._execution_order = execution_order
+        else:
+            self._execution_order = list(self.DEFAULT_ORDER)
+
+    @property
+    def execution_order(self) -> list[str]:
+        """The specialist execution order for this scheduler."""
+        return self._execution_order
 
     def get_next_specialist(
         self,
@@ -83,12 +99,12 @@ class BlackboardScheduler:
     def _get_next_linear(self, current_specialist: str | None = None) -> str | None:
         """Linear: Fixed order, one pass through all specialists."""
         if current_specialist is None:
-            return self.DEFAULT_ORDER[0]
+            return self._execution_order[0]
 
         try:
-            idx = self.DEFAULT_ORDER.index(current_specialist)
-            if idx + 1 < len(self.DEFAULT_ORDER):
-                return self.DEFAULT_ORDER[idx + 1]
+            idx = self._execution_order.index(current_specialist)
+            if idx + 1 < len(self._execution_order):
+                return self._execution_order[idx + 1]
         except ValueError:
             pass
 
@@ -110,13 +126,13 @@ class BlackboardScheduler:
 
         # First specialist is coach
         if current_specialist is None:
-            return self.DEFAULT_ORDER[0]
+            return self._execution_order[0]
 
         # Try to move to next in order
         try:
-            idx = self.DEFAULT_ORDER.index(current_specialist)
-            if idx + 1 < len(self.DEFAULT_ORDER):
-                return self.DEFAULT_ORDER[idx + 1]
+            idx = self._execution_order.index(current_specialist)
+            if idx + 1 < len(self._execution_order):
+                return self._execution_order[idx + 1]
             else:
                 # Completed one full iteration, loop back to coach for next iteration
                 # (This enables iterative refinement)
@@ -125,7 +141,7 @@ class BlackboardScheduler:
                     iteration + 1,
                     max_iter,
                 )
-                return self.DEFAULT_ORDER[0]
+                return self._execution_order[0]
         except ValueError:
             pass
 
@@ -139,16 +155,16 @@ class BlackboardScheduler:
         """Conditional: Only run specialists whose keywords match the query."""
         if current_specialist is None:
             # First specialist is always coach
-            return self.DEFAULT_ORDER[0]
+            return self._execution_order[0]
 
         query = blackboard.get("query", "").lower()
         findings = blackboard.get("findings", {})
 
         # Try the next specialist in order
         try:
-            idx = self.DEFAULT_ORDER.index(current_specialist)
-            for next_idx in range(idx + 1, len(self.DEFAULT_ORDER)):
-                next_specialist = self.DEFAULT_ORDER[next_idx]
+            idx = self._execution_order.index(current_specialist)
+            for next_idx in range(idx + 1, len(self._execution_order)):
+                next_specialist = self._execution_order[next_idx]
                 triggers = self.SPECIALIST_TRIGGERS.get(next_specialist, set())
 
                 # Check if query mentions this specialist's domain
@@ -263,9 +279,9 @@ class BlackboardScheduler:
         plan = []
         current = None
         # Make a copy of the blackboard to simulate iteration advancement
-        sim_blackboard = dict(blackboard)
+        sim_blackboard: CareerBlackboard = {**blackboard}  # type: ignore
 
-        for _ in range(self.max_iterations * len(self.DEFAULT_ORDER)):
+        for _ in range(self.max_iterations * len(self._execution_order)):
             next_specialist = self.get_next_specialist(sim_blackboard, current)
             if next_specialist is None:
                 break
@@ -273,8 +289,10 @@ class BlackboardScheduler:
             current = next_specialist
 
             # Simulate iteration increment when wrapping back to first specialist
-            if next_specialist == self.DEFAULT_ORDER[0] and current is not None:
-                sim_blackboard["iteration"] = sim_blackboard.get("iteration", 0) + 1
+            if next_specialist == self._execution_order[0] and current is not None:
+                iter_val = sim_blackboard.get("iteration", 0)
+                if isinstance(iter_val, int):
+                    sim_blackboard["iteration"] = iter_val + 1
 
         return plan
 

@@ -2,12 +2,10 @@
 
 import logging
 
-from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 
-from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+from fu7ur3pr00f.agents.tools._analysis_helpers import invoke_with_context
 from fu7ur3pr00f.memory.profile import load_profile
-from fu7ur3pr00f.services.knowledge_service import KnowledgeService
 
 logger = logging.getLogger(__name__)
 
@@ -24,27 +22,17 @@ def analyze_skill_gaps(target_role: str) -> str:
     transitions, or what they need to learn.
     """
     try:
-        profile = load_profile()
-        service = KnowledgeService()
-
-        career_data = service.search(f"skills experience {target_role}", limit=10)
-        career_context = (
-            "\n".join(f"- {r.content}" for r in career_data)
-            if career_data
-            else "No career data available."
+        result = invoke_with_context(
+            search_query=f"skills experience {target_role}",
+            prompt=(
+                f"Analyze skill gaps for the target role: {target_role}\n\n"
+                "User profile:\n{profile_summary}\n\n"
+                "Career context:\n{career_context}\n\n"
+                "Provide a concise gap analysis with 3-5 key areas to improve."
+            ),
+            search_limit=10,
         )
-
-        prompt = (
-            f"Analyze skill gaps for the target role: {target_role}\n\n"
-            f"User profile:\n{profile.summary()}\n\n"
-            f"Career context:\n{career_context}\n\n"
-            f"Provide a concise gap analysis with 3-5 key areas to improve."
-        )
-
-        model, _ = get_model_with_fallback(purpose="analysis")
-        result = model.invoke([HumanMessage(content=prompt)])
-
-        return f"Skill gap analysis for {target_role!r}:\n\n{result.content}"
+        return f"Skill gap analysis for {target_role!r}:\n\n{result}"
 
     except Exception as e:
         logger.exception("Skill gap analysis failed for '%s'", target_role)
@@ -73,28 +61,18 @@ def analyze_career_alignment() -> str:
     goals, skills, and market fit.
     """
     try:
-        profile = load_profile()
-        service = KnowledgeService()
-
-        career_data = service.search("career goals trajectory alignment", limit=15)
-        career_context = (
-            "\n".join(f"- {r.content}" for r in career_data)
-            if career_data
-            else "No career data available."
+        result = invoke_with_context(
+            search_query="career goals trajectory alignment",
+            prompt=(
+                "Analyze career alignment for this profile:\n"
+                "{profile_summary}\n\n"
+                "Career context:\n{career_context}\n\n"
+                "Assess how well their current trajectory aligns with goals. "
+                "Identify strengths and misalignments. Suggest adjustments."
+            ),
+            search_limit=15,
         )
-
-        prompt = (
-            f"Analyze career alignment for this profile:\n"
-            f"{profile.summary()}\n\n"
-            f"Career context:\n{career_context}\n\n"
-            f"Assess how well their current trajectory aligns with goals. "
-            f"Identify strengths and misalignments. Suggest adjustments."
-        )
-
-        model, _ = get_model_with_fallback(purpose="analysis")
-        result = model.invoke([HumanMessage(content=prompt)])
-
-        return f"Career alignment analysis:\n\n{result.content}"
+        return f"Career alignment analysis:\n\n{result}"
 
     except Exception as e:
         logger.exception("Career alignment analysis failed")
@@ -114,27 +92,17 @@ def get_career_advice(target: str) -> str:
     Use this when the user asks for advice on career decisions or paths.
     """
     try:
-        profile = load_profile()
-        service = KnowledgeService()
-
-        career_data = service.search(target, limit=10)
-        career_context = (
-            "\n".join(f"- {r.content}" for r in career_data)
-            if career_data
-            else "No career data available."
+        result = invoke_with_context(
+            search_query=target,
+            prompt=(
+                f"Provide strategic career advice for: {target}\n\n"
+                "User profile:\n{profile_summary}\n\n"
+                "Relevant context:\n{career_context}\n\n"
+                "Give actionable, specific advice with concrete next steps."
+            ),
+            search_limit=10,
         )
-
-        prompt = (
-            f"Provide strategic career advice for: {target}\n\n"
-            f"User profile:\n{profile.summary()}\n\n"
-            f"Relevant context:\n{career_context}\n\n"
-            f"Give actionable, specific advice with concrete next steps."
-        )
-
-        model, _ = get_model_with_fallback(purpose="analysis")
-        result = model.invoke([HumanMessage(content=prompt)])
-
-        return f"Career advice for {target!r}:\n\n{result.content}"
+        return f"Career advice for {target!r}:\n\n{result}"
 
     except Exception as e:
         logger.exception("Career advice failed for '%s'", target)

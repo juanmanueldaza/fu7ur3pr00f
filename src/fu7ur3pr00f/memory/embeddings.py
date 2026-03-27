@@ -24,7 +24,38 @@ from fu7ur3pr00f.config import settings
 logger = logging.getLogger(__name__)
 
 
-class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
+class _TruncatingEmbeddingFunction(EmbeddingFunction[Documents]):
+    """Base class for OpenAI-family embedding functions with truncation."""
+
+    MAX_CHARS = 15000
+
+    def _truncate(self, texts: list[str]) -> list[str]:
+        """Truncate texts that exceed the model's context limit."""
+        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
+
+    @property
+    def _model_name(self) -> str:
+        """The model name to use for embeddings. Subclasses must override."""
+        raise NotImplementedError
+
+    def __call__(self, input: Documents) -> Embeddings:
+        """Generate embeddings for a list of documents."""
+        if not input:
+            return []
+
+        try:
+            docs: list[str] = list(input) if isinstance(input, list) else [input]
+            response = self.client.embeddings.create(
+                input=self._truncate(docs),
+                model=self._model_name,
+            )
+            return [item.embedding for item in response.data]
+        except Exception as e:
+            logger.error("%s embedding failed: %s", type(self).__name__, e)
+            raise
+
+
+class AzureOpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
     """ChromaDB embedding function using Azure OpenAI."""
 
     def __init__(
@@ -58,31 +89,12 @@ class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
             logger.debug("Azure OpenAI embedding client initialized")
         return self._client
 
-    # text-embedding-3-small/large max context is 8192 tokens (~2 chars/token)
-    MAX_CHARS = 15000
-
-    def _truncate(self, texts: list[str]) -> list[str]:
-        """Truncate texts that exceed the model's context limit."""
-        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
-
-    def __call__(self, input: Documents) -> Embeddings:
-        """Generate embeddings for a list of documents."""
-        if not input:
-            return []
-
-        try:
-            docs: list[str] = list(input) if isinstance(input, list) else [input]
-            response = self.client.embeddings.create(
-                input=self._truncate(docs),
-                model=self._deployment,
-            )
-            return [item.embedding for item in response.data]
-        except Exception as e:
-            logger.error("Azure OpenAI embedding failed: %s", e)
-            raise
+    @property
+    def _model_name(self) -> str:
+        return self._deployment
 
 
-class OpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
+class OpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
     """ChromaDB embedding function using OpenAI or OpenAI-compatible API."""
 
     def __init__(
@@ -109,26 +121,9 @@ class OpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
             logger.debug("OpenAI embedding client initialized")
         return self._client
 
-    MAX_CHARS = 15000
-
-    def _truncate(self, texts: list[str]) -> list[str]:
-        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
-
-    def __call__(self, input: Documents) -> Embeddings:
-        """Generate embeddings for a list of documents."""
-        if not input:
-            return []
-
-        try:
-            docs: list[str] = list(input) if isinstance(input, list) else [input]
-            response = self.client.embeddings.create(
-                input=self._truncate(docs),
-                model=self._model,
-            )
-            return [item.embedding for item in response.data]
-        except Exception as e:
-            logger.error("OpenAI embedding failed: %s", e)
-            raise
+    @property
+    def _model_name(self) -> str:
+        return self._model
 
 
 class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):

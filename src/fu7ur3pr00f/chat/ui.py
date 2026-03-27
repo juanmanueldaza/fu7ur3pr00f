@@ -454,15 +454,44 @@ def display_blackboard_result(
     specialists_contributed: list[str],
     elapsed: float,
 ) -> None:
-    """Display the integrated blackboard synthesis result.
+    """Display the blackboard synthesis result.
+
+    For single-specialist results, renders the narrative directly without
+    heavy framing. For multi-specialist results, uses the integrated panel.
 
     Args:
-        synthesis: Synthesis dict with 'integrated_advice' key
+        synthesis: Synthesis dict with 'narrative' key (and optionally 'integrated_advice')
         specialists_contributed: List of specialist names that ran
         elapsed: Total elapsed time in seconds
     """
-    integrated = synthesis.get("integrated_advice", {})
+    narrative = synthesis.get("narrative", "")
+    contributors = ", ".join(s.upper() for s in specialists_contributed)
 
+    if narrative:
+        if len(specialists_contributed) == 1:
+            # Single specialist — show narrative directly, light framing
+            console.print(Markdown(narrative))
+            console.print(f"[dim] {contributors} · {elapsed:.1f}s[/dim]")
+        else:
+            # Multi-specialist — use the integrated analysis panel
+            console.print(
+                Panel(
+                    Markdown(narrative),
+                    title="[bold #ffd700]INTEGRATED CAREER ANALYSIS[/bold #ffd700]",
+                    subtitle=(
+                        f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]"
+                    ),
+                    subtitle_align="right",
+                    border_style="#ffd700",
+                    box=box.DOUBLE,
+                    padding=(1, 2),
+                )
+            )
+        console.print()
+        return
+
+    # Fallback: structured display from integrated_advice
+    integrated = synthesis.get("integrated_advice", {})
     parts: list[str] = []
     if integrated.get("target_role"):
         parts.append(f"**Target Role:** {integrated['target_role']}")
@@ -475,23 +504,19 @@ def display_blackboard_result(
         plan_str = ", ".join(str(s) for s in integrated["learning_plan"][:5])
         parts.append(f"**Learning Plan:** {plan_str}")
     if integrated.get("opportunities"):
-        opps = integrated["opportunities"]
-        parts.append(f"**Opportunities:** {len(opps)} identified")
+        parts.append(
+            f"**Opportunities:** {len(integrated['opportunities'])} identified"
+        )
     if integrated.get("next_steps"):
-        steps = integrated["next_steps"]
-        steps_str = "\n".join(f"- {s}" for s in steps[:5])
+        steps_str = "\n".join(f"- {s}" for s in integrated["next_steps"][:5])
         parts.append(f"\n**Next Steps:**\n{steps_str}")
 
     body = "\n".join(parts) if parts else "Analysis complete."
-    contributors = ", ".join(s.upper() for s in specialists_contributed)
-
     console.print(
         Panel(
             Markdown(body),
             title="[bold #ffd700]INTEGRATED CAREER ANALYSIS[/bold #ffd700]",
-            subtitle=(
-                f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]"
-            ),
+            subtitle=f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]",
             subtitle_align="right",
             border_style="#ffd700",
             box=box.DOUBLE,

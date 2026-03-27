@@ -15,6 +15,8 @@ from typing import Annotated, Any
 
 from typing_extensions import TypedDict
 
+_MAX_ITERATIONS = 3  # Hard cap on multi-specialist iteration loops
+
 
 def _merge_change_log(
     left: list[dict[str, Any]], right: list[dict[str, Any]]
@@ -34,10 +36,10 @@ class SpecialistFinding(TypedDict, total=False):
     opportunities: list[str]
     timeline: str
     skills: list[str]
-    projects: list[dict[str, Any]]
+    projects: list[str]
     roles: list[str]
-    salary: dict[str, Any]
-    portfolio_items: list[dict[str, Any]]
+    salary: str
+    portfolio_items: list[str]
     reasoning: str
     confidence: float
     iteration_contributed: int
@@ -110,7 +112,7 @@ def make_initial_blackboard(
     query: str,
     user_profile: dict[str, Any],
     constraints: list[str] | None = None,
-    max_iterations: int = 5,
+    max_iterations: int = 1,
 ) -> CareerBlackboard:
     """Create an initial blackboard state for a multi-specialist analysis.
 
@@ -118,17 +120,18 @@ def make_initial_blackboard(
         query: The user's question (e.g., "5-year prediction")
         user_profile: User's career data (role, skills, goals, etc.)
         constraints: Optional list of constraints for the analysis
-        max_iterations: Maximum iterations before stopping (default 5)
+        max_iterations: Maximum iterations before stopping (default 1, capped at 3)
 
     Returns:
         Initialized CareerBlackboard ready for specialist contributions
     """
+    clamped = max(1, min(max_iterations, _MAX_ITERATIONS))
     return {
         "query": query,
         "user_profile": user_profile,
         "findings": {},
         "iteration": 0,
-        "max_iterations": max_iterations,
+        "max_iterations": clamped,
         "change_log": [],
         "constraints": constraints or [],
         "synthesis": {},
@@ -149,10 +152,13 @@ def record_specialist_contribution(
         blackboard: The shared blackboard state
         specialist_name: Name of the specialist (e.g., "coach")
         finding: The specialist's findings
-        confidence: Confidence score (0.0-1.0)
+        confidence: Confidence score (0.0-1.0), clamped to valid range
     """
+    # Clamp confidence to valid range
+    clamped_confidence = max(0.0, min(float(confidence), 1.0))
+
     # Add to findings
-    finding["confidence"] = confidence
+    finding["confidence"] = clamped_confidence
     finding["iteration_contributed"] = blackboard.get("iteration", 0)
     findings = blackboard.get("findings", {})
     findings[specialist_name] = finding
@@ -166,7 +172,7 @@ def record_specialist_contribution(
             "specialist": specialist_name,
             "timestamp": time.time(),
             "keys_modified": list(finding.keys()),
-            "confidence": confidence,
+            "confidence": clamped_confidence,
         }
     )
     blackboard["change_log"] = change_log

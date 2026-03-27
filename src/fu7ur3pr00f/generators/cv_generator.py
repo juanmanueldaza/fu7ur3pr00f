@@ -55,6 +55,7 @@ def _render_pdf(markdown_path: Path) -> Path:
     """
     try:
         import markdown
+        import nh3
         from weasyprint import HTML
 
         md_content = markdown_path.read_text()
@@ -62,6 +63,39 @@ def _render_pdf(markdown_path: Path) -> Path:
         html_content = markdown.markdown(
             md_content,
             extensions=["tables", "fenced_code"],
+        )
+
+        # Sanitize HTML to prevent script injection and malicious content
+        html_content = nh3.clean(
+            html_content,
+            tags={
+                "p",
+                "ul",
+                "ol",
+                "li",
+                "strong",
+                "em",
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "h5",
+                "h6",
+                "table",
+                "thead",
+                "tbody",
+                "tr",
+                "th",
+                "td",
+                "a",
+                "br",
+                "hr",
+                "blockquote",
+                "code",
+                "pre",
+            },
+            attributes={"a": {"href"}},
+            strip_comments=True,
         )
 
         styled_html = f"""

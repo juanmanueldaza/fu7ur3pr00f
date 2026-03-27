@@ -1,30 +1,37 @@
 """Base class for specialist agents.
 
-Each specialist agent is a compiled LangGraph agent (via create_agent())
-with a curated tool subset and a focused system prompt.
+Each specialist contributes to the shared CareerBlackboard using its curated
+tool subset. All queries run through the blackboard pattern — there is no
+separate single-agent mode.
 
 The base class handles:
-- Compiling and caching the per-specialist LangGraph graph
+- Multi-turn tool-calling loop during blackboard contribution
+- Structured findings extraction via Pydantic
 - Keyword-based intent routing
-- Shared plumbing (model, checkpointer, middleware)
-- Two modes of operation:
-  * stream(): Direct streaming to user (original mode)
-  * contribute(): Blackboard pattern collaboration (new mode)
 """
 
 import logging
-import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
+from fu7ur3pr00f.utils.security import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache: specialist class name → compiled agent graph
-_compiled_agents: dict[str, Any] = {}
-_agents_lock = threading.Lock()
+_CONTRIBUTE_INSTRUCTION = (
+    "\n\nYou are contributing to a multi-specialist career analysis. "
+    "Use your tools to gather real, specific data about this person. "
+    "After gathering data, synthesize your findings into a comprehensive summary that includes:\n"
+    "- Key gaps and challenges you identified\n"
+    "- Strengths and assets to leverage\n"
+    "- Specific opportunities and roles\n"
+    "- Concrete recommended skills or steps\n"
+    "- Your overall reasoning and confidence\n\n"
+    "Be concrete and data-driven — use specific examples from this person's actual profile, "
+    "projects, market data, and other findings. Avoid generic advice."
+)
 
 
 @dataclass
@@ -53,9 +60,14 @@ class BaseAgent(ABC):
     - name           : str — agent identifier
     - description    : str — human-readable description
     - system_prompt  : str — specialist persona and instructions
-    - tools          : list — curated subset of the 41 career tools
-    - can_handle()   : bool — keyword-based intent matching
+    - tools          : list — curated subset of the career tools
+    - KEYWORDS       : frozenset[str] — keywords for intent matching
+
+    Subclasses inherit can_handle() which uses KEYWORDS.
     """
+
+    # Subclasses override this with their own frozenset of keywords
+    KEYWORDS: frozenset[str] = frozenset()
 
     @property
     @abstractmethod
@@ -72,11 +84,7 @@ class BaseAgent(ABC):
     @property
     @abstractmethod
     def system_prompt(self) -> str:
-        """Specialist persona and focused instructions.
-
-        Appended to the base system prompt (which already contains the
-        user profile and live knowledge base stats) via make_specialist_prompt().
-        """
+        """Specialist persona and focused instructions."""
         ...
 
     @property
@@ -85,112 +93,185 @@ class BaseAgent(ABC):
         """Curated tool subset for this specialist."""
         ...
 
-    @abstractmethod
     def can_handle(self, intent: str) -> bool:
         """Keyword-based intent matching for routing."""
-        ...
+        return any(kw in intent.lower() for kw in self.KEYWORDS)
 
     # ── Blackboard pattern ───────────────────────────────────────────────
 
-    def contribute(self, blackboard: CareerBlackboard) -> SpecialistFinding:
-        """Contribute analysis to the shared blackboard.
+    def contribute(
+        self,
+        blackboard: CareerBlackboard,
+        stream_writer: Any = None,
+    ) -> SpecialistFinding:
+        """Contribute analysis to the shared blackboard using real tools.
 
-        This is the new blackboard pattern mode where specialists:
-        1. Read findings from previous specialists
-        2. Analyze the user's query in context of those findings
-        3. Return their own findings (no streaming to user)
-
-        The orchestrator will collect all findings and synthesize them.
+        Runs a multi-turn tool-calling loop:
+        1. Reads query, user profile, and previous findings from blackboard
+        2. Calls model with bound tools; executes tool calls iteratively
+        3. Extracts structured findings from the final response
 
         Args:
             blackboard: Shared state with user profile, query, and previous findings
+            stream_writer: Optional LangGraph stream writer for real-time events
 
         Returns:
-            Dict of {key: value} findings to record on the blackboard.
-            Example:
-                {
-                    "gaps": ["agentic_ai_projects", "formal_education"],
-                    "target_role": "Staff Engineer",
-                    "confidence": 0.85,
-                    ...
-                }
-
-        Note:
-            Subclasses can override this to provide custom blackboard logic.
-            Default implementation will use self._build_agent() to run the agent
-            with a context-aware prompt that includes previous findings.
+            Dict of structured findings to record on the blackboard.
         """
-        # Default implementation: use the compiled agent with context
-        return self._contribute_via_agent(blackboard)
+        return self._contribute_via_agent(blackboard, stream_writer)
 
-    def _contribute_via_agent(self, blackboard: CareerBlackboard) -> SpecialistFinding:
-        """Default contribution implementation using direct LLM call.
+    def _contribute_via_agent(
+        self,
+        blackboard: CareerBlackboard,
+        stream_writer: Any = None,
+    ) -> SpecialistFinding:
+        """Multi-turn tool-calling contribution loop.
 
-        Builds a context-aware prompt that includes:
-        - The user's profile (role, skills, goals, etc.)
-        - The original user query
-        - Findings from previous specialists (for context)
-
-        Then calls the LLM and extracts structured findings.
+        Binds tools to the model and iterates until the model produces a
+        final text response (no more tool calls), up to MAX_TOOL_ROUNDS.
         """
-        from langchain_core.messages import HumanMessage, SystemMessage
+        from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
         from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 
         query = blackboard.get("query", "")
+
+        system_content = self.system_prompt + _CONTRIBUTE_INSTRUCTION
+        human_content = self._build_context(blackboard)
+
+        messages: list[Any] = [
+            SystemMessage(content=system_content),
+            HumanMessage(content=human_content),
+        ]
+
+        # Build tool name → tool function lookup
+        tool_map = {t.name: t for t in self.tools}
+
+        try:
+            model, _ = get_model_with_fallback(purpose="agent")
+            model_with_tools = model.bind_tools(self.tools)
+        except Exception as e:
+            logger.error("%s: failed to bind tools: %s", self.name, e)
+            return {"reasoning": f"Setup error: {e}", "confidence": 0.0}
+
+        MAX_TOOL_ROUNDS = 10
+        MAX_TOTAL_TOOL_CALLS = 25
+
+        tool_call_count = 0
+        for round_num in range(MAX_TOOL_ROUNDS):
+            try:
+                response = model_with_tools.invoke(messages)
+            except Exception as e:
+                logger.error(
+                    "%s: LLM call failed (round %d): %s", self.name, round_num, e
+                )
+                break
+
+            messages.append(response)
+
+            # No tool calls → final text response
+            if not getattr(response, "tool_calls", None):
+                break
+
+            # Check if adding more tool calls would exceed the cap
+            if tool_call_count + len(response.tool_calls) > MAX_TOTAL_TOOL_CALLS:
+                logger.warning(
+                    "%s: tool call cap reached (%d/%d), stopping early",
+                    self.name,
+                    tool_call_count,
+                    MAX_TOTAL_TOOL_CALLS,
+                )
+                break
+
+            # Execute each tool call
+            tool_call_count += len(response.tool_calls)
+            for tc in response.tool_calls:
+                tool_name = tc["name"]
+                tool_args = tc.get("args", {})
+                tool_id = tc["id"]
+
+                if stream_writer:
+                    stream_writer(
+                        {
+                            "type": "tool_start",
+                            "specialist": self.name,
+                            "tool": tool_name,
+                            "args": tool_args,
+                        }
+                    )
+
+                tool_fn = tool_map.get(tool_name)
+                if tool_fn is None:
+                    result_str = (
+                        f"Tool '{tool_name}' not available to {self.name} specialist."
+                    )
+                    logger.warning("%s: tool not found: %s", self.name, tool_name)
+                else:
+                    try:
+                        result = tool_fn.invoke(tool_args)
+                        result_str = str(result)[:3000]
+                    except Exception as e:
+                        result_str = f"Error running {tool_name}: {e}"
+                        logger.warning(
+                            "%s: tool error (%s): %s", self.name, tool_name, e
+                        )
+
+                if stream_writer:
+                    stream_writer(
+                        {
+                            "type": "tool_result",
+                            "specialist": self.name,
+                            "tool": tool_name,
+                            "result": result_str[:500],
+                        }
+                    )
+
+                messages.append(ToolMessage(content=result_str, tool_call_id=tool_id))
+
+        return self._extract_findings({"messages": messages}, query)
+
+    def _build_context(self, blackboard: CareerBlackboard) -> str:
+        """Build the human message context from blackboard state."""
+        query = blackboard.get("query", "")
         user_profile = blackboard.get("user_profile", {})
         previous_findings = blackboard.get("findings", {})
 
-        # Build user profile context
+        # User profile section
         profile_parts = []
         if user_profile:
-            if user_profile.get("role"):
-                profile_parts.append(f"Current role: {user_profile['role']}")
-            if user_profile.get("years_experience"):
-                profile_parts.append(f"Years of experience: {user_profile['years_experience']}")
-            if user_profile.get("technical_skills"):
-                skills = ", ".join(user_profile["technical_skills"][:10])
-                profile_parts.append(f"Technical skills: {skills}")
-            if user_profile.get("goals"):
-                goals = ", ".join(user_profile["goals"][:3])
-                profile_parts.append(f"Goals: {goals}")
-        profile_context = "\n".join(profile_parts) if profile_parts else "No profile data available"
+            for key, label in [
+                ("name", "Name"),
+                ("current_role", "Current role"),
+                ("role", "Current role"),
+                ("years_experience", "Years of experience"),
+                ("technical_skills", "Technical skills"),
+                ("goals", "Goals"),
+                ("target_roles", "Target roles"),
+            ]:
+                val = user_profile.get(key)
+                if val:
+                    if isinstance(val, list):
+                        val = ", ".join(sanitize_for_prompt(str(v)) for v in val[:10])
+                    else:
+                        val = sanitize_for_prompt(str(val))
+                    profile_parts.append(f"{label}: {val}")
 
-        # Build context from previous specialists
+        profile_context = (
+            "\n".join(profile_parts) if profile_parts else "No profile data available"
+        )
+
+        # Previous findings section
         context_msg = self._format_previous_findings(previous_findings)
 
-        # Build full prompt with user profile + query + context
         full_prompt = f"User Profile:\n{profile_context}\n\nQuery: {query}"
         if context_msg:
-            full_prompt = f"{full_prompt}\n\nContext from other specialists:\n{context_msg}"
+            full_prompt += f"\n\nContext from other specialists:\n{context_msg}"
+        return full_prompt
 
-        try:
-            model, _ = get_model_with_fallback(purpose="analysis")
-            result = model.invoke(
-                [
-                    SystemMessage(content=self.system_prompt),
-                    HumanMessage(content=full_prompt),
-                ]
-            )
-
-            return self._extract_findings({"messages": [result]}, query)
-
-        except Exception as e:
-            logger.error("Error in %s.contribute(): %s", self.name, e)
-            return {
-                "reasoning": f"Failed to contribute: {e}",
-                "confidence": 0.0,
-            }
-
-    def _format_previous_findings(self, previous_findings: dict[str, SpecialistFinding]) -> str:
-        """Format findings from previous specialists for context (with truncation).
-
-        Args:
-            previous_findings: Dict of specialist findings
-
-        Returns:
-            Formatted string of previous findings, truncated to 4000 chars
-        """
+    def _format_previous_findings(
+        self, previous_findings: dict[str, SpecialistFinding]
+    ) -> str:
+        """Format findings from previous specialists for context (with truncation)."""
         context_parts = []
 
         if previous_findings:
@@ -199,10 +280,10 @@ class BaseAgent(ABC):
                 context_parts.append(f"\n{specialist.upper()}:")
                 for key, value in finding.items():
                     if key not in ("confidence", "iteration_contributed"):
-                        context_parts.append(f"  - {key}: {value}")
+                        safe_value = sanitize_for_prompt(str(value))
+                        context_parts.append(f"  - {key}: {safe_value}")
 
         context_msg = "\n".join(context_parts) if context_parts else ""
-        # Truncate to 4000 chars to keep context manageable
         return context_msg[:4000]
 
     def _extract_findings(
@@ -210,34 +291,36 @@ class BaseAgent(ABC):
         agent_result: dict[str, Any],
         query: str,
     ) -> SpecialistFinding:
-        """Extract structured findings from agent response via Pydantic.
+        """Extract structured findings from the tool-calling loop result.
 
-        Makes a separate, structured LLM call to extract findings in a
-        reliable, typed format instead of parsing free-text output.
-
-        Args:
-            agent_result: Result dict from agent.invoke()
-            query: Original user query
-
-        Returns:
-            Structured findings dict
+        Finds the last AI message with text content, then uses structured
+        output to extract typed findings from it.
         """
-        from langchain_core.messages import HumanMessage
+        from langchain_core.messages import AIMessage, HumanMessage
 
         from fu7ur3pr00f.agents.blackboard.findings_schema import (
             SpecialistFindingsModel,
         )
         from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 
-        # Extract the agent's final message text
         messages = agent_result.get("messages", [])
         if not messages:
             return {"reasoning": "No output from agent", "confidence": 0.50}
 
-        last_msg = messages[-1]
-        agent_text = str(getattr(last_msg, "content", str(last_msg)))[:4000]
+        # Find last AI message with text content (skip tool-call-only messages)
+        agent_text = ""
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage):
+                content = getattr(msg, "content", "")
+                if content and isinstance(content, str) and content.strip():
+                    agent_text = content[:4000]
+                    break
 
-        # Make a separate extraction call using structured output
+        if not agent_text:
+            # Fall back to last message of any type
+            last_msg = messages[-1]
+            agent_text = str(getattr(last_msg, "content", str(last_msg)))[:4000]
+
         try:
             model, _ = get_model_with_fallback(purpose="analysis")
             extractor = model.with_structured_output(SpecialistFindingsModel)
@@ -259,80 +342,7 @@ class BaseAgent(ABC):
                 self.name,
                 e,
             )
-            # Graceful fallback: return raw text as reasoning
             return {
-                "reasoning": agent_text[:2000],
+                "reasoning": sanitize_for_prompt(agent_text[:2000]),
                 "confidence": 0.60,
             }
-
-    def get_compiled_agent(self) -> Any:
-        """Get the compiled LangGraph agent for this specialist (cached).
-
-        Builds on first call using:
-        - create_agent() from LangChain
-        - This specialist's tools and system_prompt
-        - The standard middleware stack (dynamic prompt, tool repair,
-          analysis synthesis, summarization)
-        - Shared SqliteSaver checkpointer
-
-        Returns:
-            Compiled CompiledStateGraph ready for .stream() / .invoke()
-        """
-        key = type(self).__name__
-
-        if key in _compiled_agents:
-            return _compiled_agents[key]
-
-        with _agents_lock:
-            if key in _compiled_agents:
-                return _compiled_agents[key]
-
-            agent = self._build_agent()
-            _compiled_agents[key] = agent
-            logger.info("Compiled %s specialist agent (%d tools)", self.name, len(self.tools))
-            return agent
-
-    def _build_agent(self) -> Any:
-        """Build the compiled LangGraph agent."""
-        from langchain.agents import create_agent
-        from langchain.agents.middleware.summarization import SummarizationMiddleware
-
-        from fu7ur3pr00f.agents.middleware import (
-            AnalysisSynthesisMiddleware,
-            ToolCallRepairMiddleware,
-            make_specialist_prompt,
-        )
-        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
-        from fu7ur3pr00f.memory.checkpointer import get_checkpointer
-
-        model, config = get_model_with_fallback(purpose="agent")
-        logger.info("%s agent using: %s", self.name, config.description)
-
-        summary_model, _ = get_model_with_fallback(purpose="summary")
-
-        return create_agent(
-            model=model,
-            tools=self.tools,
-            middleware=[
-                make_specialist_prompt(self.system_prompt),
-                ToolCallRepairMiddleware(),
-                AnalysisSynthesisMiddleware(),
-                SummarizationMiddleware(
-                    model=summary_model,
-                    trigger=("tokens", 16000),
-                    keep=("messages", 20),
-                ),
-            ],
-            checkpointer=get_checkpointer(),
-        )
-
-
-def reset_all_specialists() -> None:
-    """Clear all cached compiled specialist agents.
-
-    Call after a model fallback or provider change to force recompilation
-    with the new model on the next invocation.
-    """
-    with _agents_lock:
-        _compiled_agents.clear()
-    logger.info("All specialist agent caches cleared")

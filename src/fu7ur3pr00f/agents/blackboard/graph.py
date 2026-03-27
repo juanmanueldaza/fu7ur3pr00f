@@ -1,16 +1,14 @@
 """LangGraph StateGraph for blackboard-based multi-specialist orchestration.
 
-Converts the blackboard pattern into a native LangGraph StateGraph with
-nodes for each specialist, iteration control, and synthesis.
-
 Graph topology:
-    START → coach → learning → code → jobs → founder → route_fn
-                                                          ├→ next specialist
-                                                          ├→ increment_iteration → coach
-                                                          └→ synthesize → END
+    START → [specialist nodes] → route_fn
+                                   ├→ next specialist
+                                   ├→ increment_iteration → first specialist
+                                   └→ synthesize → END
 
-Each specialist node emits real-time progress events via get_stream_writer()
-for integration with UI components.
+Each specialist node passes stream_writer into contribute() for real-time
+tool progress events. The synthesis node generates a coherent narrative
+via LLM for multi-specialist results.
 """
 
 import logging
@@ -21,25 +19,16 @@ from langgraph.graph import StateGraph
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
+from fu7ur3pr00f.utils.security import sanitize_error, sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
 
 def _make_specialist_node(specialist: Any):
-    """Factory to create a specialist node function.
-
-    Args:
-        specialist: The specialist agent (has a contribute() method)
-
-    Returns:
-        Node function that calls specialist.contribute() and records findings
-    """
+    """Factory to create a specialist node function."""
 
     def specialist_node(state: CareerBlackboard) -> dict[str, Any]:
-        """Execute specialist contribution and record on blackboard.
-
-        Emits real-time progress events via streaming for UI integration.
-        """
+        """Execute specialist contribution with real tools via stream_writer."""
         specialist_name = specialist.name
         logger.debug("Specialist %r contributing...", specialist_name)
 
@@ -51,7 +40,7 @@ def _make_specialist_node(specialist: Any):
         except (ImportError, RuntimeError):
             stream_writer = None
 
-        # Emit start event before contribution
+        # Emit start event
         if stream_writer:
             stream_writer(
                 {
@@ -64,42 +53,39 @@ def _make_specialist_node(specialist: Any):
 
         try:
             contrib_start = time.time()
-            finding = specialist.contribute(state)
+            # Pass stream_writer so tool events surface in real time
+            finding = specialist.contribute(state, stream_writer=stream_writer)
             contrib_time = time.time() - contrib_start
 
-            # Set finding metadata
-            confidence = finding.get("confidence", 0.75)
-            finding["confidence"] = confidence
+            finding["confidence"] = finding.get("confidence", 0.75)
             finding["iteration_contributed"] = state.get("iteration", 0)
 
-            # Create immutable state update (not mutating state in-place)
             change_entry = {
                 "iteration": state.get("iteration", 0),
                 "specialist": specialist_name,
                 "timestamp": time.time(),
                 "keys_modified": list(finding.keys()),
-                "confidence": confidence,
+                "confidence": finding["confidence"],
             }
 
             logger.info(
                 "Specialist %r contributed in %.2fs (confidence=%.2f)",
                 specialist_name,
                 contrib_time,
-                confidence,
+                finding["confidence"],
             )
 
-            # Emit completion event
             if stream_writer:
                 stream_writer(
                     {
                         "type": "specialist_complete",
                         "specialist": specialist_name,
                         "elapsed": contrib_time,
-                        "confidence": confidence,
+                        "confidence": finding["confidence"],
+                        "reasoning": finding.get("reasoning", ""),
                     }
                 )
 
-            # Return immutable state updates (reducer handles change_log merging)
             return {
                 "findings": state.get("findings", {}) | {specialist_name: finding},
                 "change_log": [change_entry],
@@ -108,26 +94,26 @@ def _make_specialist_node(specialist: Any):
 
         except Exception as e:
             logger.exception("Error in specialist %r", specialist_name)
+            sanitized_error = sanitize_error(str(e))
 
-            # Emit error event
             if stream_writer:
                 stream_writer(
                     {
                         "type": "specialist_error",
                         "specialist": specialist_name,
-                        "error": str(e),
+                        "error": sanitized_error,
                     }
                 )
 
-            # Create new error entry
-            error_entry = {
-                "specialist": specialist_name,
-                "error": str(e),
-                "iteration": state.get("iteration", 0),
-            }
-            # Return immutable: new list with error appended
             return {
-                "errors": [*state.get("errors", []), error_entry],
+                "errors": [
+                    *state.get("errors", []),
+                    {
+                        "specialist": specialist_name,
+                        "error": sanitized_error,
+                        "iteration": state.get("iteration", 0),
+                    },
+                ],
                 "current_specialist": specialist_name,
             }
 
@@ -135,14 +121,7 @@ def _make_specialist_node(specialist: Any):
 
 
 def _make_route_fn(scheduler: BlackboardScheduler):
-    """Factory to create the routing function for conditional edges.
-
-    Args:
-        scheduler: The scheduler that determines next specialist
-
-    Returns:
-        Route function that returns next specialist name or special node
-    """
+    """Factory to create the routing function for conditional edges."""
 
     def route_fn(state: CareerBlackboard) -> str:
         """Determine next node based on scheduler."""
@@ -150,72 +129,140 @@ def _make_route_fn(scheduler: BlackboardScheduler):
         next_specialist = scheduler.get_next_specialist(state, current)
 
         if not next_specialist:
-            logger.debug("No more specialists scheduled, moving to synthesis")
             return "synthesize"
 
-        # If wrapping back to first specialist, increment iteration
-        if current is not None and next_specialist == scheduler.DEFAULT_ORDER[0]:
-            logger.debug("Iteration complete, incrementing")
+        if current is not None and next_specialist == scheduler.execution_order[0]:
             return "increment_iteration"
 
-        logger.debug("Next specialist: %r", next_specialist)
         return next_specialist
 
     return route_fn
 
 
 def _increment_iteration_node(state: CareerBlackboard) -> dict[str, Any]:
-    """Increment iteration counter.
-
-    After this node, the edge routes back to the first specialist.
-    """
+    """Increment iteration counter."""
     new_iteration = state.get("iteration", 0) + 1
     logger.debug("Iteration %d starting", new_iteration)
     return {"iteration": new_iteration}
 
 
 def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
-    """Synthesize all specialist findings into integrated advice.
+    """Synthesize specialist findings into a coherent narrative.
 
-    Args:
-        state: Final blackboard state with all findings
-
-    Returns:
-        Updated state with synthesis key populated
+    - 1 specialist: pass through its reasoning directly (no extra LLM call)
+    - 2+ specialists: call synthesis model to produce an integrated narrative
     """
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+
     findings = state.get("findings", {})
     query = state.get("query", "")
+    specialists_ran = list(findings.keys())
 
-    synthesis = {
+    synthesis: dict[str, Any] = {
         "query": query,
-        "specialists_contributed": list(findings.keys()),
+        "specialists_contributed": specialists_ran,
         "num_iterations": state.get("iteration", 0) + 1,
         "all_findings": findings,
     }
 
-    # Extract key insights for synthesis
-    coach = findings.get("coach", {})
-    learning = findings.get("learning", {})
-    code = findings.get("code", {})
-    jobs = findings.get("jobs", {})
-    founder = findings.get("founder", {})
+    # Single specialist — use its reasoning directly, no extra LLM call
+    if len(findings) == 1:
+        only_finding = next(iter(findings.values()))
+        synthesis["narrative"] = sanitize_for_prompt(
+            only_finding.get("reasoning", "Analysis complete.")
+        )
+        logger.info("Synthesis (single specialist): pass-through")
+        return {"synthesis": synthesis}
 
-    # Build integrated advice
-    synthesis["integrated_advice"] = {
-        "target_role": coach.get("target_role", "Not determined"),
-        "timeline": coach.get("timeline", "2-3 years"),
-        "key_gaps": coach.get("gaps", []),
-        "learning_plan": learning.get("skills", []),
-        "portfolio_strategy": code.get("portfolio_items", []),
-        "opportunities": jobs.get("opportunities", []),
-        "next_steps": founder.get("recommended_path", []),
-    }
+    # Multi-specialist — synthesize via LLM
+    # Include all specialist findings (structured data + reasoning)
+    findings_text_parts = []
+    for specialist_name, finding in findings.items():
+        parts = [f"### {specialist_name.upper()}"]
 
-    logger.info(
-        "Synthesis complete: %d specialists, %d iterations",
-        len(findings),
-        state.get("iteration", 0) + 1,
+        # Add reasoning first (high-level summary)
+        if finding.get("reasoning"):
+            parts.append(f"**Summary:** {sanitize_for_prompt(finding['reasoning'])}")
+
+        # Add structured details from each specialist
+        detail_fields = [
+            ("gaps", "Key gaps"),
+            ("strengths", "Strengths"),
+            ("skills", "Skills to develop"),
+            ("target_role", "Target role"),
+            ("timeline", "Timeline"),
+            ("opportunities", "Opportunities"),
+            ("salary", "Salary insights"),
+            ("portfolio_items", "Portfolio highlights"),
+            ("projects", "Notable projects"),
+            ("recommendations", "Recommendations"),
+        ]
+
+        for field, label in detail_fields:
+            value = finding.get(field)
+            if value:
+                if isinstance(value, (list, tuple)):
+                    items = ", ".join(sanitize_for_prompt(str(v)) for v in value)
+                    parts.append(f"**{label}:** {items}")
+                elif isinstance(value, dict):
+                    items = "; ".join(
+                        f"{k}: {sanitize_for_prompt(str(v))}" for k, v in value.items()
+                    )
+                    parts.append(f"**{label}:** {items}")
+                else:
+                    parts.append(f"**{label}:** {sanitize_for_prompt(str(value))}")
+
+        if len(parts) > 1:  # Only add if there's more than just the header
+            findings_text_parts.append("\n".join(parts))
+
+    findings_text = (
+        "\n\n".join(findings_text_parts)
+        if findings_text_parts
+        else "No specialist findings available."
     )
+
+    try:
+        model, _ = get_model_with_fallback(purpose="synthesis")
+        result = model.invoke(
+            [
+                SystemMessage(
+                    content=(
+                        "You are synthesizing career advice from multiple specialist analyses. "
+                        "Write a coherent, personalized, actionable response that integrates all "
+                        "perspectives. Be specific to this person's actual situation, strengths, "
+                        "projects, and market opportunities. Use all the structured data provided. "
+                        "Use markdown formatting and be concrete with examples."
+                    )
+                ),
+                HumanMessage(
+                    content=(
+                        f"User query: {query}\n\n"
+                        f"Specialist detailed findings:\n\n{findings_text}\n\n"
+                        f"Write an integrated career response that incorporates:\n"
+                        f"- This person's actual strengths and projects\n"
+                        f"- Specific gaps and skill development paths\n"
+                        f"- Real market opportunities and salary data\n"
+                        f"- Concrete action steps and timelines"
+                    )
+                ),
+            ]
+        )
+        synthesis["narrative"] = str(getattr(result, "content", result))
+        logger.info("Synthesis complete: %d specialists → narrative", len(findings))
+
+    except Exception as e:
+        logger.error("Synthesis LLM call failed: %s", e)
+        # Fall back to concatenated reasoning
+        synthesis["narrative"] = (
+            "\n\n".join(
+                f"**{name.upper()}:** {sanitize_for_prompt(f.get('reasoning', ''))}"
+                for name, f in findings.items()
+                if f.get("reasoning")
+            )
+            or "Analysis complete."
+        )
 
     return {"synthesis": synthesis}
 
@@ -228,28 +275,29 @@ def build_blackboard_graph(
     """Build a compiled LangGraph StateGraph for blackboard orchestration.
 
     Args:
-        specialists: Dict mapping specialist names to agent objects
-        scheduler: Optional custom scheduler (default: linear_iterative)
+        specialists: Dict mapping specialist names to agent objects (already filtered
+            to only the routed subset)
+        scheduler: Optional custom scheduler (default: linear, 1 iteration)
         checkpointer: Optional SqliteSaver checkpointer for persistence
 
     Returns:
         Compiled CompiledStateGraph ready for .stream() / .invoke()
     """
     if scheduler is None:
-        scheduler = BlackboardScheduler(strategy="linear_iterative", max_iterations=5)
+        scheduler = BlackboardScheduler(
+            strategy="linear",
+            max_iterations=1,
+            execution_order=list(specialists.keys()),
+        )
 
     graph = StateGraph(CareerBlackboard)
 
-    # Add specialist nodes
     for spec_name, specialist in specialists.items():
-        node_fn = _make_specialist_node(specialist)
-        graph.add_node(spec_name, node_fn)
+        graph.add_node(spec_name, _make_specialist_node(specialist))
 
-    # Add utility nodes
     graph.add_node("increment_iteration", _increment_iteration_node)
     graph.add_node("synthesize", _synthesize_node)
 
-    # Routing: each specialist → route_fn → next specialist / synthesize
     route_fn = _make_route_fn(scheduler)
     for spec_name in specialists:
         graph.add_conditional_edges(
@@ -262,19 +310,15 @@ def build_blackboard_graph(
             },
         )
 
-    # Increment → first specialist (start new iteration)
-    first_specialist = scheduler.DEFAULT_ORDER[0]
+    first_specialist = scheduler.execution_order[0]
     graph.add_edge("increment_iteration", first_specialist)
-
-    # Entry point → first specialist
     graph.add_edge("__start__", first_specialist)
 
     compiled = graph.compile(checkpointer=checkpointer)
     logger.info(
-        "Built blackboard graph: %d specialists, strategy=%s, max_iterations=%d",
+        "Built blackboard graph: %d specialists, order=%s",
         len(specialists),
-        scheduler.strategy,
-        scheduler.max_iterations,
+        scheduler.execution_order,
     )
     return compiled
 

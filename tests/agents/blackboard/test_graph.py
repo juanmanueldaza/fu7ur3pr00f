@@ -1,6 +1,6 @@
 """Tests for the LangGraph StateGraph implementation."""
 
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 
 from fu7ur3pr00f.agents.blackboard.blackboard import make_initial_blackboard
 from fu7ur3pr00f.agents.blackboard.graph import (
@@ -40,8 +40,8 @@ class TestSpecialistNode:
         # Execute node
         result = node_fn(state)
 
-        # Verify specialist was called
-        specialist.contribute.assert_called_once_with(state)
+        # Verify specialist was called (stream_writer=None when no LangGraph context)
+        specialist.contribute.assert_called_once_with(state, stream_writer=None)
 
         # Verify result includes findings and current_specialist
         assert "findings" in result
@@ -184,62 +184,53 @@ class TestSynthesizeNode:
     """Test the synthesis node."""
 
     def test_synthesize_with_findings(self):
-        """Should synthesize findings into integrated advice."""
+        """Multi-specialist synthesis produces a narrative via LLM."""
         state = make_initial_blackboard(
             query="5-year prediction",
             user_profile={"role": "developer"},
         )
         state["findings"] = {
             "coach": {
-                "target_role": "Staff Engineer",
-                "timeline": "2-3 years",
+                "reasoning": "Aim for Staff Engineer in 2-3 years.",
                 "gaps": ["Leadership"],
             },
             "learning": {
-                "skills": ["System Design", "Management"],
+                "reasoning": "Study System Design and Management.",
+                "skills": ["System Design"],
             },
             "code": {
-                "portfolio_items": ["OSS contributions"],
-            },
-            "jobs": {
-                "opportunities": ["FAANG companies"],
-            },
-            "founder": {
-                "recommended_path": ["Build portfolio"],
+                "reasoning": "Build OSS contributions.",
+                "portfolio_items": ["OSS project"],
             },
         }
         state["iteration"] = 1
 
-        result = _synthesize_node(state)
+        mock_model = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = "Integrated career advice narrative."
+        mock_model.invoke.return_value = mock_response
+
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_fallback:
+            mock_fallback.return_value = (mock_model, MagicMock())
+            result = _synthesize_node(state)
 
         assert "synthesis" in result
         synthesis = result["synthesis"]
         assert synthesis["query"] == "5-year prediction"
         assert synthesis["num_iterations"] == 2
-        assert synthesis["specialists_contributed"] == [
-            "coach",
-            "learning",
-            "code",
-            "jobs",
-            "founder",
-        ]
+        assert "coach" in synthesis["specialists_contributed"]
+        assert "narrative" in synthesis
+        assert synthesis["narrative"] == "Integrated career advice narrative."
 
-        # Check integrated advice
-        advice = synthesis["integrated_advice"]
-        assert advice["target_role"] == "Staff Engineer"
-        assert advice["timeline"] == "2-3 years"
-        assert "Leadership" in advice["key_gaps"]
-        assert "System Design" in advice["learning_plan"]
-
-    def test_synthesize_with_missing_specialists(self):
-        """Should handle missing specialist findings."""
+    def test_synthesize_with_single_specialist(self):
+        """Single-specialist synthesis passes through reasoning (no LLM call)."""
         state = make_initial_blackboard(
-            query="test",
+            query="promotion advice",
             user_profile={"role": "developer"},
         )
-        # Only one specialist contributed
         state["findings"] = {
             "coach": {
+                "reasoning": "Focus on leadership skills.",
                 "target_role": "Senior Developer",
             },
         }
@@ -248,11 +239,8 @@ class TestSynthesizeNode:
         result = _synthesize_node(state)
 
         synthesis = result["synthesis"]
-        advice = synthesis["integrated_advice"]
-        assert advice["target_role"] == "Senior Developer"
-        # Missing specialists should have empty defaults
-        assert advice["learning_plan"] == []
-        assert advice["opportunities"] == []
+        assert synthesis["narrative"] == "Focus on leadership skills."
+        assert synthesis["specialists_contributed"] == ["coach"]
 
 
 class TestBuildBlackboardGraph:

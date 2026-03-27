@@ -160,3 +160,28 @@ def sanitize_for_prompt(text: str) -> str:
         Text with closing XML tags escaped (``</tag>`` → ``<\\/tag>``).
     """
     return re.sub(r"</([\w_]+)>", r"<\\/\1>", text)
+
+
+# Patterns that might leak API keys or tokens in error messages
+_SECRET_PATTERNS = [
+    re.compile(r"(sk-(?:ant-)?[A-Za-z0-9]{8})[A-Za-z0-9-]+"),  # OpenAI/Anthropic
+    re.compile(r"(AIza[A-Za-z0-9]{8})[A-Za-z0-9_-]+"),  # Google
+    re.compile(r"(Bearer\s+)[^\s\"']+", re.IGNORECASE),  # Bearer tokens
+]
+
+
+def sanitize_error(msg: str) -> str:
+    """Redact known secret patterns from error messages.
+
+    Covers API keys from OpenAI, Anthropic, Google, and bearer tokens to
+    prevent credential leakage in logs or user-facing error messages.
+
+    Args:
+        msg: Error message that may contain secrets.
+
+    Returns:
+        Error message with secrets redacted.
+    """
+    for pattern in _SECRET_PATTERNS:
+        msg = pattern.sub(r"\1...", msg)
+    return msg

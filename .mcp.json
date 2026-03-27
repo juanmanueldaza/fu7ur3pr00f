@@ -11,8 +11,8 @@
       "description": "Complex reasoning and step-by-step analysis"
     },
     "github": {
-      "command": "github-mcp-server",
-      "args": [],
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
       "description": "GitHub integration (repos, issues, PRs)",
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"

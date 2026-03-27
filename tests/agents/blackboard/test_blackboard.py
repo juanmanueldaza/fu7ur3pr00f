@@ -24,21 +24,39 @@ class TestCareerBlackboard:
             query=query,
             user_profile=profile,
             constraints=["No relocation"],
-            max_iterations=5,
+            max_iterations=2,
         )
 
         assert blackboard["query"] == query
         assert blackboard["user_profile"] == profile
         assert blackboard["constraints"] == ["No relocation"]
         assert blackboard["iteration"] == 0
-        assert blackboard["max_iterations"] == 5
+        assert blackboard["max_iterations"] == 2  # Within hard cap of 3
         assert blackboard["findings"] == {}
         assert blackboard["change_log"] == []
+
+    def test_make_initial_blackboard_clamps_max_iterations(self):
+        """Test that max_iterations is clamped to hard cap (3)."""
+        # Request 5 iterations, but should be clamped to 3
+        blackboard = make_initial_blackboard(
+            query="test",
+            user_profile={},
+            max_iterations=10,
+        )
+        assert blackboard["max_iterations"] == 3
+
+        # Request 0 iterations, but should be clamped to 1 (minimum)
+        blackboard = make_initial_blackboard(
+            query="test",
+            user_profile={},
+            max_iterations=0,
+        )
+        assert blackboard["max_iterations"] == 1
 
     def test_record_specialist_contribution(self):
         """Test recording a specialist's findings."""
         blackboard = make_initial_blackboard(
-            query="test", user_profile={}, max_iterations=5
+            query="test", user_profile={}, max_iterations=2
         )
 
         finding: SpecialistFinding = {
@@ -111,10 +129,10 @@ class TestCareerBlackboard:
 class TestBlackboardScheduler:
     """Test scheduler logic for determining specialist order."""
 
-    def test_scheduler_linear_order(self):
+    def test_scheduler_linear_order(self, empty_blackboard):
         """Test linear execution order."""
         scheduler = BlackboardScheduler(strategy="linear")
-        blackboard = make_initial_blackboard("test", {})
+        blackboard = empty_blackboard
 
         # First should be coach
         assert scheduler.get_next_specialist(blackboard, None) == "coach"
@@ -176,10 +194,10 @@ class TestBlackboardScheduler:
         # iteration=1, max_iterations=1, so 1 >= 1 is true, return None
         assert next_spec is None
 
-    def test_scheduler_should_continue(self):
+    def test_scheduler_should_continue(self, empty_blackboard):
         """Test should_continue check."""
         scheduler = BlackboardScheduler(strategy="linear")
-        blackboard = make_initial_blackboard("test", {})
+        blackboard = empty_blackboard
 
         # At start, should continue
         assert scheduler.should_continue(blackboard) is True
@@ -187,10 +205,10 @@ class TestBlackboardScheduler:
         # After founder, should stop (linear only goes once)
         assert scheduler.should_continue(blackboard, "founder") is False
 
-    def test_scheduler_get_execution_plan(self):
+    def test_scheduler_get_execution_plan(self, empty_blackboard):
         """Test getting full execution plan."""
         scheduler = BlackboardScheduler(strategy="linear")
-        blackboard = make_initial_blackboard("test", {})
+        blackboard = empty_blackboard
 
         plan = scheduler.get_execution_plan(blackboard)
 
@@ -252,10 +270,10 @@ class TestBlackboardIntegration:
 class TestBlackboardSchedulerStrategies:
     """Test different scheduler strategies."""
 
-    def test_smart_strategy(self):
+    def test_smart_strategy(self, empty_blackboard):
         """Test smart strategy that routes based on blackboard state."""
         scheduler = BlackboardScheduler(strategy="smart", max_iterations=3)
-        blackboard = make_initial_blackboard("test", {})
+        blackboard = empty_blackboard
 
         # Smart starts with coach
         assert scheduler.get_next_specialist(blackboard, None) == "coach"

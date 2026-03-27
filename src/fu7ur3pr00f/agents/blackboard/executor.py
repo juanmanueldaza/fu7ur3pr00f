@@ -10,6 +10,7 @@ This is the orchestration engine that:
 
 import logging
 import time
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -35,11 +36,13 @@ class BlackboardExecutor:
 
         Args:
             specialists: Dict mapping specialist names to agent objects
-            scheduler: Optional custom scheduler (default: linear_iterative)
+            scheduler: Optional custom scheduler (default: linear, 1 iteration)
         """
         self.specialists = specialists
         self.scheduler = scheduler or BlackboardScheduler(
-            strategy="linear_iterative", max_iterations=5
+            strategy="linear",
+            max_iterations=1,
+            execution_order=list(specialists.keys()),
         )
 
     def execute(
@@ -49,6 +52,8 @@ class BlackboardExecutor:
         constraints: list[str] | None = None,
         on_specialist_start: Callable[[str], None] | None = None,
         on_specialist_complete: Callable[[str, SpecialistFinding], None] | None = None,
+        on_tool_start: Callable[[str, str, dict], None] | None = None,
+        on_tool_result: Callable[[str, str, str], None] | None = None,
     ) -> CareerBlackboard:
         """Execute blackboard-based multi-specialist analysis via LangGraph.
 
@@ -56,10 +61,10 @@ class BlackboardExecutor:
             query: User's question (e.g., "5-year prediction")
             user_profile: User's career data
             constraints: Optional constraints for the analysis
-            on_specialist_start: Callback when specialist starts
-                Called with (specialist_name)
-            on_specialist_complete: Callback when specialist finishes
-                Called with (specialist_name, findings)
+            on_specialist_start: Called with (specialist_name) when specialist starts
+            on_specialist_complete: Called with (specialist_name, findings) when done
+            on_tool_start: Called with (specialist_name, tool_name, args) on tool call
+            on_tool_result: Called with (specialist_name, tool_name, result) on tool done
 
         Returns:
             Final blackboard state with all findings
@@ -87,7 +92,7 @@ class BlackboardExecutor:
         checkpointer = get_checkpointer()
         graph = build_blackboard_graph(self.specialists, self.scheduler, checkpointer)
 
-        config = {"configurable": {"thread_id": f"bb_{int(time.time() * 1000)}"}}
+        config = {"configurable": {"thread_id": f"bb_{uuid.uuid4().hex[:12]}"}}
 
         # Stream updates from the graph with custom events for real-time progress
         final_state: CareerBlackboard = initial
@@ -113,15 +118,36 @@ class BlackboardExecutor:
                     event_type = data.get("type")
                     specialist = data.get("specialist")
 
-                    # Fire start callback on specialist_start event
                     if (
                         event_type == "specialist_start"
                         and specialist in self.specialists
-                        and specialist not in started_specialists
                     ):
-                        started_specialists.add(specialist)
-                        if on_specialist_start:
-                            on_specialist_start(specialist)
+                        if specialist not in started_specialists:
+                            started_specialists.add(specialist)
+                            if on_specialist_start:
+                                on_specialist_start(specialist)
+
+                    elif (
+                        event_type == "specialist_complete"
+                        and specialist in self.specialists
+                    ):
+                        # on_specialist_complete already fired via updates mode;
+                        # here we just use the reasoning from complete event if available
+                        pass
+
+                    elif event_type == "tool_start" and on_tool_start:
+                        on_tool_start(
+                            specialist or "",
+                            data.get("tool", ""),
+                            data.get("args", {}),
+                        )
+
+                    elif event_type == "tool_result" and on_tool_result:
+                        on_tool_result(
+                            specialist or "",
+                            data.get("tool", ""),
+                            data.get("result", ""),
+                        )
 
         # Get final state from graph (checkpointer is authoritative)
         snap = graph.get_state(config)

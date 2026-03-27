@@ -1,10 +1,38 @@
 """Episodic memory tools for the career agent."""
 
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
+
+
+def _store_to_episodic(
+    action_fn: Callable[[], Any],
+    success_msg: str,
+    error_noun: str,
+) -> str:
+    """Store a memory to the episodic store with shared error handling.
+
+    Args:
+        action_fn: Callable that creates the memory object when called
+        success_msg: Message to return on success
+        error_noun: Noun describing what failed (for error message)
+
+    Returns:
+        Success message or error string
+    """
+    try:
+        from fu7ur3pr00f.memory.episodic import get_episodic_store
+
+        get_episodic_store().remember(action_fn())
+    except Exception as e:
+        logger.exception("Error storing %s to ChromaDB", error_noun)
+        return f"Could not store {error_noun}: {e}"
+
+    return success_msg
 
 
 @tool
@@ -24,17 +52,13 @@ def remember_decision(
     remembered across sessions, such as rejecting a job offer, choosing a
     technology stack, or setting a career direction.
     """
-    try:
-        from fu7ur3pr00f.memory.episodic import get_episodic_store
-        from fu7ur3pr00f.memory.episodic import remember_decision as create_decision
+    from fu7ur3pr00f.memory.episodic import remember_decision as create_decision
 
-        memory = create_decision(decision, context, outcome)
-        get_episodic_store().remember(memory)
-    except Exception as e:
-        logger.exception("Error storing decision to ChromaDB")
-        return f"Could not store decision: {e}"
-
-    return f"Remembered: {decision!r}. I'll be able to recall this in future conversations."  # noqa: E501
+    return _store_to_episodic(
+        lambda: create_decision(decision, context, outcome),
+        f"Remembered: {decision!r}. I'll be able to recall this in future conversations.",
+        "decision",
+    )
 
 
 @tool
@@ -54,16 +78,13 @@ def remember_job_application(
 
     Use this to track job applications across sessions.
     """
-    try:
-        from fu7ur3pr00f.memory.episodic import get_episodic_store, remember_application
+    from fu7ur3pr00f.memory.episodic import remember_application
 
-        memory = remember_application(company, role, status, notes)
-        get_episodic_store().remember(memory)
-    except Exception as e:
-        logger.exception("Error storing application to ChromaDB")
-        return f"Could not store application: {e}"
-
-    return f"Recorded application to {company} for {role} (status: {status})."
+    return _store_to_episodic(
+        lambda: remember_application(company, role, status, notes),
+        f"Recorded application to {company} for {role} (status: {status}).",
+        "application",
+    )
 
 
 @tool

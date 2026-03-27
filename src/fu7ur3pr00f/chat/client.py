@@ -34,6 +34,7 @@ from fu7ur3pr00f.chat.ui import (  # noqa: E402
     display_error,
     display_goals,
     display_help,
+    display_interrupt_confirmation,
     display_model_info,
     display_profile_summary,
     display_specialist_progress,
@@ -419,6 +420,7 @@ def _run_blackboard_query(
     user_input: str,
     specialist_names: list[str],
     con: Console,
+    session: Any = None,
 ) -> None:
     """Execute a query through the blackboard with the given specialists.
 
@@ -427,6 +429,7 @@ def _run_blackboard_query(
         user_input: The user's query
         specialist_names: Which specialists to involve (from route())
         con: Rich console for output
+        session: PromptSession for human-in-the-loop confirmations
     """
     from fu7ur3pr00f.memory.profile import load_profile
 
@@ -466,6 +469,17 @@ def _run_blackboard_query(
         elapsed = time.monotonic() - tool_start_times.pop(key, time.monotonic())
         display_tool_result(tool_name, result, elapsed)
 
+    def _confirm(question: str, details: str) -> bool:
+        """Handle human-in-the-loop confirmation for tool interrupts."""
+        display_interrupt_confirmation(question, details)
+        if session is None:
+            return False
+        try:
+            response = session.prompt("Approve? [y/N] ").strip().lower()
+            return response in ("y", "yes")
+        except (EOFError, KeyboardInterrupt):
+            return False
+
     try:
         blackboard = executor.execute(
             query=user_input,
@@ -476,6 +490,7 @@ def _run_blackboard_query(
             on_specialist_complete=_on_specialist_complete,
             on_tool_start=_on_tool_start,
             on_tool_result=_on_tool_result,
+            confirm_fn=_confirm,
         )
     except Exception as e:
         logger.exception("Blackboard execution failed")
@@ -585,7 +600,9 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
             console.print()  # Blank line before response
 
             specialist_names = orchestrator.route(user_input)
-            _run_blackboard_query(orchestrator, user_input, specialist_names, console)
+            _run_blackboard_query(
+                orchestrator, user_input, specialist_names, console, session=session
+            )
 
         except KeyboardInterrupt:
             console.print("\n[#415a77]Use /quit to exit[/#415a77]")

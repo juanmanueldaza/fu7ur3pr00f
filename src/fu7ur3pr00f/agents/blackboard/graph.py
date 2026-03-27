@@ -15,6 +15,7 @@ import logging
 import time
 from typing import Any
 
+from langgraph.errors import GraphInterrupt as _GraphInterrupt
 from langgraph.graph import StateGraph
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard
@@ -93,6 +94,8 @@ def _make_specialist_node(specialist: Any):
                 "current_specialist": specialist_name,
             }
 
+        except _GraphInterrupt:
+            raise  # Let LangGraph handle the interrupt for human-in-the-loop
         except Exception as e:
             logger.exception("Error in specialist %r", specialist_name)
             sanitized_error = sanitize_error(str(e))

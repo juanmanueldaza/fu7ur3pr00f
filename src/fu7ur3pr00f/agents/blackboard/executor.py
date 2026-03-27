@@ -14,6 +14,8 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
+from langgraph.errors import GraphInterrupt as _GraphInterrupt
+
 from fu7ur3pr00f.agents.blackboard.blackboard import (
     CareerBlackboard,
     SpecialistFinding,
@@ -54,6 +56,7 @@ class BlackboardExecutor:
         on_specialist_complete: Callable[[str, SpecialistFinding], None] | None = None,
         on_tool_start: Callable[[str, str, dict], None] | None = None,
         on_tool_result: Callable[[str, str, str], None] | None = None,
+        confirm_fn: Callable[[str, str], bool] | None = None,
     ) -> CareerBlackboard:
         """Execute blackboard-based multi-specialist analysis via LangGraph.
 
@@ -65,6 +68,9 @@ class BlackboardExecutor:
             on_specialist_complete: Called when specialist completes
             on_tool_start: Called when tool is invoked
             on_tool_result: Called when tool completes
+            confirm_fn: Optional callable for human-in-the-loop confirmations.
+                Called with (question, details) -> bool when a tool raises
+                GraphInterrupt. If None, interrupts propagate as exceptions.
 
         Returns:
             Final blackboard state with all findings
@@ -98,17 +104,42 @@ class BlackboardExecutor:
         final_state: CareerBlackboard = initial
         started_specialists: set[str] = set()
 
-        for chunk in graph.stream(initial, config, stream_mode=["updates", "custom"]):
-            mode, data = chunk  # Unpack tuple (always a 2-tuple)
-            self._process_stream_event(
-                mode,
-                data,
-                on_specialist_start,
-                on_specialist_complete,
-                on_tool_start,
-                on_tool_result,
-                started_specialists,
-            )
+        stream_input: Any = initial
+        while True:
+            try:
+                for chunk in graph.stream(
+                    stream_input, config, stream_mode=["updates", "custom"]
+                ):
+                    mode, data = chunk  # Unpack tuple (always a 2-tuple)
+                    self._process_stream_event(
+                        mode,
+                        data,
+                        on_specialist_start,
+                        on_specialist_complete,
+                        on_tool_start,
+                        on_tool_result,
+                        started_specialists,
+                    )
+                break  # Stream completed — no more interrupts
+            except _GraphInterrupt as exc:
+                if confirm_fn is None:
+                    raise
+                # Extract the first interrupt value
+                interrupts = exc.args[0] if exc.args else ()
+                first = interrupts[0] if interrupts else None
+                if first is None:
+                    raise
+                val = first.value
+                question = (
+                    val.get("question", "Confirm?")
+                    if isinstance(val, dict)
+                    else str(val)
+                )
+                details = val.get("details", "") if isinstance(val, dict) else ""
+                approved = confirm_fn(question, details)
+                from langgraph.types import Command
+
+                stream_input = Command(resume=approved)
 
         # Get final state from graph (checkpointer is authoritative)
         snap = graph.get_state(config)

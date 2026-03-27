@@ -301,6 +301,31 @@ def display_error(message: str) -> None:
     console.print()
 
 
+def display_interrupt_confirmation(question: str, details: str = "") -> None:
+    """Display a human-in-the-loop confirmation request.
+
+    Args:
+        question: The confirmation question to ask the user
+        details: Additional context or details about the request
+    """
+    # Build content with question and optional details
+    content_parts = [question]
+    if details:
+        content_parts.append("")
+        content_parts.append(details)
+
+    content = Text("\n".join(content_parts), style="#ffd700")
+
+    console.print(
+        Panel(
+            content,
+            title="[bold #ffd700]Confirmation[/bold #ffd700]",
+            border_style="#ffd700",
+            box=box.ROUNDED,
+        )
+    )
+
+
 def display_help() -> None:
     """Display help message with available commands."""
     help_text = """

@@ -19,6 +19,7 @@ from langgraph.graph import StateGraph
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
+from fu7ur3pr00f.prompts import load_prompt
 from fu7ur3pr00f.utils.security import sanitize_error, sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
@@ -228,23 +229,11 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         model, _ = get_model_with_fallback(purpose="synthesis")
         result = model.invoke(
             [
-                SystemMessage(
-                    content=(
-                        "Synthesize career advice from multiple specialist analyses. "
-                        "Write a coherent, personalized, actionable response. "
-                        "Be specific to this person's situation and strengths. "
-                        "Use all structured data provided. Be concrete."
-                    )
-                ),
+                SystemMessage(content=load_prompt("blackboard_synthesis_system")),
                 HumanMessage(
-                    content=(
-                        f"User query: {query}\n\n"
-                        f"Specialist detailed findings:\n\n{findings_text}\n\n"
-                        f"Write an integrated career response that incorporates:\n"
-                        f"- This person's actual strengths and projects\n"
-                        f"- Specific gaps and skill development paths\n"
-                        f"- Real market opportunities and salary data\n"
-                        f"- Concrete action steps and timelines"
+                    content=load_prompt("blackboard_synthesis_human").format(
+                        query=query,
+                        findings_text=findings_text,
                     )
                 ),
             ]

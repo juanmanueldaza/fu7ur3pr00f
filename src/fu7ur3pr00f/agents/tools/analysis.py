@@ -6,6 +6,7 @@ from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import invoke_with_context
 from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,8 @@ def analyze_skill_gaps(target_role: str) -> str:
     try:
         result = invoke_with_context(
             search_query=f"skills experience {target_role}",
-            prompt=(
-                f"Analyze skill gaps for the target role: {target_role}\n\n"
-                "User profile:\n{profile_summary}\n\n"
-                "Career context:\n{career_context}\n\n"
-                "Provide a concise gap analysis with 3-5 key areas to improve."
+            prompt=load_prompt("tool_analyze_skill_gaps").replace(
+                "{target_role}", target_role
             ),
             search_limit=10,
         )
@@ -63,13 +61,7 @@ def analyze_career_alignment() -> str:
     try:
         result = invoke_with_context(
             search_query="career goals trajectory alignment",
-            prompt=(
-                "Analyze career alignment for this profile:\n"
-                "{profile_summary}\n\n"
-                "Career context:\n{career_context}\n\n"
-                "Assess how well their current trajectory aligns with goals. "
-                "Identify strengths and misalignments. Suggest adjustments."
-            ),
+            prompt=load_prompt("tool_analyze_career_alignment"),
             search_limit=15,
         )
         return f"Career alignment analysis:\n\n{result}"
@@ -94,12 +86,7 @@ def get_career_advice(target: str) -> str:
     try:
         result = invoke_with_context(
             search_query=target,
-            prompt=(
-                f"Provide strategic career advice for: {target}\n\n"
-                "User profile:\n{profile_summary}\n\n"
-                "Relevant context:\n{career_context}\n\n"
-                "Give actionable, specific advice with concrete next steps."
-            ),
+            prompt=load_prompt("tool_get_career_advice").replace("{target}", target),
             search_limit=10,
         )
         return f"Career advice for {target!r}:\n\n{result}"

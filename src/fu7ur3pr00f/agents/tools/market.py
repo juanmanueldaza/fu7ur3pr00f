@@ -5,6 +5,7 @@ from unicodedata import normalize
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import run_market_analysis
+from fu7ur3pr00f.prompts import load_prompt
 
 from ._async import run_async
 
@@ -388,13 +389,7 @@ def analyze_market_fit() -> str:
     """
     return run_market_analysis(
         search_query="skills experience",
-        prompt_fn=lambda tech: (
-            "Analyze market fit for this profile:\n{profile_summary}\n\n"
-            "Career context:\n{career_context}\n\n"
-            f"Current market demand (top tech): {tech}\n\n"
-            "How well does their profile align with market demands? "
-            "What's in/out of demand? Be specific."
-        ),
+        prompt_fn=lambda tech: load_prompt("tool_market_fit").replace("{tech}", tech),
         noun="Market fit analysis",
     )
 
@@ -411,12 +406,8 @@ def analyze_market_skills() -> str:
     """
     return run_market_analysis(
         search_query="skills learning",
-        prompt_fn=lambda tech: (
-            "Identify market-driven skill gaps:\n{profile_summary}\n\n"
-            "Career context:\n{career_context}\n\n"
-            f"Trending technologies: {tech}\n\n"
-            "What skills should they learn to stay competitive? "
-            "Prioritize by market demand and impact on career growth."
+        prompt_fn=lambda tech: load_prompt("tool_market_skills").replace(
+            "{tech}", tech
         ),
         noun="Market skills analysis",
     )

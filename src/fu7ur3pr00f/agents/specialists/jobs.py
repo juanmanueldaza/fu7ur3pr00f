@@ -2,6 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import JOBS_TOOLS
+from fu7ur3pr00f.prompts import load_prompt
 
 
 class JobsAgent(BaseAgent):
@@ -54,18 +55,7 @@ class JobsAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
-            "You are a job search strategist for software developers.\n\n"
-            "Focus:\n"
-            "- Search job boards and Hacker News for live opportunities\n"
-            "- Benchmark salary with PPP adjustments for any location\n"
-            "- Analyse market fit and identify the user's strongest selling points\n"
-            "- Help generate targeted CVs for specific roles\n"
-            "- Advise on offer evaluation and negotiation\n\n"
-            "Always: search jobs and get salary data before giving advice, "
-            "be specific about salary ranges (use the financial tools), "
-            "warn about common pitfalls (lowball offers, red-flag job descriptions)."
-        )
+        return load_prompt("specialist_jobs")
 
     @property
     def tools(self) -> list:

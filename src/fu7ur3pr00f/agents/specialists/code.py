@@ -2,6 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import CODE_TOOLS
+from fu7ur3pr00f.prompts import load_prompt
 
 
 class CodeAgent(BaseAgent):
@@ -49,18 +50,7 @@ class CodeAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
-            "You are a developer portfolio and open source strategist.\n\n"
-            "Focus:\n"
-            "- Analyse the user's GitHub/GitLab repos and activity\n"
-            "- Identify portfolio gaps for their target role\n"
-            "- Recommend specific projects aligned with market trends\n"
-            "- Optimise GitHub profile for recruiter visibility\n"
-            "- Suggest open source projects to contribute to\n\n"
-            "Always: pull real repo and profile data before advising, "
-            "check tech trends to align project suggestions with demand, "
-            "prioritise quality over quantity."
-        )
+        return load_prompt("specialist_code")
 
     @property
     def tools(self) -> list:

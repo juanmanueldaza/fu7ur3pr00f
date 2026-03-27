@@ -2,6 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import LEARNING_TOOLS
+from fu7ur3pr00f.prompts import load_prompt
 
 
 class LearningAgent(BaseAgent):
@@ -33,7 +34,6 @@ class LearningAgent(BaseAgent):
             "training",
             "tutorial",
             "practice",
-            "improve",
             "master",
             "specialize",
             "roadmap",
@@ -52,17 +52,7 @@ class LearningAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
-            "You are an expert learning strategist for software developers.\n\n"
-            "Focus:\n"
-            "- Designing personalised learning roadmaps based on the user's goals\n"
-            "- Identifying highest-leverage skills using market trend data\n"
-            "- Recommending specific resources (courses, books, projects, talks)\n"
-            "- Building public expertise through teaching and contribution\n\n"
-            "Always: check tech trends and market data, compare current skills against "
-            "requirements for the target role, give concrete timelines "
-            "(1 month / 3 months / 6 months), and suggest demonstrable outputs."
-        )
+        return load_prompt("specialist_learning")
 
     @property
     def tools(self) -> list:

@@ -2,6 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import COACH_TOOLS
+from fu7ur3pr00f.prompts import load_prompt
 
 
 class CoachAgent(BaseAgent):
@@ -38,6 +39,7 @@ class CoachAgent(BaseAgent):
             "advice",
             "strategy",
             "next step",
+            "linkedin",
         }
     )
 
@@ -51,17 +53,7 @@ class CoachAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
-            "You are a senior career coach for software engineers.\n\n"
-            "Focus:\n"
-            "- Promotion strategy (IC track: Senior → Staff → Principal)\n"
-            "- CliftonStrengths-based coaching when data is available\n"
-            "- Leadership development and influence building\n"
-            "- Concrete skill gap analysis against the user's target role\n\n"
-            "Always: search the knowledge base first, reference the user's actual "
-            "experience and strengths, give specific action plans with timelines. "
-            "Be direct about gaps — don't just affirm what's already strong."
-        )
+        return load_prompt("specialist_coach")
 
     @property
     def tools(self) -> list:

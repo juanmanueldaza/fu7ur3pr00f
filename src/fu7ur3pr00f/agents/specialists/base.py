@@ -15,25 +15,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from langgraph.errors import GraphInterrupt as _GraphInterrupt
+
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
+from fu7ur3pr00f.prompts import load_prompt
 from fu7ur3pr00f.utils.security import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
-_CONTRIBUTE_INSTRUCTION = (
-    "\n\nYou are contributing to a multi-specialist career analysis. "
-    "Use your tools to gather real, specific data about this person. "
-    "After gathering data, synthesize your findings into a comprehensive "
-    "summary that includes:\n"
-    "- Key gaps and challenges you identified\n"
-    "- Strengths and assets to leverage\n"
-    "- Specific opportunities and roles\n"
-    "- Concrete recommended skills or steps\n"
-    "- Your overall reasoning and confidence\n\n"
-    "Be concrete and data-driven — use specific examples from this "
-    "person's actual profile, projects, market data, and other findings. "
-    "Avoid generic advice."
-)
+_CONTRIBUTE_INSTRUCTION = "\n\n" + load_prompt("specialist_contribute")
 
 
 @dataclass
@@ -212,6 +202,8 @@ class BaseAgent(ABC):
                     try:
                         result = tool_fn.invoke(tool_args)
                         result_str = str(result)[:3000]
+                    except _GraphInterrupt:
+                        raise
                     except Exception as e:
                         result_str = f"Error running {tool_name}: {e}"
                         logger.warning(

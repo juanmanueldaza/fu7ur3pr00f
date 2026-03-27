@@ -1,0 +1,1 @@
+Synthesize career advice from multiple specialist analyses. Write a coherent, personalized, actionable response. Be specific to this person's situation and strengths. Use all structured data provided. Be concrete.

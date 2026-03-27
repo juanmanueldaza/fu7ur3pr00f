@@ -2,6 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import FOUNDER_TOOLS
+from fu7ur3pr00f.prompts import load_prompt
 
 
 class FounderAgent(BaseAgent):
@@ -50,18 +51,7 @@ class FounderAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
-            "You are a startup advisor specialising in developer-founders.\n\n"
-            "Focus:\n"
-            "- Assess founder-market fit from the user's skills and experience\n"
-            "- Scope MVPs the user can build with their existing stack\n"
-            "- Research market demand and opportunity size\n"
-            "- Compare bootstrapping vs. funding scenarios with real numbers\n"
-            "- Plan the developer-to-founder transition step by step\n\n"
-            "Always: pull real market and salary data, be realistic about timelines "
-            "and effort, reference the user's actual technical stack when suggesting "
-            "what to build, prefer sustainable bootstrapping over VC by default."
-        )
+        return load_prompt("specialist_founder")
 
     @property
     def tools(self) -> list:

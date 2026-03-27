@@ -5,23 +5,34 @@ cumulative findings, and proactive suggestions across turns.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import Any
 
-from langgraph.graph import StateGraph
-
-if TYPE_CHECKING:
-    from fu7ur3pr00f.agents.blackboard.session import SessionState
-else:
-    SessionState = dict  # type: ignore
+from langgraph.graph import END, StateGraph
 
 logger = logging.getLogger(__name__)
 
 
-def build_conversation_graph():  # type: ignore
+def build_conversation_graph(
+    checkpointer: Any = None,
+    on_specialist_start: Callable[[str], None] | None = None,
+    on_specialist_complete: Callable[[str, dict], None] | None = None,
+    on_tool_start: Callable[[str, str, dict], None] | None = None,
+    on_tool_result: Callable[[str, str, str], None] | None = None,
+    confirm_fn: Callable[[str, str], bool] | None = None,
+):  # type: ignore
     """Build the outer conversation StateGraph.
 
     This graph manages session-level state (turns, cumulative findings,
     active goals) and orchestrates per-turn blackboard executions.
+
+    Args:
+        checkpointer: LangGraph checkpointer for persistence across turns
+        on_specialist_start: Callback when a specialist starts working
+        on_specialist_complete: Callback when a specialist completes
+        on_tool_start: Callback when a tool is invoked
+        on_tool_result: Callback when a tool returns a result
+        confirm_fn: Human-in-the-loop confirmation callback for tool interrupts
     """
     # Import here to avoid circular dependency
     from fu7ur3pr00f.agents.blackboard.session import (
@@ -46,17 +57,15 @@ def build_conversation_graph():  # type: ignore
 
         return {"turn_type": turn_type}
 
-    def route_turn_node(state: SessionState) -> dict[str, Any]:
+    def route_turn_node(state: dict[str, Any]) -> dict[str, Any]:
         """Route the current query to appropriate specialists."""
-        from fu7ur3pr00f.agents.blackboard.session import ConversationTurn
-
         query = state.get("current_query", "")
         turn_type = state.get("turn_type", "new_query")
         turns = state.get("turns", [])
         orchestrator = get_orchestrator()
 
         # Build conversation history for routing
-        conversation_history: list[ConversationTurn] = turns[-3:] if turns else []
+        conversation_history = turns[-3:] if turns else []
 
         # Route based on turn type
         if turn_type == "factual":
@@ -71,7 +80,7 @@ def build_conversation_graph():  # type: ignore
         logger.debug("Routed to: %s", routed)
         return {"routed_specialists": routed}
 
-    def execute_inner_node(state: SessionState) -> dict[str, Any]:
+    def execute_inner_node(state: dict[str, Any]) -> dict[str, Any]:
         """Execute the inner blackboard graph for this turn."""
         query = state.get("current_query", "")
         user_profile = state.get("user_profile", {})
@@ -79,7 +88,7 @@ def build_conversation_graph():  # type: ignore
         cumulative = state.get("cumulative_findings", {})
         turn_type = state.get("turn_type", "new_query")
 
-        # Prepare constraints with cross-turn context
+        # Prepare constraints with cross-turn context for follow-ups/steers
         constraints = []
         if turn_type in ("follow_up", "steer") and cumulative:
             turns = state.get("turns", [])
@@ -87,7 +96,7 @@ def build_conversation_graph():  # type: ignore
             if context:
                 constraints.append(context)
 
-        # Get executor and run inner graph
+        # Get executor and run inner graph, passing through all callbacks
         orchestrator = get_orchestrator()
         executor = orchestrator.get_blackboard_executor(routed)
 
@@ -96,11 +105,11 @@ def build_conversation_graph():  # type: ignore
                 query=query,
                 user_profile=user_profile,
                 constraints=constraints,
-                on_specialist_start=None,  # Can add callbacks later
-                on_specialist_complete=None,
-                on_tool_start=None,
-                on_tool_result=None,
-                confirm_fn=None,
+                on_specialist_start=on_specialist_start,
+                on_specialist_complete=on_specialist_complete,
+                on_tool_start=on_tool_start,
+                on_tool_result=on_tool_result,
+                confirm_fn=confirm_fn,
             )
             logger.debug("Inner blackboard completed")
         except Exception as e:
@@ -114,18 +123,17 @@ def build_conversation_graph():  # type: ignore
 
         return {"current_blackboard": blackboard}
 
-    def accumulate_node(state: SessionState) -> dict[str, Any]:
+    def accumulate_node(state: dict[str, Any]) -> dict[str, Any]:
         """Merge current turn's findings into cumulative state."""
         blackboard = state.get("current_blackboard", {})
-        cumulative = state.get("cumulative_findings", {})
-        turns = state.get("turns", [])
+        cumulative = dict(state.get("cumulative_findings", {}))
+        turns = list(state.get("turns", []))
 
         # Merge findings (latest per specialist overwrites)
-        new_findings = blackboard.get("findings", {})
-        for specialist, finding in new_findings.items():
+        for specialist, finding in blackboard.get("findings", {}).items():
             cumulative[specialist] = finding
 
-        # Summarize and append turn
+        # Summarize and append turn record
         turn_record = summarize_turn(blackboard)
         turn_record["query"] = state.get("current_query", "")
         turns.append(turn_record)
@@ -133,64 +141,85 @@ def build_conversation_graph():  # type: ignore
         logger.debug("Accumulated turn %d", len(turns))
         return {"cumulative_findings": cumulative, "turns": turns}
 
-    def synthesize_turn_node(state: SessionState) -> dict[str, Any]:
-        """Synthesize findings with cross-turn awareness."""
-        blackboard = state.get("current_blackboard", {})
-        synthesis = blackboard.get("synthesis", {})
+    def synthesize_turn_node(state: dict[str, Any]) -> dict[str, Any]:
+        """Pass through synthesis from the inner blackboard graph.
 
-        # If synthesis already done by inner graph, keep it
+        The inner graph (build_blackboard_graph) already synthesizes using LLM.
+        The outer graph enriches with cross-turn context when available.
+        """
+        blackboard = state.get("current_blackboard", {})
+        synthesis = dict(blackboard.get("synthesis", {}))
+
+        # Inner graph already produced a narrative — pass through
         if synthesis.get("narrative"):
             return {"synthesis": synthesis}
 
-        # Fallback: synthesize from findings
+        # Fallback: pull reasoning from the single/first finding
         findings = blackboard.get("findings", {})
-        if len(findings) == 1:
-            # Single specialist: pass through reasoning
-            specialist_name = list(findings.keys())[0]
-            narrative = findings[specialist_name].get("reasoning", "No findings")
-            synthesis["narrative"] = narrative
+        if findings:
+            first_finding = next(iter(findings.values()))
+            synthesis["narrative"] = first_finding.get("reasoning", "No findings")
         else:
-            # Multi-specialist: would need LLM synthesis
-            # For now, concatenate
-            parts = []
-            for _name, finding in findings.items():
-                reasoning = finding.get("reasoning", "")
-                if reasoning:
-                    parts.append(reasoning)
-            synthesis["narrative"] = "\n\n".join(parts) if parts else "No findings"
+            synthesis["narrative"] = "No findings"
 
         return {"synthesis": synthesis}
 
-    def suggest_next_node(state: SessionState) -> dict[str, Any]:
-        """Generate proactive suggestions for follow-ups."""
-        turn_type = state.get("turn_type", "new_query")
-        blackboard = state.get("current_blackboard", {})
+    def suggest_next_node(state: dict[str, Any]) -> dict[str, Any]:
+        """Generate proactive follow-up suggestions using LLM.
 
-        # Skip suggestions for factual queries
+        Skipped for factual queries. Uses action_items, gaps, open_questions
+        extracted by specialists to produce contextual next-step suggestions.
+        """
+        turn_type = state.get("turn_type", "new_query")
+
+        # Skip suggestions for simple factual queries
         if turn_type == "factual":
             return {"suggested_next": []}
 
+        blackboard = state.get("current_blackboard", {})
         findings = blackboard.get("findings", {})
         if not findings:
             return {"suggested_next": []}
 
-        # Extract gaps, action_items, open_questions
-        gaps = []
-        action_items = []
-        open_questions = []
+        # Collect the richest signals from all specialists
+        gaps: list[str] = []
+        action_items: list[str] = []
+        open_questions: list[str] = []
         for finding in findings.values():
             gaps.extend(finding.get("gaps", [])[:2])
             action_items.extend(finding.get("action_items", [])[:2])
             open_questions.extend(finding.get("open_questions", [])[:1])
 
-        # For now, simple heuristic suggestions (LLM integration later)
-        suggestions = []
-        if action_items:
-            suggestions.append(f"Start with: {action_items[0]}")
-        if gaps:
-            suggestions.append(f"Address the gap: {gaps[0]}")
-        if open_questions:
-            suggestions.append(f"Explore: {open_questions[0]}")
+        # Use LLM to generate contextual suggestions
+        try:
+            from langchain_core.messages import HumanMessage
+            from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+            from fu7ur3pr00f.prompts import load_prompt
+
+            prompt_template = load_prompt("suggest_next")
+            findings_text = _format_findings_for_prompt(findings)
+            prompt = prompt_template.format(
+                query=blackboard.get("query", ""),
+                findings_text=findings_text,
+                gaps=", ".join(gaps[:3]) or "none",
+                action_items=", ".join(action_items[:3]) or "none",
+                open_questions=", ".join(open_questions[:2]) or "none",
+            )
+            model, _ = get_model_with_fallback(purpose="analysis")
+            response = model.invoke([HumanMessage(content=prompt)])
+            raw = response.content if hasattr(response, "content") else str(response)
+            suggestions = _parse_suggestions(str(raw))
+            logger.debug("Generated %d suggestions", len(suggestions))
+        except Exception as e:
+            # LLM call failed — fall back to heuristic extraction
+            logger.debug("Suggest LLM failed (%s), using heuristics", e)
+            suggestions = []
+            if action_items:
+                suggestions.append(f"Start with: {action_items[0]}")
+            if gaps:
+                suggestions.append(f"Address the gap: {gaps[0]}")
+            if open_questions:
+                suggestions.append(f"Explore: {open_questions[0]}")
 
         return {"suggested_next": suggestions[:3]}
 
@@ -203,17 +232,35 @@ def build_conversation_graph():  # type: ignore
     graph.add_node("synthesize_turn", synthesize_turn_node)
     graph.add_node("suggest_next", suggest_next_node)
 
-    # Edges
+    # Edges: linear flow
     graph.add_edge("classify_turn", "route_turn")
     graph.add_edge("route_turn", "execute_inner")
     graph.add_edge("execute_inner", "accumulate")
     graph.add_edge("accumulate", "synthesize_turn")
     graph.add_edge("synthesize_turn", "suggest_next")
-    graph.add_edge("suggest_next", "END")
+    graph.add_edge("suggest_next", END)
 
     graph.set_entry_point("classify_turn")
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
+
+
+def _format_findings_for_prompt(findings: dict[str, Any]) -> str:
+    """Format specialist findings as readable text for prompts."""
+    parts = []
+    for specialist, finding in findings.items():
+        parts.append(f"**{specialist.upper()}**: {finding.get('reasoning', '')[:200]}")
+    return "\n".join(parts) if parts else "No findings"
+
+
+def _parse_suggestions(text: str) -> list[str]:
+    """Parse LLM-generated suggestions from bullet-point text."""
+    suggestions = []
+    for line in text.strip().splitlines():
+        line = line.strip().lstrip("-•*123. ").strip()
+        if line and len(line) > 5:
+            suggestions.append(line)
+    return suggestions[:3]
 
 
 __all__ = ["build_conversation_graph"]

@@ -174,9 +174,18 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     # Single specialist — use its reasoning directly, no extra LLM call
     if len(findings) == 1:
         only_finding = next(iter(findings.values()))
-        synthesis["narrative"] = sanitize_for_prompt(
-            only_finding.get("reasoning", "Analysis complete.")
-        )
+        reasoning = only_finding.get("reasoning", "") or ""
+        if not reasoning.strip():
+            # Fallback: build narrative from structured fields
+            parts = []
+            for field in ("gaps", "strengths", "opportunities", "skills",
+                          "action_items"):
+                items = only_finding.get(field, [])
+                if items:
+                    label = field.replace("_", " ").title()
+                    parts.append(f"**{label}:** {', '.join(str(i) for i in items)}")
+            reasoning = "\n".join(parts) if parts else "Analysis complete."
+        synthesis["narrative"] = sanitize_for_prompt(reasoning)
         logger.info("Synthesis (single specialist): pass-through")
         return {"synthesis": synthesis}
 

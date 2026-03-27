@@ -6,11 +6,10 @@ method for the chat client.
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from fu7ur3pr00f.agents.blackboard.conversation_graph import build_conversation_graph
-from fu7ur3pr00f.agents.blackboard.session import SessionState, make_initial_session
 from fu7ur3pr00f.memory.checkpointer import get_checkpointer
 
 logger = logging.getLogger(__name__)
@@ -41,25 +40,46 @@ class ConversationEngine:
 
     Manages turn-by-turn execution via the outer graph, persisting
     session state across turns via LangGraph checkpointer.
+
+    Callbacks wired here are passed through to the inner blackboard
+    executor for real-time progress display.
     """
 
     def __init__(self) -> None:
-        """Initialize the engine."""
-        self._graph = build_conversation_graph()
-        self._checkpointer = get_checkpointer()
+        """Initialize the engine with checkpointer-backed graph."""
+        # Import here to avoid circular dependency at module load
+        from fu7ur3pr00f.agents.blackboard.conversation_graph import (
+            build_conversation_graph,
+        )
+
+        checkpointer = get_checkpointer()
+        # Graph is compiled without callbacks — they are passed per-turn
+        # to allow different UIs to use the same engine
+        self._checkpointer = checkpointer
+        self._build_graph = build_conversation_graph
 
     def invoke_turn(
         self,
         query: str,
         thread_id: str = "main",
         user_profile: dict[str, Any] | None = None,
+        on_specialist_start: Callable[[str], None] | None = None,
+        on_specialist_complete: Callable[[str, dict], None] | None = None,
+        on_tool_start: Callable[[str, str, dict], None] | None = None,
+        on_tool_result: Callable[[str, str, str], None] | None = None,
+        confirm_fn: Callable[[str, str], bool] | None = None,
     ) -> TurnResult:
         """Execute a single conversation turn.
 
         Args:
             query: User's question
-            thread_id: Conversation thread identifier
-            user_profile: User's career profile (loaded fresh if not provided)
+            thread_id: Conversation thread identifier (determines session)
+            user_profile: User's career profile (loaded from disk if not provided)
+            on_specialist_start: Called when specialist starts working
+            on_specialist_complete: Called when specialist completes
+            on_tool_start: Called when a tool is invoked
+            on_tool_result: Called when a tool returns a result
+            confirm_fn: Human-in-the-loop confirmation for tool interrupts
 
         Returns:
             TurnResult with synthesis, specialists, elapsed time, suggestions
@@ -77,11 +97,23 @@ class ConversationEngine:
                 "goals": [g.description for g in (profile.goals or [])],
             }
 
+        # Build graph with callbacks closed-over for this turn
+        graph = self._build_graph(
+            checkpointer=self._checkpointer,
+            on_specialist_start=on_specialist_start,
+            on_specialist_complete=on_specialist_complete,
+            on_tool_start=on_tool_start,
+            on_tool_result=on_tool_result,
+            confirm_fn=confirm_fn,
+        )
+
         config = {"configurable": {"thread_id": thread_id}}
         start = time.monotonic()
 
-        # Get or initialize session state
-        snap = self._graph.get_state(config)
+        # Load existing session or start fresh
+        from fu7ur3pr00f.agents.blackboard.session import make_initial_session
+
+        snap = graph.get_state(config)
         if snap and snap.values:
             session_state = dict(snap.values)  # type: ignore
         else:
@@ -91,24 +123,17 @@ class ConversationEngine:
         session_state["current_query"] = query
         session_state["user_profile"] = user_profile
 
-        # Invoke graph for this turn
         logger.debug("Turn: %r (thread=%s)", query[:60], thread_id)
-        result_state = self._graph.invoke(session_state, config)
+        result_state = graph.invoke(session_state, config)
 
         elapsed = time.monotonic() - start
 
-        # Extract results
-        synthesis = result_state.get("synthesis", {})
-        specialists = result_state.get("routed_specialists", [])
-        suggested = result_state.get("suggested_next", [])
-        cumulative = result_state.get("cumulative_findings", {})
-
         return TurnResult(
-            synthesis=synthesis,
-            specialists=specialists,
+            synthesis=result_state.get("synthesis", {}),
+            specialists=result_state.get("routed_specialists", []),
             elapsed=elapsed,
-            suggested_next=suggested,
-            cumulative_findings=cumulative,
+            suggested_next=result_state.get("suggested_next", []),
+            cumulative_findings=result_state.get("cumulative_findings", {}),
         )
 
 
@@ -125,7 +150,7 @@ def get_conversation_engine() -> ConversationEngine:
 
 
 def reset_conversation_engine() -> None:
-    """Reset the engine singleton (useful for testing/reloading)."""
+    """Reset the engine singleton (e.g. after provider/model change)."""
     global _engine
     _engine = None
 

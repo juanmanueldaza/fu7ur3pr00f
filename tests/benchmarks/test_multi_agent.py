@@ -37,14 +37,15 @@ VALID_SPECIALISTS = {"coach", "learning", "jobs", "code", "founder"}
 
 
 def test_routing_latency(orchestrator: OrchestratorAgent) -> None:
-    """Routing should be sub-millisecond."""
+    """Routing with LLM should complete in reasonable time."""
     start = time.perf_counter()
     for query in TEST_QUERIES:
         route = orchestrator.route(query)
         assert isinstance(route, list)
         assert all(name in VALID_SPECIALISTS for name in route)
     elapsed = time.perf_counter() - start
-    assert elapsed < 0.01, f"Routing took {elapsed * 1000:.2f}ms"
+    # LLM routing takes ~1-3s per query; allow 30s for all 5 queries
+    assert elapsed < 30, f"Routing took {elapsed:.2f}s"
 
 
 def test_routing_accuracy(orchestrator: OrchestratorAgent) -> None:

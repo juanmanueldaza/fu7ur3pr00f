@@ -251,10 +251,13 @@ class TestOrchestratorAgent:
         assert len(orch._specialists) == 5
 
     def test_routing_coach(self):
+        """Test keyword fallback (mock LLM to fail)."""
         orch = self._make_orchestrator()
-        result = orch.route("How do I get promoted to Staff?")
-        assert isinstance(result, list)
-        assert result == ["coach"]
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
+            mock_model.side_effect = RuntimeError("LLM failed")
+            result = orch.route("How do I get promoted to Staff?")
+            assert isinstance(result, list)
+            assert result == ["coach"]
 
     def test_routing_learning(self):
         orch = self._make_orchestrator()
@@ -311,10 +314,12 @@ class TestOrchestratorAgent:
     def test_routing_single_narrow_query(self):
         """Narrow, targeted queries should route to a single-element list."""
         orch = self._make_orchestrator()
-        result = orch.route("How do I get promoted to Staff?")
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0] == "coach"
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
+            mock_model.side_effect = RuntimeError("LLM failed")
+            result = orch.route("How do I get promoted to Staff?")
+            assert isinstance(result, list)
+            assert len(result) == 1
+            assert result[0] == "coach"
 
     def test_list_agents(self):
         orch = self._make_orchestrator()

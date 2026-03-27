@@ -46,6 +46,18 @@ _MULTI_SPECIALIST_KEYWORDS: list[str] = [
     "strategy",
     "plan",
     "roadmap",
+    "leverage",
+    "strengths",
+    "earn more",
+    "more money",
+    "income",
+    "grow",
+    "advance",
+    "transition",
+    "next level",
+    "improve",
+    "how can i",
+    "help me",
 ]
 
 
@@ -75,13 +87,8 @@ class OrchestratorAgent:
     ) -> list[str]:
         """Route query to one or more specialists.
 
-        Returns a list of specialist names to involve (always a list).
-        - Single targeted query → ["jobs"] or ["coach"], etc.
-        - Comprehensive query → ["coach", "learning", "jobs", ...] up to all 5
-
-        Scoring: count keyword matches per specialist.
-        For comprehensive queries, include all specialists with score >= 0
-        (capped at 4); for targeted queries, return only the best match.
+        Uses LLM-based semantic routing with keyword fallback.
+        Returns a list of specialist names to involve (always a list, 1-4 items).
 
         Args:
             query: User's query
@@ -104,6 +111,24 @@ class OrchestratorAgent:
                 )
                 return prev_specialists
 
+        # Try LLM-based semantic routing first
+        try:
+            result = self._route_with_llm(query, conversation_history, turn_type)
+            logger.debug("route_llm(%r) → %s", query[:60], result)
+            return result
+        except Exception as e:
+            logger.debug(
+                "LLM routing failed (%s), falling back to keywords", e
+            )
+
+        # Keyword fallback
+        return self._route_with_keywords(query)
+
+    def _route_with_keywords(self, query: str) -> list[str]:
+        """Route using keyword matching (fallback path).
+
+        Scores specialists by keyword match count and selects 1-4 specialists.
+        """
         # Normalize hyphens so "5-year" matches "5 year"
         intent = query.lower().replace("-", " ")
 
@@ -117,12 +142,14 @@ class OrchestratorAgent:
         is_comprehensive = any(kw in intent for kw in _MULTI_SPECIALIST_KEYWORDS)
 
         if is_comprehensive:
-            sorted_specs = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            sorted_specs = sorted(
+                scores.items(), key=lambda x: x[1], reverse=True
+            )
             result = ["coach"]
             for name, _score in sorted_specs:
                 if name != "coach" and len(result) < 4:
                     result.append(name)
-            logger.debug("route_multi(%r) → %s", query[:60], result)
+            logger.debug("route_keywords_multi(%r) → %s", query[:60], result)
             return result
 
         # Single specialist: highest scorer, default coach
@@ -130,12 +157,57 @@ class OrchestratorAgent:
         if scores.get(best_name, 0) == 0:
             best_name = "coach"
         logger.debug(
-            "route(%r) → [%s] (score=%d)",
+            "route_keywords(%r) → [%s] (score=%d)",
             query[:60],
             best_name,
             scores.get(best_name, 0),
         )
         return [best_name]
+
+    def _route_with_llm(
+        self,
+        query: str,
+        conversation_history: list[dict] | None = None,
+        turn_type: str | None = None,
+    ) -> list[str]:
+        """Route using LLM-based semantic understanding.
+
+        Parses specialist descriptions and selects 1-4 specialists via
+        structured output (Pydantic model).
+        """
+        from langchain_core.messages import HumanMessage
+
+        from fu7ur3pr00f.agents.specialists.routing_schema import RoutingDecision
+        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+        from fu7ur3pr00f.prompts import load_prompt
+
+        # Build context from conversation history
+        context = "No prior context."
+        if turn_type in ("steer", "workflow_step") and conversation_history:
+            recent = conversation_history[-3:]
+            context_lines = [
+                f"- {t.get('query', '')[:80]}" for t in recent
+            ]
+            context = "\n".join(context_lines)
+
+        prompt_template = load_prompt("route_specialists")
+        prompt = prompt_template.format(
+            query=query,
+            context=context,
+        )
+
+        model, _ = get_model_with_fallback(
+            purpose="summary", temperature=0.0
+        )
+        router = model.with_structured_output(RoutingDecision)
+        result = router.invoke([HumanMessage(content=prompt)])  # type: ignore
+
+        # Validate names against known specialists
+        valid = [
+            name for name in result.specialists  # type: ignore
+            if name in self._specialists
+        ]
+        return valid or ["coach"]
 
     # ── Blackboard execution ──────────────────────────────────────────────
 

@@ -259,16 +259,18 @@ class BaseAgent(ABC):
 
         full_prompt = f"User Profile:\n{profile_context}\n\nQuery: {query}"
 
-        # Nudge specialists to use knowledge base tools for richer data
-        full_prompt += (
-            "\n\nIMPORTANT: The user may have career data indexed in the"
-            " knowledge base (LinkedIn, GitHub, portfolio). Always use"
-            " search_career_knowledge to find relevant information SPECIFIC"
-            " to the user's query before responding. Do NOT say you lack data"
-            " without searching first. Pay attention to the user's EXACT"
-            " question — if they ask about Spain, search for Spain-related"
-            " data or opportunities, not generic profiles."
-        )
+        # Append specialist guidance from prompt
+        try:
+            from fu7ur3pr00f.prompts import load_prompt
+            guidance = load_prompt("specialist_guidance")
+            full_prompt += f"\n\n{guidance}"
+        except Exception:
+            # Fallback if prompt not found
+            full_prompt += (
+                "\n\nIMPORTANT: The user may have career data indexed in the"
+                " knowledge base. Always use search_career_knowledge to find"
+                " relevant information specific to the user's query."
+            )
         if context_msg:
             full_prompt += f"\n\nContext from other specialists:\n{context_msg}"
 

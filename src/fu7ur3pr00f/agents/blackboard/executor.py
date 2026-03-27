@@ -101,16 +101,27 @@ class BlackboardExecutor:
         config = {"configurable": {"thread_id": f"bb_{uuid.uuid4().hex[:12]}"}}
 
         # Stream updates from the graph with custom events for real-time progress
+        # NOTE: In LangGraph 1.x, interrupt() is suppressed at root level and
+        # yielded as a stream chunk {"__interrupt__": (...,)} in "updates" mode —
+        # it is NEVER raised as a Python exception to the caller of graph.stream().
         final_state: CareerBlackboard = initial
         started_specialists: set[str] = set()
 
         stream_input: Any = initial
         while True:
-            try:
-                for chunk in graph.stream(
-                    stream_input, config, stream_mode=["updates", "custom"]
+            pending_interrupt: Any = None
+            for chunk in graph.stream(
+                stream_input, config, stream_mode=["updates", "custom"]
+            ):
+                mode, data = chunk  # Unpack tuple (always a 2-tuple)
+                # Detect interrupt chunk — LangGraph yields it, never raises it
+                if (
+                    mode == "updates"
+                    and isinstance(data, dict)
+                    and "__interrupt__" in data
                 ):
-                    mode, data = chunk  # Unpack tuple (always a 2-tuple)
+                    pending_interrupt = data["__interrupt__"]
+                else:
                     self._process_stream_event(
                         mode,
                         data,
@@ -120,26 +131,33 @@ class BlackboardExecutor:
                         on_tool_result,
                         started_specialists,
                     )
-                break  # Stream completed — no more interrupts
-            except _GraphInterrupt as exc:
-                if confirm_fn is None:
-                    raise
-                # Extract the first interrupt value
-                interrupts = exc.args[0] if exc.args else ()
-                first = interrupts[0] if interrupts else None
-                if first is None:
-                    raise
-                val = first.value
-                question = (
-                    val.get("question", "Confirm?")
-                    if isinstance(val, dict)
-                    else str(val)
-                )
-                details = val.get("details", "") if isinstance(val, dict) else ""
-                approved = confirm_fn(question, details)
-                from langgraph.types import Command
 
-                stream_input = Command(resume=approved)
+            if pending_interrupt is None:
+                break  # Stream completed with no interrupt
+
+            if confirm_fn is None:
+                # No handler — raise so caller knows confirmation was required
+                raise _GraphInterrupt(pending_interrupt)
+
+            # Extract the first Interrupt object's value
+            interrupts = (
+                pending_interrupt
+                if isinstance(pending_interrupt, (list, tuple))
+                else (pending_interrupt,)
+            )
+            first = interrupts[0] if interrupts else None
+            if first is None:
+                break
+
+            val = first.value if hasattr(first, "value") else first
+            question = (
+                val.get("question", "Confirm?") if isinstance(val, dict) else str(val)
+            )
+            details = val.get("details", "") if isinstance(val, dict) else ""
+            approved = confirm_fn(question, details)
+            from langgraph.types import Command
+
+            stream_input = Command(resume=approved)
 
         # Get final state from graph (checkpointer is authoritative)
         snap = graph.get_state(config)

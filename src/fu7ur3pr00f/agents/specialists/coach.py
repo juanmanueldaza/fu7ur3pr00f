@@ -40,6 +40,7 @@ class CoachAgent(BaseAgent):
             "strategy",
             "next step",
             "linkedin",
+            "generate",
         }
     )
 

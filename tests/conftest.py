@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_asyncio import fixture as async_fixture
+from pytest_asyncio import fixture as async_fixture  # type: ignore
 
 from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
 

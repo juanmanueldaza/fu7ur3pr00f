@@ -67,7 +67,7 @@ def invoke_with_context(
 
     model, _ = get_model_with_fallback(purpose="analysis")
     result = model.invoke([HumanMessage(content=full_prompt)])
-    return result.content
+    return result.content  # type: ignore
 
 
 def fetch_tech_list() -> str:

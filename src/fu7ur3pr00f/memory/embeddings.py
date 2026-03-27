@@ -15,6 +15,7 @@ Usage:
 
 import logging
 import threading
+from abc import abstractmethod
 from typing import Any
 
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
@@ -32,6 +33,12 @@ class _TruncatingEmbeddingFunction(EmbeddingFunction[Documents]):
     def _truncate(self, texts: list[str]) -> list[str]:
         """Truncate texts that exceed the model's context limit."""
         return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
+
+    @property
+    @abstractmethod
+    def client(self) -> Any:
+        """The embedding client. Subclasses must override."""
+        raise NotImplementedError
 
     @property
     def _model_name(self) -> str:

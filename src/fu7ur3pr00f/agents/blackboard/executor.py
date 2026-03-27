@@ -61,10 +61,10 @@ class BlackboardExecutor:
             query: User's question (e.g., "5-year prediction")
             user_profile: User's career data
             constraints: Optional constraints for the analysis
-            on_specialist_start: Called with (specialist_name) when specialist starts
-            on_specialist_complete: Called with (specialist_name, findings) when done
-            on_tool_start: Called with (specialist_name, tool_name, args) on tool call
-            on_tool_result: Called with (specialist_name, tool_name, result) on tool done
+            on_specialist_start: Called when specialist starts
+            on_specialist_complete: Called when specialist completes
+            on_tool_start: Called when tool is invoked
+            on_tool_result: Called when tool completes
 
         Returns:
             Final blackboard state with all findings
@@ -100,54 +100,15 @@ class BlackboardExecutor:
 
         for chunk in graph.stream(initial, config, stream_mode=["updates", "custom"]):
             mode, data = chunk  # Unpack tuple (always a 2-tuple)
-
-            if mode == "updates":
-                for node_name, node_output in data.items():
-                    if not isinstance(node_output, dict):
-                        continue
-
-                    # Fire complete callback when specialist produces findings
-                    if node_name in self.specialists:
-                        finding = node_output.get("findings", {}).get(node_name)
-                        if finding and on_specialist_complete:
-                            on_specialist_complete(node_name, finding)
-
-            elif mode == "custom":
-                # Forward custom events from specialist nodes to callbacks
-                if isinstance(data, dict):
-                    event_type = data.get("type")
-                    specialist = data.get("specialist")
-
-                    if (
-                        event_type == "specialist_start"
-                        and specialist in self.specialists
-                    ):
-                        if specialist not in started_specialists:
-                            started_specialists.add(specialist)
-                            if on_specialist_start:
-                                on_specialist_start(specialist)
-
-                    elif (
-                        event_type == "specialist_complete"
-                        and specialist in self.specialists
-                    ):
-                        # on_specialist_complete already fired via updates mode;
-                        # here we just use the reasoning from complete event if available
-                        pass
-
-                    elif event_type == "tool_start" and on_tool_start:
-                        on_tool_start(
-                            specialist or "",
-                            data.get("tool", ""),
-                            data.get("args", {}),
-                        )
-
-                    elif event_type == "tool_result" and on_tool_result:
-                        on_tool_result(
-                            specialist or "",
-                            data.get("tool", ""),
-                            data.get("result", ""),
-                        )
+            self._process_stream_event(
+                mode,
+                data,
+                on_specialist_start,
+                on_specialist_complete,
+                on_tool_start,
+                on_tool_result,
+                started_specialists,
+            )
 
         # Get final state from graph (checkpointer is authoritative)
         snap = graph.get_state(config)
@@ -164,6 +125,42 @@ class BlackboardExecutor:
         )
 
         return final_state
+
+    def _process_stream_event(
+        self,
+        mode: str,
+        data: Any,
+        on_specialist_start: Callable[[str], None] | None,
+        on_specialist_complete: Callable[[str, SpecialistFinding], None] | None,
+        on_tool_start: Callable[[str, str, dict], None] | None,
+        on_tool_result: Callable[[str, str, str], None] | None,
+        started_specialists: set[str],
+    ) -> None:
+        """Process a single stream event from the blackboard graph."""
+        if mode == "updates":
+            for node_name, node_output in data.items():
+                if not isinstance(node_output, dict):
+                    continue
+                if node_name in self.specialists:
+                    finding = node_output.get("findings", {}).get(node_name)
+                    if finding and on_specialist_complete:
+                        on_specialist_complete(node_name, finding)
+        elif mode == "custom" and isinstance(data, dict):
+            event_type = data.get("type")
+            specialist = data.get("specialist")
+            if event_type == "specialist_start" and specialist in self.specialists:
+                if specialist not in started_specialists:
+                    started_specialists.add(specialist)
+                    if on_specialist_start:
+                        on_specialist_start(specialist)
+            elif event_type == "tool_start" and on_tool_start:
+                on_tool_start(
+                    specialist or "", data.get("tool", ""), data.get("args", {})
+                )
+            elif event_type == "tool_result" and on_tool_result:
+                on_tool_result(
+                    specialist or "", data.get("tool", ""), data.get("result", "")
+                )
 
 
 __all__ = [

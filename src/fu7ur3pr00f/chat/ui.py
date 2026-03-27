@@ -460,7 +460,7 @@ def display_blackboard_result(
     heavy framing. For multi-specialist results, uses the integrated panel.
 
     Args:
-        synthesis: Synthesis dict with 'narrative' key (and optionally 'integrated_advice')
+        synthesis: Synthesis dict with 'narrative' and 'integrated_advice'
         specialists_contributed: List of specialist names that ran
         elapsed: Total elapsed time in seconds
     """
@@ -478,9 +478,7 @@ def display_blackboard_result(
                 Panel(
                     Markdown(narrative),
                     title="[bold #ffd700]INTEGRATED CAREER ANALYSIS[/bold #ffd700]",
-                    subtitle=(
-                        f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]"
-                    ),
+                    subtitle=(f"[italic]{contributors} · {elapsed:.1f}s[/italic]"),
                     subtitle_align="right",
                     border_style="#ffd700",
                     box=box.DOUBLE,
@@ -512,11 +510,12 @@ def display_blackboard_result(
         parts.append(f"\n**Next Steps:**\n{steps_str}")
 
     body = "\n".join(parts) if parts else "Analysis complete."
+    subtitle_text = f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]"
     console.print(
         Panel(
             Markdown(body),
             title="[bold #ffd700]INTEGRATED CAREER ANALYSIS[/bold #ffd700]",
-            subtitle=f"[italic #415a77]{contributors} · {elapsed:.1f}s[/italic #415a77]",
+            subtitle=subtitle_text,
             subtitle_align="right",
             border_style="#ffd700",
             box=box.DOUBLE,

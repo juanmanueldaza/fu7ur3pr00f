@@ -175,9 +175,7 @@ def handle_command(  # noqa: C901 TODO: refactor
             service = GathererService()
             sections = service.gather_all()
 
-            console.print(
-                f"\n[#10b981]✓ Gathered {len(sections)} sections from all sources[/#10b981]"
-            )
+            console.print(f"\n[#10b981]✓ Gathered {len(sections)} sections[/#10b981]")
             console.print("[#10b981]✓ Data indexed to knowledge base[/#10b981]\n")
         except ImportError as e:
             # Fallback: run gatherers directly
@@ -204,9 +202,7 @@ def handle_command(  # noqa: C901 TODO: refactor
                     sections = gatherer.gather(zip_file)
                     elapsed = time.time() - start
                     total += len(sections)
-                    console.print(
-                        f" [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
-                    )
+                    console.print(f"  [#10b981]✓ {len(sections)} sections[/#10b981]")
             else:
                 console.print("  [#ff6b6b]No LinkedIn ZIP found[/#ff6b6b]")
             console.print()
@@ -247,7 +243,7 @@ def handle_command(  # noqa: C901 TODO: refactor
                         elapsed = time.time() - start
                         total += len(sections)
                         console.print(
-                            f" [#10b981]✓ {len(sections)} sections in {elapsed:.1f}s[/#10b981]"
+                            f"  [#10b981]✓ {len(sections)} sections[/#10b981]"
                         )
                     except Exception as e:
                         console.print(
@@ -271,7 +267,7 @@ def handle_command(  # noqa: C901 TODO: refactor
                 )
             else:
                 console.print(
-                    "[bold]Portfolio:[/bold] [#ff6b6b]No PORTFOLIO_URL configured[/#ff6b6b]"
+                    "[bold]Portfolio:[/bold] [#ff6b6b]No URL configured[/#ff6b6b]"
                 )
             console.print()
 
@@ -457,7 +453,7 @@ def _run_blackboard_query(
         display_specialist_progress(name, "done")
         reasoning = finding.get("reasoning", "")
         if reasoning and len(specialist_names) > 1:
-            # Only show intermediate reasoning for multi-specialist (single will show via synthesis)
+            # Show reasoning for multi-specialist analysis
             con.print(Markdown(reasoning))
             con.print()
 
@@ -532,7 +528,7 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 TODO: refactor
 
         if isinstance(e, ValidationError) or isinstance(e.__cause__, ValidationError):
             display_error(
-                f"Configuration error — check your settings.\n{e}\n\nLaunching /setup to fix..."
+                f"Configuration error — check your settings.\n{e}\n\nRun /setup..."
             )
             from fu7ur3pr00f.chat.setup import run_setup
 

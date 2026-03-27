@@ -45,6 +45,8 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=3.0.3",
     "prompt-toolkit>=3.0.52",
     "chromadb>=1.4.1",
+    # Testing
+    "pytest-asyncio>=0.23",
 ]
 
 [project.urls]

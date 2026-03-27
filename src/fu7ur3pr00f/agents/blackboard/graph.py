@@ -183,8 +183,9 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         parts = [f"### {specialist_name.upper()}"]
 
         # Add reasoning first (high-level summary)
-        if finding.get("reasoning"):
-            parts.append(f"**Summary:** {sanitize_for_prompt(finding['reasoning'])}")
+        reasoning = finding.get("reasoning")
+        if reasoning:
+            parts.append(f"**Summary:** {sanitize_for_prompt(reasoning)}")
 
         # Add structured details from each specialist
         detail_fields = [
@@ -229,11 +230,10 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
             [
                 SystemMessage(
                     content=(
-                        "You are synthesizing career advice from multiple specialist analyses. "
-                        "Write a coherent, personalized, actionable response that integrates all "
-                        "perspectives. Be specific to this person's actual situation, strengths, "
-                        "projects, and market opportunities. Use all the structured data provided. "
-                        "Use markdown formatting and be concrete with examples."
+                        "Synthesize career advice from multiple specialist analyses. "
+                        "Write a coherent, personalized, actionable response. "
+                        "Be specific to this person's situation and strengths. "
+                        "Use all structured data provided. Be concrete."
                     )
                 ),
                 HumanMessage(

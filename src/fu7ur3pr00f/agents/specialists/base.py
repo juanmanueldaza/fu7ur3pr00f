@@ -23,14 +23,16 @@ logger = logging.getLogger(__name__)
 _CONTRIBUTE_INSTRUCTION = (
     "\n\nYou are contributing to a multi-specialist career analysis. "
     "Use your tools to gather real, specific data about this person. "
-    "After gathering data, synthesize your findings into a comprehensive summary that includes:\n"
+    "After gathering data, synthesize your findings into a comprehensive "
+    "summary that includes:\n"
     "- Key gaps and challenges you identified\n"
     "- Strengths and assets to leverage\n"
     "- Specific opportunities and roles\n"
     "- Concrete recommended skills or steps\n"
     "- Your overall reasoning and confidence\n\n"
-    "Be concrete and data-driven — use specific examples from this person's actual profile, "
-    "projects, market data, and other findings. Avoid generic advice."
+    "Be concrete and data-driven — use specific examples from this "
+    "person's actual profile, projects, market data, and other findings. "
+    "Avoid generic advice."
 )
 
 
@@ -331,10 +333,10 @@ class BaseAgent(ABC):
                 f"Specialist output:\n{agent_text}"
             )
 
-            result: SpecialistFindingsModel = extractor.invoke(
+            result: SpecialistFindingsModel = extractor.invoke(  # type: ignore
                 [HumanMessage(content=extraction_prompt)]
             )
-            return result.model_dump(exclude_none=True)
+            return result.model_dump(exclude_none=True)  # type: ignore
 
         except Exception as e:
             logger.warning(

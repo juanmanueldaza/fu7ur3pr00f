@@ -60,7 +60,7 @@ def build_conversation_graph(  # noqa: C901
             turn_type,
         )
 
-        return {"turn_type": turn_type}
+        return {**state, "turn_type": turn_type}
 
     def route_turn_node(state: dict[str, Any]) -> dict[str, Any]:
         """Route the current query to appropriate specialists."""
@@ -88,7 +88,7 @@ def build_conversation_graph(  # noqa: C901
             turn_type,
             routed,
         )
-        return {"routed_specialists": routed}
+        return {**state, "routed_specialists": routed}
 
     def execute_inner_node(state: dict[str, Any]) -> dict[str, Any]:
         """Execute the inner blackboard graph for this turn."""
@@ -146,7 +146,7 @@ def build_conversation_graph(  # noqa: C901
                 "errors": [{"error": str(e)}],
             }
 
-        return {"current_blackboard": blackboard}
+        return {**state, "current_blackboard": blackboard}
 
     def accumulate_node(state: dict[str, Any]) -> dict[str, Any]:
         """Merge current turn's findings into cumulative state."""
@@ -164,7 +164,7 @@ def build_conversation_graph(  # noqa: C901
         turns.append(turn_record)
 
         logger.debug("Accumulated turn %d", len(turns))
-        return {"cumulative_findings": cumulative, "turns": turns}
+        return {**state, "cumulative_findings": cumulative, "turns": turns}
 
     def synthesize_turn_node(state: dict[str, Any]) -> dict[str, Any]:
         """Pass through synthesis from the inner blackboard graph.
@@ -177,7 +177,7 @@ def build_conversation_graph(  # noqa: C901
 
         # Inner graph already produced a narrative — pass through
         if synthesis.get("narrative", "").strip():
-            return {"synthesis": synthesis}
+            return {**state, "synthesis": synthesis}
 
         # Fallback: build narrative from all specialist findings
         findings = blackboard.get("findings", {})
@@ -189,11 +189,11 @@ def build_conversation_graph(  # noqa: C901
                     reasoning_parts.append(reasoning)
             if reasoning_parts:
                 synthesis["narrative"] = "\n\n".join(reasoning_parts)
-                return {"synthesis": synthesis}
+                return {**state, "synthesis": synthesis}
 
         # Last resort
         synthesis["narrative"] = "Analysis complete."
-        return {"synthesis": synthesis}
+        return {**state, "synthesis": synthesis}
 
     def suggest_next_node(state: dict[str, Any]) -> dict[str, Any]:
         """Generate proactive follow-up suggestions using LLM.
@@ -205,12 +205,12 @@ def build_conversation_graph(  # noqa: C901
 
         # Skip suggestions for simple factual queries
         if turn_type == "factual":
-            return {"suggested_next": []}
+            return {**state, "suggested_next": []}
 
         blackboard = state.get("current_blackboard", {})
         findings = blackboard.get("findings", {})
         if not findings:
-            return {"suggested_next": []}
+            return {**state, "suggested_next": []}
 
         # Collect the richest signals from all specialists
         gaps: list[str] = []
@@ -256,7 +256,7 @@ def build_conversation_graph(  # noqa: C901
             if open_questions:
                 suggestions.append(f"Explore: {open_questions[0]}")
 
-        return {"suggested_next": suggestions[:3]}
+        return {**state, "suggested_next": suggestions[:3]}
 
     # ── Graph construction ────────────────────────────────────────────────
 

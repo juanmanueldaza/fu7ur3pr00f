@@ -15,24 +15,20 @@ TurnType = Literal["factual", "follow_up", "steer", "new_query", "workflow_step"
 # Regex patterns for fast classification
 # Matches direct questions about the user's profile data (single-fact answers)
 _FACTUAL_PATTERN = re.compile(
-    r"^(what\s+(is|are|was|were)|who\s+(is|are)|where\s+(is|are)|when\s+(is|are|was|were)"
+    r"^(what\s+(is|are|was|were)|who\s+(is|are)|where\s+(is|are)|when\s+(is|are|was|were)"  # noqa: E501
     r"|how\s+(many|much|old)\s+(is|are|am|do|does|did|have|has)"
     r"|(is|are|was|were|do|does|did)\s+i)\s+(my|i|the)",
     re.IGNORECASE,
 )
 
 _FOLLOW_UP_KEYWORDS = {
-    "that",
-    "more",
     "tell me more",
     "go deeper",
     "elaborate",
     "expand",
-    "also",
-    "what about",
     "furthermore",
     "additionally",
-    "explain",
+    "what about",
     "clarify",
 }
 

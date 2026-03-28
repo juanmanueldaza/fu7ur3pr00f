@@ -260,6 +260,8 @@ class BaseAgent(ABC):
                 ("technical_skills", "Technical skills"),
                 ("goals", "Goals"),
                 ("target_roles", "Target roles"),
+                ("github_username", "GitHub username"),
+                ("gitlab_username", "GitLab username"),
             ]:
                 val = user_profile.get(key)
                 if val:

@@ -95,6 +95,7 @@ class ConversationEngine:
                 "technical_skills": profile.technical_skills or [],
                 "target_roles": profile.target_roles or [],
                 "goals": [g.description for g in (profile.goals or [])],
+                "github_username": profile.github_username or "",
             }
 
         # Build graph with callbacks closed-over for this turn

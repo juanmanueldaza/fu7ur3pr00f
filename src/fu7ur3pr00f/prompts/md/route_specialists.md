@@ -33,7 +33,7 @@ Route this query to specialists using this step-by-step process:
   <rule priority="1">Always include **coach** for career strategy, growth, or direction questions</rule>
   <rule priority="2">Include **jobs** when compensation, job market, interviews, or opportunities are relevant</rule>
   <rule priority="3">Include **learning** when skill development, upskilling, or knowledge gaps are mentioned</rule>
-  <rule priority="4">Include **code** when GitHub, portfolio, open source, or developer visibility matters</rule>
+  <rule priority="4">Include **code** when GitHub, portfolio, open source, developer visibility, or project building matters — even if GitHub is not explicitly mentioned</rule>
   <rule priority="5">Include **founder** when entrepreneurship, side income, startups, or business ideas are implied</rule>
   <rule priority="6">For factual questions (job title, skills list): route to coach only (single specialist)</rule>
   <rule priority="7">For follow-up questions: reuse specialists from prior turn if context is related</rule>
@@ -74,6 +74,18 @@ Route this query to specialists using this step-by-step process:
 <query>"Review my GitHub and tell me what projects to build for Staff Engineer roles"</query>
 <specialists>["code", "coach", "learning"]</specialists>
 <reasoning>Code audits GitHub repos and recommends projects. Coach connects to Staff Engineer promotion criteria. Learning suggests skill development timeline. Code leads because primary ask is portfolio review.</reasoning>
+</example>
+
+<example>
+<query>"What projects should I build to advance my career?"</query>
+<specialists>["code", "coach", "learning"]</specialists>
+<reasoning>Code reviews existing repos and recommends specific projects aligned with market demand. Coach connects projects to promotion criteria. Learning suggests skills to develop. Code leads even without explicit GitHub mention because the answer requires reviewing existing work.</reasoning>
+</example>
+
+<example>
+<query>"Advise me on my portfolio and developer visibility"</query>
+<specialists>["code", "coach"]</specialists>
+<reasoning>Code audits GitHub/GitLab repos, READMEs, and open source contributions. Coach provides career strategy context. Code leads because primary ask is portfolio improvement.</reasoning>
 </example>
 </examples>
 

@@ -82,7 +82,9 @@ class DevToMCPClient(HTTPMCPClient):
             "top": 30,  # Top articles from last 30 days for specific tags
         }
 
-        response = await client.get(self.BASE_URL, params=params)
+        response = await client.get(
+            self.BASE_URL, params=params  # type: ignore[arg-type]
+        )
         response.raise_for_status()
 
         articles = response.json()

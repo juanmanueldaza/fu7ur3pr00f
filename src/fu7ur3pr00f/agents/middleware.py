@@ -277,7 +277,7 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         user_question = ""
         for msg in reversed(messages):
             if isinstance(msg, HumanMessage):
-                user_question = msg.content
+                user_question = msg.content  # type: ignore[assignment]
                 break
 
         # Only collect tool results from current turn (after last user msg)

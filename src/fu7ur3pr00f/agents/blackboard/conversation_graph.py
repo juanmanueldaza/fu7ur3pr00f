@@ -13,7 +13,7 @@ from langgraph.graph import END, StateGraph
 logger = logging.getLogger(__name__)
 
 
-def build_conversation_graph(
+def build_conversation_graph(  # noqa: C901
     checkpointer: Any = None,
     on_specialist_start: Callable[[str], None] | None = None,
     on_specialist_complete: Callable[[str, dict], None] | None = None,
@@ -42,7 +42,7 @@ def build_conversation_graph(
     from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
     from fu7ur3pr00f.agents.specialists.orchestrator import get_orchestrator
 
-    graph = StateGraph(dict)  # SessionState is dict at runtime
+    graph = StateGraph(dict)  # type: ignore[type-var]
 
     # ── Nodes ────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ def build_conversation_graph(
                 user_profile=user_profile,
                 constraints=constraints,
                 on_specialist_start=on_specialist_start,
-                on_specialist_complete=on_specialist_complete,
+                on_specialist_complete=on_specialist_complete,  # type: ignore[arg-type]
                 on_tool_start=on_tool_start,
                 on_tool_result=on_tool_result,
                 confirm_fn=confirm_fn,
@@ -158,7 +158,7 @@ def build_conversation_graph(
         findings = blackboard.get("findings", {})
         if findings:
             reasoning_parts = []
-            for name, finding in findings.items():
+            for _name, finding in findings.items():
                 reasoning = finding.get("reasoning", "").strip()
                 if reasoning:
                     reasoning_parts.append(reasoning)
@@ -232,12 +232,12 @@ def build_conversation_graph(
 
     # ── Graph construction ────────────────────────────────────────────────
 
-    graph.add_node("classify_turn", classify_turn_node)
-    graph.add_node("route_turn", route_turn_node)
-    graph.add_node("execute_inner", execute_inner_node)
-    graph.add_node("accumulate", accumulate_node)
-    graph.add_node("synthesize_turn", synthesize_turn_node)
-    graph.add_node("suggest_next", suggest_next_node)
+    graph.add_node("classify_turn", classify_turn_node)  # type: ignore[type-var]
+    graph.add_node("route_turn", route_turn_node)  # type: ignore[type-var]
+    graph.add_node("execute_inner", execute_inner_node)  # type: ignore[type-var]
+    graph.add_node("accumulate", accumulate_node)  # type: ignore[type-var]
+    graph.add_node("synthesize_turn", synthesize_turn_node)  # type: ignore[type-var]
+    graph.add_node("suggest_next", suggest_next_node)  # type: ignore[type-var]
 
     # Edges: linear flow
     graph.add_edge("classify_turn", "route_turn")

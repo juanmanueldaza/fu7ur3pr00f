@@ -113,18 +113,20 @@ class ConversationEngine:
         # Load existing session or start fresh
         from fu7ur3pr00f.agents.blackboard.session import make_initial_session
 
-        snap = graph.get_state(config)
+        snap = graph.get_state(config)  # type: ignore[arg-type]
         if snap and snap.values:
             session_state = dict(snap.values)  # type: ignore
         else:
-            session_state = make_initial_session(user_profile)
+            session_state = make_initial_session(  # type: ignore[assignment]
+                user_profile
+            )
 
         # Update for this turn
         session_state["current_query"] = query
         session_state["user_profile"] = user_profile
 
         logger.debug("Turn: %r (thread=%s)", query[:60], thread_id)
-        result_state = graph.invoke(session_state, config)
+        result_state = graph.invoke(session_state, config)  # type: ignore[arg-type]
 
         elapsed = time.monotonic() - start
 

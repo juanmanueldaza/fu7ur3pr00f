@@ -178,12 +178,19 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         if not reasoning.strip():
             # Fallback: build narrative from structured fields
             parts = []
-            for field in ("gaps", "strengths", "opportunities", "skills",
-                          "action_items"):
-                items = only_finding.get(field, [])
-                if items:
+            for field in (
+                "gaps",
+                "strengths",
+                "opportunities",
+                "skills",
+                "action_items",
+            ):
+                raw = only_finding.get(field, [])  # type: ignore[attr-defined]
+                if raw:
                     label = field.replace("_", " ").title()
-                    parts.append(f"**{label}:** {', '.join(str(i) for i in items)}")
+                    vals: list[object] = list(raw)  # type: ignore[call-overload]
+                    joined = ", ".join(str(i) for i in vals)
+                    parts.append(f"**{label}:** {joined}")
             reasoning = "\n".join(parts) if parts else "Analysis complete."
         synthesis["narrative"] = sanitize_for_prompt(reasoning)
         logger.info("Synthesis (single specialist): pass-through")
@@ -196,7 +203,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         parts = [f"### {specialist_name.upper()}"]
 
         # Add reasoning first (high-level summary)
-        reasoning = finding.get("reasoning")
+        reasoning = finding.get("reasoning")  # type: ignore[assignment]
         if reasoning:
             parts.append(f"**Summary:** {sanitize_for_prompt(reasoning)}")
 

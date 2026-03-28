@@ -128,7 +128,10 @@ class BaseAgent(ABC):
 
         query = blackboard.get("query", "")
 
-        system_content = self.system_prompt + _CONTRIBUTE_INSTRUCTION
+        system_content = (
+            self.system_prompt.replace("{user_query}", sanitize_for_prompt(query))
+            + _CONTRIBUTE_INSTRUCTION
+        )
         human_content = self._build_context(blackboard)
 
         messages: list[Any] = [
@@ -261,6 +264,7 @@ class BaseAgent(ABC):
 
         # Append specialist guidance — fill placeholders with actual values
         from fu7ur3pr00f.prompts import load_prompt
+
         guidance = (
             load_prompt("specialist_guidance")
             .replace("{specialist_name}", self.name)
@@ -340,8 +344,9 @@ class BaseAgent(ABC):
                 f"Extract career findings from this specialist analysis.\n\n"
                 f"Query: {query}\n\n"
                 f"Specialist output:\n{agent_text}\n\n"
-                f"IMPORTANT: Write the 'reasoning' field as a direct response to the user "
-                f"in first person (e.g. 'Your current title is Senior Analyst'). "
+                f"IMPORTANT: Write the 'reasoning' field as a direct "
+                f"response to the user in first person "
+                f"(e.g. 'Your current title is Senior Analyst'). "
                 f"For factual questions: one direct sentence. "
                 f"For analysis/strategy: comprehensive narrative. "
                 f"Never write in third person (e.g. do NOT write "

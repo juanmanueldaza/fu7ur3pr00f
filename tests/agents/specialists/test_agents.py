@@ -290,25 +290,33 @@ class TestOrchestratorAgent:
         assert "coach" in result
 
     def test_routing_multi_5year_prediction(self):
-        """Queries about 5-year predictions should route to multiple specialists."""
+        """'5 year' keyword triggers multi-specialist keyword routing."""
         orch = self._make_orchestrator()
-        result = orch.route("Give me a 5 year prediction for my career")
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
+            mock_model.side_effect = RuntimeError("LLM failed")
+            result = orch.route("Give me a 5 year prediction for my career")
         assert isinstance(result, list)
-        assert len(result) >= 2  # LLM routing returns 2-4; exact count is model-dependent
+        assert len(result) >= 2
         assert "coach" in result
 
     def test_routing_multi_comprehensive(self):
-        """Queries with 'complete portrait' or 'overall' route to multiple."""
+        """'complete' keyword triggers multi-specialist keyword routing."""
         orch = self._make_orchestrator()
-        result = orch.route("Give me a complete portrait of my future")
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
+            mock_model.side_effect = RuntimeError("LLM failed")
+            result = orch.route("Give me a complete portrait of my future")
         assert isinstance(result, list)
+        assert len(result) >= 2
         assert "coach" in result
 
     def test_routing_multi_strategy(self):
-        """Queries about overall strategy should route to multiple specialists."""
+        """'strategy' keyword triggers multi-specialist keyword routing."""
         orch = self._make_orchestrator()
-        result = orch.route("What are my options and strategies?")
+        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
+            mock_model.side_effect = RuntimeError("LLM failed")
+            result = orch.route("What are my options and strategies?")
         assert isinstance(result, list)
+        assert len(result) >= 2
         assert "coach" in result
 
     def test_routing_single_narrow_query(self):

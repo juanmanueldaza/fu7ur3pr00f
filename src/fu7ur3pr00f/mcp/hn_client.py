@@ -168,7 +168,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "hitsPerPage": 50,
         }
 
-        response = await client.get(f"{self.BASE_URL}/search", params=params)
+        response = await client.get(
+            f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -227,7 +229,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         response = await client.get(
             f"{self.BASE_URL}/search_by_date",
-            params=params,
+            params=params,  # type: ignore[arg-type]
         )
         response.raise_for_status()
 
@@ -294,7 +296,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 "hitsPerPage": 500,
             }
 
-            response = await client.get(f"{self.BASE_URL}/search", params=params)
+            response = await client.get(
+                f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
+            )
             if response.status_code != 200:
                 continue
 
@@ -329,7 +333,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "hitsPerPage": limit,
         }
 
-        response = await client.get(f"{self.BASE_URL}/search", params=params)
+        response = await client.get(
+            f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -431,7 +437,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 "hitsPerPage": min(limit * 2, 500),  # Fetch extra, filter later
             }
 
-            response = await client.get(f"{self.BASE_URL}/search", params=params)
+            response = await client.get(
+                f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
+            )
             if response.status_code != 200:
                 continue
 

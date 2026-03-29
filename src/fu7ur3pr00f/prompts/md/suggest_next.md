@@ -11,12 +11,15 @@ Based on the analysis findings below, suggest 1-3 concrete next steps or follow-
 
 **Open questions**: {open_questions}
 
+**Profile status**: {profile_status}
+
 Generate suggestions that:
 - Build naturally on the findings
 - Are actionable (e.g., "search for remote Staff Engineer roles in Berlin", not vague aspirations)
 - Feel conversational and proactive (as if a JARVIS assistant would say them)
 - Are 1-3 bullet points, each under 15 words
 - **Sovereignty-Aligned**: Prioritize actions that build public, portable career capital (OSS, blogs, talks) over company-locked achievements
+- **If no profile data**: First suggestion should be "Run /gather to import your LinkedIn, GitHub, and portfolio"
 
 Format:
 - [suggestion 1]

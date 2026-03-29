@@ -226,16 +226,20 @@ def build_conversation_graph(  # noqa: C901
             from langchain_core.messages import HumanMessage
 
             from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+            from fu7ur3pr00f.memory.profile import load_profile
             from fu7ur3pr00f.prompts import load_prompt
 
             prompt_template = load_prompt("suggest_next")
             findings_text = _format_findings_for_prompt(findings)
+            profile = load_profile()
+            profile_status = "empty" if not profile.name else f"has data ({profile.name})"
             prompt = prompt_template.format(
                 query=blackboard.get("query", ""),
                 findings_text=findings_text,
                 gaps=", ".join(gaps[:3]) or "none",
                 action_items=", ".join(action_items[:3]) or "none",
                 open_questions=", ".join(open_questions[:2]) or "none",
+                profile_status=profile_status,
             )
             model, _ = get_model_with_fallback(purpose="analysis")
             response = model.invoke([HumanMessage(content=prompt)])

@@ -90,7 +90,7 @@ class TestBuildDynamicPrompt:
         stats = {"total_chunks": 0, "by_source": {}}
 
         content = self._call_middleware(profile, stats)
-        # Profile context is replaced with "No profile configured yet." when summary indicates no data
+        # Profile context replaced when summary indicates no data
         assert "No career data indexed" in content
         assert "gather_all_career_data" in content
 

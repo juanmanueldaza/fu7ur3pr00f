@@ -18,6 +18,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from ._singleton import create_singleton
 from .chromadb_store import ChromaDBStore
 
 logger = logging.getLogger(__name__)
@@ -184,8 +185,6 @@ def remember_application(
 # =============================================================================
 # Module-level store instance
 # =============================================================================
-
-from ._singleton import create_singleton
 
 _store_lock = threading.Lock()
 get_episodic_store = create_singleton(lambda: EpisodicStore(), _store_lock)

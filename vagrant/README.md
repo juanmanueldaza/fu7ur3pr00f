@@ -296,6 +296,5 @@ vagrant destroy
 
 ## See Also
 
-- [Development Guide](../docs/development.md)
-- [Scripts Guide](../docs/scripts.md)
+- [Main README](../README.md) — Installation, scripts, and documentation
 - [Vagrant Documentation](https://www.vagrantup.com/docs)

@@ -1,12 +1,13 @@
 """Singleton pattern helper for memory stores."""
 
 import threading
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 T = TypeVar("T")
 
 
-def create_singleton(
+def create_singleton(  # noqa: UP047
     factory: Callable[[], T],
     lock: threading.Lock | None = None,
 ) -> Callable[[], T]:

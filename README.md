@@ -78,22 +78,11 @@ See [.env.example](.env.example) for all options.
 | `/agents` | List available specialist agents |
 | `/clear` | Clear current thread history |
 | `/reset` | Factory reset (delete all generated data) |
-| `/quit` or `/q` | Exit chat |
+| `/quit`, `/q`, or `/exit` | Exit chat |
 
 ## Architecture
 
-### Single-Agent (Default)
-
-```mermaid
-graph LR
-    User <-->|Rich UI, HITL| Chat[Chat Client]
-    Chat <--> Agent[Single Agent<br/>41 tools]
-    Agent --> ChromaDB[(ChromaDB<br/>RAG + Memory)]
-    Agent --> LLM[Multi-Provider<br/>LLM Fallback]
-    Agent --> MCP[12 MCP Clients<br/>GitHub, Jobs, Search]
-```
-
-### Multi-Agent (LLM-Routed)
+### Multi-Agent with Blackboard Pattern
 
 ```mermaid
 graph TB
@@ -125,7 +114,7 @@ graph TB
 
 | Decision | Why |
 |----------|-----|
-| Single agent | Multi-agent handoffs failed with GPT-4.1 (over-delegation, lost context) |
+| Multi-agent blackboard | Single agent with 41 tools; specialists provide focused reasoning via blackboard pattern |
 | LLM routing | Keyword matching too brittle — "leverage strengths to win money" should route to 3 specialists, not 1 |
 | Keyword fallback | Network-resilient: continues working if LLM unavailable |
 | Blackboard pattern | Multi-specialist analysis with shared context and iteration |
@@ -236,6 +225,8 @@ Documentation is embedded in the codebase:
 - **MCP Clients**: [`src/fu7ur3pr00f/mcp/`](src/fu7ur3pr00f/mcp/) — MCP client implementations
 - **Memory**: [`src/fu7ur3pr00f/memory/`](src/fu7ur3pr00f/memory/) — ChromaDB, RAG, episodic memory
 - **Gatherers**: [`src/fu7ur3pr00f/gatherers/`](src/fu7ur3pr00f/gatherers/) — Data collection modules
+- **Specialists**: [`src/fu7ur3pr00f/agents/specialists/`](src/fu7ur3pr00f/agents/specialists/) — Multi-agent specialists and orchestrator
+- **Blackboard**: [`src/fu7ur3pr00f/agents/blackboard/`](src/fu7ur3pr00f/agents/blackboard/) — Blackboard pattern implementation
 
 Key documentation files:
 - [`QWEN.md`](QWEN.md) — Project context for AI assistants

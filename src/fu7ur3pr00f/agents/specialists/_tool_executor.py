@@ -15,7 +15,6 @@ from langgraph.errors import GraphInterrupt as _GraphInterrupt
 from fu7ur3pr00f.constants import (
     ERROR_TOOL_EXECUTION,
     ERROR_TOOL_NOT_FOUND,
-    MAX_TOTAL_TOOL_CALLS,
     TOOL_RESULT_MAX_CHARS,
     TOOL_RESULT_PREVIEW_CHARS,
 )

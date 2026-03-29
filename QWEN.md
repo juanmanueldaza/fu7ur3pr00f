@@ -42,13 +42,15 @@ return {"error": "..."}                   # Bad
 
 ### 4. Architecture Awareness
 
-**Single agent design**: One agent with 40+ tools. No multi-agent handoffs.
+**Multi-agent blackboard pattern**: Orchestrator routes queries to 5 specialists (Coach, Jobs, Learning, Code, Founder) via blackboard pattern.
 
 **Database-first**: Gatherers index directly to ChromaDB. No intermediate files.
 
 **Two-pass synthesis**: `AnalysisSynthesisMiddleware` replaces generic LLM output with focused reasoning.
 
 **HITL**: Destructive/expensive operations use LangGraph `interrupt()`.
+
+**LLM routing + keyword fallback**: Semantic routing with network-resilient fallback.
 
 ### 5. When Qwen Modifies Code
 
@@ -66,17 +68,15 @@ return {"error": "..."}                   # Bad
 
 | File | Purpose |
 |------|---------|
-| `src/fu7ur3pr00f/agents/career_agent.py` | Single agent, singleton cache |
-| `src/fu7ur3pr00f/agents/middleware.py` | Dynamic prompts, synthesis, tool repair |
-| `src/fu7ur3pr00f/agents/orchestrator.py` | LangGraph workflows |
-| `src/fu7ur3pr00f/memory/chroma/` | ChromaDB RAG + episodic memory |
+| `src/fu7ur3pr00f/agents/specialists/orchestrator.py` | Multi-agent orchestrator, routes to specialists |
+| `src/fu7ur3pr00f/agents/specialists/` | 5 specialists: Coach, Jobs, Learning, Code, Founder |
+| `src/fu7ur3pr00f/agents/blackboard/` | Blackboard pattern implementation |
+| `src/fu7ur3pr00f/agents/middleware/` | Dynamic prompts, synthesis, tool repair |
+| `src/fu7ur3pr00f/memory/` | ChromaDB RAG + episodic memory |
 | `src/fu7ur3pr00f/llm/fallback.py` | Multi-provider fallback routing |
-| `src/fu7ur3pr00f/agents/tools/` | **40 tools** organized by domain |
+| `src/fu7ur3pr00f/agents/tools/` | **41 tools** organized by domain |
 | `src/fu7ur3pr00f/mcp/` | **12 MCP clients** for real-time data |
 | `tests/conftest.py` | Shared pytest fixtures |
-
-See [docs/tools.md](docs/tools.md) for the complete list of all 40 tools.  
-See [docs/mcp_clients.md](docs/mcp_clients.md) for the complete list of all 12 MCP clients.
 
 ### 7. What Qwen Should NOT Do
 
@@ -88,7 +88,7 @@ See [docs/mcp_clients.md](docs/mcp_clients.md) for the complete list of all 12 M
 
 ### 8. Common Tasks
 
-**Add a tool**: Add to `src/fu7ur3pr00f/agents/tools/`, register in `career_agent.py`
+**Add a tool**: Add to `src/fu7ur3pr00f/agents/tools/`, register in `tools/__init__.py`
 
 **Add a gatherer**: Create in `src/fu7ur3pr00f/gatherers/`, index to ChromaDB
 
@@ -103,8 +103,6 @@ See [docs/mcp_clients.md](docs/mcp_clients.md) for the complete list of all 12 M
 **Test in Vagrant VMs**: `scripts/run_vagrant_apt_smoke.sh all`
 
 **Clean artifacts**: `scripts/clean_dev_artifacts.sh`
-
-See [docs/scripts.md](docs/scripts.md) for all scripts.
 
 ### 9. Security
 

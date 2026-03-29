@@ -17,6 +17,7 @@ from typing import Any
 
 from fu7ur3pr00f.constants import INDEX_BATCH_SIZE
 
+from ._singleton import create_singleton
 from .chromadb_store import ChromaDBStore
 from .chunker import MarkdownChunker, Section
 
@@ -254,8 +255,6 @@ class CareerKnowledgeStore(ChromaDBStore):
 # =============================================================================
 # Module-level store instance
 # =============================================================================
-
-from ._singleton import create_singleton
 
 _store_lock = threading.Lock()
 get_knowledge_store = create_singleton(lambda: CareerKnowledgeStore(), _store_lock)

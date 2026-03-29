@@ -130,7 +130,7 @@ __all__ = [*_tool_names, "get_all_tools", "get_tool_categories"]  # pyright: ign
 def get_all_tools() -> list:
     """Get all career intelligence tools for the agent.
 
-    Returns all 40 tools: profile, gathering, github, gitlab, analysis,
+    Returns all 41 tools: profile, gathering, github, gitlab, analysis,
     market, financial, generation, knowledge, memory, and settings.
     """
     return list(_ALL_TOOLS)

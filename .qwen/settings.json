@@ -169,7 +169,9 @@
       "Bash(skip *)",
       "Bash(dead.append)",
       "Bash(refs *)",
-      "Bash(refs.append)"
+      "Bash(refs.append)",
+      "Bash(pkill *)",
+      "Bash(sleep *)"
     ]
   },
   "$version": 3

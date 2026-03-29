@@ -62,6 +62,10 @@ class CareerBlackboard(TypedDict, total=False):
     user_profile: dict[str, Any]
     """User's career profile (role, skills, goals, etc.)"""
 
+    # Auto-searched knowledge base context (used when profile is empty)
+    _kb_context: str
+    """Knowledge base search results injected for LLM context"""
+
     # Findings from each specialist (populated as they contribute)
     findings: dict[str, SpecialistFinding]
     """

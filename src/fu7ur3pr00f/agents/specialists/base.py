@@ -224,6 +224,11 @@ class BaseAgent(ABC):
 
         full_prompt = f"USER QUERY: {query}\n\nUser Profile:\n{profile_context}"
 
+        # Auto-searched knowledge base context (injected by coach when profile empty)
+        kb_context = blackboard.get("_kb_context")
+        if kb_context:
+            full_prompt += f"\n\n{kb_context}"
+
         # Append specialist guidance — fill placeholders with actual values
         from fu7ur3pr00f.prompts import load_prompt
 

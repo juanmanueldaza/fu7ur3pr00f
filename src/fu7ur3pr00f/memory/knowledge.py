@@ -255,18 +255,7 @@ class CareerKnowledgeStore(ChromaDBStore):
 # Module-level store instance
 # =============================================================================
 
-_store: CareerKnowledgeStore | None = None
+from ._singleton import create_singleton
+
 _store_lock = threading.Lock()
-
-
-def get_knowledge_store() -> CareerKnowledgeStore:
-    """Get the global knowledge store instance."""
-    global _store
-    if _store is not None:
-        return _store
-
-    with _store_lock:
-        if _store is not None:
-            return _store
-        _store = CareerKnowledgeStore()
-        return _store
+get_knowledge_store = create_singleton(lambda: CareerKnowledgeStore(), _store_lock)

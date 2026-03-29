@@ -24,11 +24,21 @@ Usage:
 import json
 from abc import abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
 from .base import MCPClient, MCPConnectionError, MCPToolError, MCPToolResult
+
+# Security limits
+_MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10MB max response size
+
+
+class ResponseExtractor(Protocol):
+    """Protocol for extracting items from API responses."""
+
+    def __call__(self, data: dict[str, Any]) -> list[dict[str, Any]]:
+        ...
 
 
 class HTTPMCPClient(MCPClient):
@@ -62,6 +72,23 @@ class HTTPMCPClient(MCPClient):
         self._api_key = api_key
         self._connected = False
         self._client: httpx.AsyncClient | None = None
+        self._tool_handlers: dict[
+            str, Callable[[dict[str, Any]], Awaitable[MCPToolResult]]
+        ] = {}
+        self._register_tools()
+
+    def _register_tools(self) -> None:
+        """Auto-register tool handlers named _tool_*.
+
+        Subclasses define tools via _tool_* methods.
+        This is called once in __init__.
+        """
+        for name in dir(self):
+            if name.startswith("_tool_"):
+                tool_name = name[6:]  # Strip "_tool_" prefix
+                handler = getattr(self, name)
+                if callable(handler):
+                    self._tool_handlers[tool_name] = handler
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for HTTP requests.
@@ -120,31 +147,12 @@ class HTTPMCPClient(MCPClient):
         """
         pass
 
-    def _get_tool_handler(
-        self, tool_name: str
-    ) -> Callable[[dict[str, Any]], Awaitable[MCPToolResult]] | None:
-        """Get the handler method for a tool.
-
-        Looks for a method named _tool_{tool_name} on the class.
-
-        Args:
-            tool_name: Name of the tool
-
-        Returns:
-            Handler method or None if not found
-        """
-        handler = getattr(self, f"_tool_{tool_name}", None)
-        if handler is not None and callable(handler):
-            # Type assertion: we know _tool_* methods return Awaitable[MCPToolResult]
-            return handler  # type: ignore[return-value]
-        return None
-
     async def call_tool(
         self, tool_name: str, arguments: dict[str, Any]
     ) -> MCPToolResult:
         """Call a tool with the given arguments.
 
-        Handles common error patterns and delegates to _tool_{tool_name} methods.
+        Handles common error patterns and delegates to registered _tool_* methods.
 
         Args:
             tool_name: Name of the tool to call
@@ -159,10 +167,11 @@ class HTTPMCPClient(MCPClient):
         if not self.is_connected():
             raise MCPToolError("Client not connected")
 
+        handler = self._tool_handlers.get(tool_name)
+        if handler is None:
+            raise MCPToolError(f"Unknown tool: {tool_name}")
+
         try:
-            handler = self._get_tool_handler(tool_name)
-            if handler is None:
-                raise MCPToolError(f"Unknown tool: {tool_name}")
             return await handler(arguments)
         except MCPToolError:
             raise
@@ -181,6 +190,22 @@ class HTTPMCPClient(MCPClient):
         if not self._client:
             raise MCPToolError("Client not initialized")
         return self._client
+
+    def _check_response_size(self, response: httpx.Response) -> None:
+        """Validate response size to prevent memory exhaustion.
+
+        Args:
+            response: HTTP response to check
+
+        Raises:
+            MCPToolError: If response exceeds maximum size
+        """
+        content_length = len(response.content)
+        if content_length > _MAX_RESPONSE_SIZE:
+            raise MCPToolError(
+                f"Response too large: {content_length / 1024 / 1024:.1f}MB "
+                f"(max {_MAX_RESPONSE_SIZE / 1024 / 1024:.0f}MB)"
+            )
 
     def _format_response(
         self,
@@ -206,3 +231,93 @@ class HTTPMCPClient(MCPClient):
             raw_response=raw_response,
             tool_name=tool_name,
         )
+
+    async def _api_request(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        response_extractor: ResponseExtractor | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Generic API request with configurable extraction.
+
+        DRY helper to eliminate repeated API call patterns across
+        all HTTP-based MCP clients.
+
+        Args:
+            endpoint: API endpoint path (appended to BASE_URL)
+            method: HTTP method (default: GET)
+            params: Query parameters
+            json_body: JSON body for POST/PUT requests
+            response_extractor: Function to extract items from response.
+                              Pass None to return full response as list.
+
+        Returns:
+            Tuple of (items list, full response data)
+
+        Raises:
+            MCPToolError: If request fails
+        """
+        client = self._ensure_client()
+
+        request_kwargs: dict[str, Any] = {"params": params}
+        if json_body:
+            request_kwargs["json"] = json_body
+
+        response = await client.request(
+            method, f"{self.BASE_URL}{endpoint}", **request_kwargs
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        if response_extractor:
+            items = response_extractor(data)
+        else:
+            items = data if isinstance(data, list) else []
+
+        return items, data
+
+    def _items_extractor(
+        self, key: str = "items"
+    ) -> Callable[[dict[str, Any]], list[dict[str, Any]]]:
+        """Factory for common item extraction patterns.
+
+        Args:
+            key: Key to extract from response dict
+
+        Returns:
+            Function that extracts list from response
+        """
+        return lambda data: data.get(key, [])
+
+    def _format_items(
+        self,
+        items: list[dict[str, Any]],
+        tool_name: str,
+        raw_response: Any,
+        source: str | None = None,
+        **extra: Any,
+    ) -> MCPToolResult:
+        """Format items with standard structure.
+
+        DRY helper to eliminate repeated output formatting.
+
+        Args:
+            items: List of items to format
+            tool_name: Name of the tool
+            raw_response: Original API response
+            source: Optional source name (default: client class name)
+            extra: Additional fields to add to output
+
+        Returns:
+            MCPToolResult with formatted output
+        """
+        output: dict[str, Any] = {
+            "source": source
+            or self.__class__.__name__.replace("MCPClient", "").lower(),
+            "total_returned": len(items),
+            "items": items,
+            **extra,
+        }
+        return self._format_response(output, raw_response, tool_name)

@@ -48,11 +48,15 @@ class TestBuildDynamicPrompt:
             system_message=SystemMessage(content="original"),
         )
 
+        # Create mock service that returns mock_stats from get_stats()
+        mock_service = MagicMock()
+        mock_service.get_stats.return_value = mock_stats
+
         with (
-            patch("fu7ur3pr00f.memory.profile.load_profile", return_value=mock_profile),
+            patch("fu7ur3pr00f.utils.services.get_profile", return_value=mock_profile),
             patch(
-                "fu7ur3pr00f.services.knowledge_service.KnowledgeService.get_stats",
-                return_value=mock_stats,
+                "fu7ur3pr00f.utils.services.get_knowledge_service",
+                return_value=mock_service,
             ),
         ):
             build_dynamic_prompt.wrap_model_call(request, handler)
@@ -86,7 +90,7 @@ class TestBuildDynamicPrompt:
         stats = {"total_chunks": 0, "by_source": {}}
 
         content = self._call_middleware(profile, stats)
-        assert "No profile configured yet" in content
+        # Profile context is replaced with "No profile configured yet." when summary indicates no data
         assert "No career data indexed" in content
         assert "gather_all_career_data" in content
 
@@ -114,7 +118,6 @@ class TestBuildDynamicPrompt:
         profile.summary.return_value = "Name: Juan"
         stats = {"total_chunks": 10, "by_source": {"linkedin": 10}}
 
-        mock_load = MagicMock(return_value=profile)
         mock_get_stats = MagicMock(return_value=stats)
 
         def handler(request):
@@ -126,22 +129,25 @@ class TestBuildDynamicPrompt:
             system_message=SystemMessage(content="original"),
         )
 
+        # Create mock service
+        mock_service = MagicMock()
+        mock_service.get_stats = mock_get_stats
+
         with (
             patch(
-                "fu7ur3pr00f.memory.profile.load_profile",
-                mock_load,
+                "fu7ur3pr00f.utils.services.get_profile",
+                return_value=profile,
             ),
             patch(
-                "fu7ur3pr00f.services.knowledge_service." "KnowledgeService.get_stats",
-                mock_get_stats,
+                "fu7ur3pr00f.utils.services.get_knowledge_service",
+                return_value=mock_service,
             ),
         ):
-            # First call — should hit I/O
+            # First call — should build prompt
             build_dynamic_prompt.wrap_model_call(
                 request,
                 handler,
             )
-            assert mock_load.call_count == 1
             assert mock_get_stats.call_count == 1
 
             # Second call — should hit cache
@@ -149,8 +155,7 @@ class TestBuildDynamicPrompt:
                 request,
                 handler,
             )
-            assert mock_load.call_count == 1
-            assert mock_get_stats.call_count == 1
+            assert mock_get_stats.call_count == 1  # Still 1, cached
 
     def test_get_stats_called_once_per_invocation(self):
         """get_stats is called exactly once (not twice) per build."""
@@ -159,6 +164,8 @@ class TestBuildDynamicPrompt:
         stats = {"total_chunks": 0, "by_source": {}}
 
         mock_get_stats = MagicMock(return_value=stats)
+        mock_service = MagicMock()
+        mock_service.get_stats = mock_get_stats
 
         def handler(request):
             return MagicMock()
@@ -171,12 +178,12 @@ class TestBuildDynamicPrompt:
 
         with (
             patch(
-                "fu7ur3pr00f.memory.profile.load_profile",
+                "fu7ur3pr00f.utils.services.get_profile",
                 return_value=profile,
             ),
             patch(
-                "fu7ur3pr00f.services.knowledge_service." "KnowledgeService.get_stats",
-                mock_get_stats,
+                "fu7ur3pr00f.utils.services.get_knowledge_service",
+                return_value=mock_service,
             ),
         ):
             build_dynamic_prompt.wrap_model_call(

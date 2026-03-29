@@ -185,18 +185,7 @@ def remember_application(
 # Module-level store instance
 # =============================================================================
 
-_store: EpisodicStore | None = None
+from ._singleton import create_singleton
+
 _store_lock = threading.Lock()
-
-
-def get_episodic_store() -> EpisodicStore:
-    """Get the global episodic store instance."""
-    global _store
-    if _store is not None:
-        return _store
-
-    with _store_lock:
-        if _store is not None:
-            return _store
-        _store = EpisodicStore()
-        return _store
+get_episodic_store = create_singleton(lambda: EpisodicStore(), _store_lock)

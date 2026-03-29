@@ -13,6 +13,7 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from fu7ur3pr00f.config import settings
+from fu7ur3pr00f.utils.security import sanitize_error
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ _PROVIDER_MAP: dict[str, str] = {
     "ollama": "ollama",
 }
 
-# Default fallback chains per provider
+# Default fallback chains per provider (using direct ModelConfig construction)
 _PROVIDER_CHAINS: dict[str, list[ModelConfig]] = {
     "fu7ur3pr00f": [
         ModelConfig("fu7ur3pr00f", "gpt-4.1", "FutureProof GPT-4.1"),
@@ -182,6 +183,9 @@ class FallbackLLMManager:
             config: Model configuration to instantiate
             temperature: Optional per-call temperature override. If None,
                 uses the manager's default temperature.
+
+        Security: Wraps model creation with error sanitization to prevent
+        API key leakage in exception messages.
         """
         from langchain.chat_models import init_chat_model
 
@@ -206,11 +210,15 @@ class FallbackLLMManager:
         # Add provider-specific kwargs
         kwargs.update(_build_provider_kwargs(config))
 
-        return init_chat_model(
-            model=config.model,
-            model_provider=model_provider,
-            **kwargs,
-        )
+        try:
+            return init_chat_model(
+                model=config.model,
+                model_provider=model_provider,
+                **kwargs,
+            )
+        except Exception as e:
+            # Security: Sanitize error to prevent API key leakage
+            raise type(e)(sanitize_error(str(e))) from e
 
     def get_available_models(self) -> list[ModelConfig]:
         """Get list of available models (not failed)."""
@@ -225,14 +233,11 @@ class FallbackLLMManager:
         temperature: float | None = None,
         chain: list[ModelConfig] | None = None,
     ) -> tuple[BaseChatModel, ModelConfig]:
-        """Get the best available model.
+        """Get the best available model with fallback.
 
         Args:
-            temperature: Optional per-call temperature override. If None,
-                uses the manager's default temperature.
+            temperature: Optional per-call temperature override.
             chain: Optional chain override for purpose-specific routing.
-                If provided, uses this chain instead of the default.
-                Failed-model tracking still applies globally.
 
         Returns:
             Tuple of (model instance, model config)
@@ -241,22 +246,14 @@ class FallbackLLMManager:
             RuntimeError: If no models are available
         """
         effective_chain = chain or self._chain
-        available = [
-            config
-            for config in effective_chain
-            if self._model_key(config) not in self._failed_models
-        ]
+        available = self._get_available(effective_chain)
 
         if not available:
             # Reset failed models and try again
             logger.warning("All models failed, resetting failure state")
             with self._lock:
                 self._failed_models.clear()
-            available = [
-                config
-                for config in effective_chain
-                if self._model_key(config) not in self._failed_models
-            ]
+            available = self._get_available(effective_chain)
 
         if not available:
             raise RuntimeError(
@@ -267,9 +264,16 @@ class FallbackLLMManager:
 
         config = available[0]
         self._current_model = config
-
         logger.info(f"Using model: {config.description}")
         return self._create_model(config, temperature=temperature), config
+
+    def _get_available(self, chain: list[ModelConfig]) -> list[ModelConfig]:
+        """Get available models from chain (not failed)."""
+        return [
+            config
+            for config in chain
+            if self._model_key(config) not in self._failed_models
+        ]
 
     def mark_failed(self, config: ModelConfig | None = None) -> None:
         """Mark a model as failed (e.g., due to rate limiting).

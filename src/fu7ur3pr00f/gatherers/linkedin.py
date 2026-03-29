@@ -16,6 +16,7 @@ import logging
 import re
 import zipfile
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +31,25 @@ def _read_csv(zf: zipfile.ZipFile, name: str) -> list[dict[str, str]]:
 
     Handles LinkedIn's notes preamble (e.g., in Connections.csv) by skipping
     lines until a valid multi-column CSV header is found.
+
+    Security: Validates CSV entry path to prevent ZIP path traversal attacks.
     """
+    # Security: Check for path traversal
+    if ".." in name or name.startswith("/"):
+        logger.warning("Blocked potential path traversal: %s", name)
+        return []
+
     try:
+        # Security: Get ZIP info and validate entry
+        zip_info = zf.getinfo(name)
+
+        # Check for path traversal in actual entry
+        if ".." in zip_info.filename or zip_info.filename.startswith("/"):
+            logger.warning(
+                "Blocked ZIP entry with path traversal: %s", zip_info.filename
+            )
+            return []
+
         with zf.open(name) as f:
             text = io.TextIOWrapper(f, encoding="utf-8-sig")
             lines = text.readlines()
@@ -60,12 +78,20 @@ def _read_csv_variants(zf: zipfile.ZipFile, base_name: str) -> list[dict[str, st
     """Read a CSV and its numbered variants (e.g., Job Applications_1.csv).
 
     LinkedIn splits large CSVs into numbered files.
+
+    Security: Validates all variant paths to prevent ZIP path traversal.
     """
     rows = _read_csv(zf, base_name)
     p = Path(base_name)
 
     for i in range(1, 11):
         variant = str(p.with_stem(f"{p.stem}_{i}"))
+
+        # Security: Check variant path for traversal
+        if ".." in variant or variant.startswith("/"):
+            logger.warning("Blocked variant path traversal: %s", variant)
+            break
+
         extra = _read_csv(zf, variant)
         if not extra:
             break
@@ -94,6 +120,40 @@ def _strip_html(text: str) -> str:
 def _get_name(row: dict[str, str]) -> str:
     """Build full name from First Name + Last Name columns."""
     return f"{_get(row, 'First Name')} {_get(row, 'Last Name')}".strip()
+
+
+def _parse_simple_list(
+    rows: list[dict[str, str]],
+    section_name: str,
+    value_extractor: Callable[[dict[str, str]], str | None],
+    joiner: str = ", ",
+    prefix: str = "- ",
+) -> Section | None:
+    """Generic parser for simple list sections.
+
+    Args:
+        rows: CSV rows
+        section_name: Name for the section
+        value_extractor: Function to extract value from row
+        joiner: String to join values ("," for inline, "\\n" for list)
+        prefix: Prefix for each item (used with newline joiner)
+
+    Returns:
+        Section or None if no values
+    """
+    if not rows:
+        return None
+
+    values = [v for row in rows if (v := value_extractor(row))]
+    if not values:
+        return None
+
+    if "\n" in joiner:
+        content = joiner.join(f"{prefix}{v}" for v in values)
+    else:
+        content = joiner.join(values)
+
+    return Section(section_name, content)
 
 
 # =============================================================================
@@ -189,12 +249,7 @@ def _parse_education(rows: list[dict[str, str]]) -> Section | None:
 
 def _parse_skills(rows: list[dict[str, str]]) -> Section | None:
     """Parse Skills.csv → Skills section."""
-    if not rows:
-        return None
-    skills = [_get(row, "Name") for row in rows if _get(row, "Name")]
-    if not skills:
-        return None
-    return Section("Skills", ", ".join(skills))
+    return _parse_simple_list(rows, "Skills", lambda r: _get(r, "Name"), joiner=", ")
 
 
 def _parse_certifications(rows: list[dict[str, str]]) -> Section | None:
@@ -221,17 +276,13 @@ def _parse_certifications(rows: list[dict[str, str]]) -> Section | None:
 
 def _parse_languages(rows: list[dict[str, str]]) -> Section | None:
     """Parse Languages.csv → Languages section."""
-    if not rows:
-        return None
-    lines: list[str] = []
-    for row in rows:
+
+    def extract(row: dict[str, str]) -> str | None:
         name = _get(row, "Name")
         prof = _get(row, "Proficiency")
-        if name:
-            lines.append(f"- {name}: {prof}" if prof else f"- {name}")
-    if not lines:
-        return None
-    return Section("Languages", "\n".join(lines))
+        return f"{name}: {prof}" if prof else name
+
+    return _parse_simple_list(rows, "Languages", extract, joiner="\n", prefix="- ")
 
 
 def _parse_projects(rows: list[dict[str, str]]) -> Section | None:
@@ -594,6 +645,13 @@ class LinkedInGatherer:
                     f"(max {_MAX_ZIP_UNCOMPRESSED // 1024 // 1024}MB). "
                     f"This may be a ZIP bomb attack or corrupted file."
                 )
+
+            # Security: Validate all ZIP entries for path traversal
+            for info in zf.infolist():
+                if ".." in info.filename or info.filename.startswith("/"):
+                    raise ValueError(
+                        f"Blocked ZIP entry with path traversal: {info.filename}"
+                    )
 
             for tier, csv_name, parser, use_variants in _CSV_PARSERS:
                 rows = (

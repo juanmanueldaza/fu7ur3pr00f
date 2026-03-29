@@ -55,8 +55,10 @@ class CoachAgent(BaseAgent):
             try:
                 from fu7ur3pr00f.agents.tools.knowledge import search_career_knowledge
 
-                # Search for identity info
-                identity_result = search_career_knowledge("my name who am I profile")  # type: ignore[operator]
+                # Search for identity info - StructuredTool must be invoked with args
+                identity_result = search_career_knowledge.invoke(
+                    {"query": "my name who am I profile"},
+                )
                 if identity_result and "No career data" not in identity_result:
                     # Inject into blackboard context for the LLM to use
                     existing_context = blackboard.get("_kb_context", "")

@@ -23,6 +23,7 @@ from fu7ur3pr00f.constants import (
     COLOR_SUCCESS,
     COLOR_WARNING,
 )
+from fu7ur3pr00f.utils.security import mask_secret
 
 logger = logging.getLogger(__name__)
 
@@ -103,13 +104,6 @@ _LOCKED_PROVIDERS = {"fu7ur3pr00f", "openai", "anthropic", "ollama"}
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
-def _redact(value: str) -> str:
-    """Redact a secret value, showing only first 4 and last 4 chars."""
-    if len(value) <= 10:
-        return "*" * len(value)
-    return value[:4] + "..." + value[-4:]
-
-
 def _provider_status(provider_id: str) -> bool:
     """Check if a provider has its required keys configured."""
     return settings.is_provider_configured(provider_id)
@@ -117,11 +111,7 @@ def _provider_status(provider_id: str) -> bool:
 
 def _integration_status(integration_id: str) -> bool:
     """Check if an integration has its required keys configured."""
-    checks = {
-        "github": settings.has_github_mcp,
-        "tavily": settings.has_tavily_mcp,
-    }
-    return checks.get(integration_id, False)
+    return settings.is_integration_configured(integration_id)
 
 
 # ── Display ─────────────────────────────────────────────────────────────
@@ -349,7 +339,7 @@ def _prompt_keys(
 
         if value:
             write_user_setting(env_key, value)
-            display = _redact(value) if is_secret else value
+            display = mask_secret(value) if is_secret else value
             console.print(
                 f"  [{COLOR_SUCCESS}]\u2714 {env_key}[/{COLOR_SUCCESS}] = {display}"
             )

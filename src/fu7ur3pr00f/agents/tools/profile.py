@@ -4,7 +4,8 @@ import logging
 
 from langchain_core.tools import tool
 
-from fu7ur3pr00f.memory.profile import CareerGoal, edit_profile, load_profile
+from fu7ur3pr00f.memory.profile import CareerGoal, edit_profile
+from fu7ur3pr00f.utils.services import get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ def get_user_profile() -> str:
     Use this to understand the user's background before giving advice or searching for
         jobs.
     """
-    profile = load_profile()
+    profile = get_profile()
 
     if not profile.name:
         return (

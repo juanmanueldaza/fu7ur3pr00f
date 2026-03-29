@@ -93,7 +93,7 @@ class TestFinancialClient:
 
         with patch.object(client, "_ensure_client") as mock_ensure:
             mock_http = AsyncMock()
-            mock_http.get = AsyncMock(return_value=mock_response)
+            mock_http.request = AsyncMock(return_value=mock_response)
             mock_ensure.return_value = mock_http
 
             result = await client._tool_convert_currency(

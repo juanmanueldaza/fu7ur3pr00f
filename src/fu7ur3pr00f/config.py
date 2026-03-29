@@ -163,9 +163,22 @@ class Settings(BaseSettings):
         """Check if Ollama is configured."""
         return bool(self.ollama_base_url)
 
-    def is_provider_configured(self, provider_id: str) -> bool:
-        """Check if a provider has its required keys configured."""
+    @property
+    def has_tavily_mcp(self) -> bool:
+        """Check if Tavily MCP is configured."""
+        return bool(self.tavily_api_key)
+
+    def is_integration_configured(self, integration_id: str) -> bool:
+        """Check if an integration has its required keys configured."""
         checks = {
+            "github": self.has_github_mcp,
+            "tavily": self.has_tavily_mcp,
+        }
+        return checks.get(integration_id, False)
+
+    def is_provider_configured(self, provider: str) -> bool:
+        """Check if an LLM provider is configured."""
+        provider_checks = {
             "fu7ur3pr00f": self.has_proxy,
             "openai": self.has_openai,
             "anthropic": self.has_anthropic,
@@ -173,7 +186,7 @@ class Settings(BaseSettings):
             "azure": self.has_azure,
             "ollama": self.has_ollama,
         }
-        return checks.get(provider_id, False)
+        return provider_checks.get(provider, False)
 
     @property
     def active_provider(self) -> str:
@@ -198,15 +211,49 @@ class Settings(BaseSettings):
             return "ollama"
         return ""
 
-    @property
-    def has_tavily_mcp(self) -> bool:
-        """Check if Tavily Search MCP is configured."""
-        return bool(self.tavily_api_key)
+    def factory_reset(self) -> int:
+        """Delete all generated data and configuration, returning count of items cleared.
 
-    @property
-    def market_cache_dir(self) -> Path:
-        """Get the market data cache directory."""
-        return self.data_dir / "cache" / "market"
+        Preserves data/raw/ (LinkedIn ZIPs, PDFs).
+        """
+        import shutil
+
+        # Data directory under home (~/.fu7ur3pr00f/)
+        home_dir = self.data_dir.parent
+
+        targets = [
+            ("Conversations & checkpoints", home_dir / "memory.db"),
+            ("User profile", home_dir / "profile.yaml"),
+            ("Knowledge base & episodic memory", home_dir / "episodic"),
+            ("Log file", home_dir / "fu7ur3pr00f.log"),
+            ("Generated CVs", self.output_dir),
+            ("Processed data", self.processed_dir),
+            ("Market cache", self.market_cache_dir),
+        ]
+
+        deleted = 0
+        for _label, path in targets:
+            if not path.exists():
+                continue
+            if path.is_dir():
+                if path.name in ("output", "processed"):
+                    # For output and processed, keep the directory but clear contents
+                    # (except .gitkeep)
+                    for item in path.iterdir():
+                        if item.name == ".gitkeep":
+                            continue
+                        if item.is_dir():
+                            shutil.rmtree(item, ignore_errors=True)
+                        else:
+                            item.unlink()
+                else:
+                    shutil.rmtree(path, ignore_errors=True)
+            else:
+                path.unlink()
+            deleted += 1
+
+        self.ensure_directories()
+        return deleted
 
     # Paths (user-level, under ~/.fu7ur3pr00f/)
     @property
@@ -228,6 +275,11 @@ class Settings(BaseSettings):
     def output_dir(self) -> Path:
         """Get the output directory."""
         return self.data_dir / "output"
+
+    @property
+    def market_cache_dir(self) -> Path:
+        """Get the market cache directory."""
+        return self.data_dir / "market_cache"
 
     def ensure_directories(self) -> None:
         """Create all required directories with restrictive permissions."""

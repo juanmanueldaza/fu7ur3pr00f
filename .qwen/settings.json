@@ -103,7 +103,11 @@
       "Bash(touch *)",
       "Bash(git pull *)",
       "Bash(python *)",
-      "Bash(wc *)"
+      "Bash(wc *)",
+      "Bash(vagrant *)",
+      "Bash(do *)",
+      "Bash(done)",
+      "Bash(shellcheck *)"
     ]
   },
   "$version": 3

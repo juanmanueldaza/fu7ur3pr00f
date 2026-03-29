@@ -54,65 +54,77 @@ from .profile import (
 )
 from .settings import get_current_config, update_setting
 
-# Single source of truth for all agent tools.
-# Imports above make them available; this list drives __all__ and get_all_tools().
-_ALL_TOOLS = [
-    # Profile
-    get_user_profile,
-    update_user_name,
-    update_current_role,
-    update_salary_info,
-    update_user_skills,
-    set_target_roles,
-    update_user_goal,
-    # Gathering
-    gather_portfolio_data,
-    gather_linkedin_data,
-    gather_assessment_data,
-    gather_cv_data,
-    gather_all_career_data,
-    # GitHub
-    search_github_repos,
-    get_github_repo,
-    get_github_profile,
-    # GitLab
-    search_gitlab_projects,
-    get_gitlab_project,
-    get_gitlab_file,
-    # Knowledge
-    search_career_knowledge,
-    get_knowledge_stats,
-    index_career_knowledge,
-    clear_career_knowledge,
-    # Analysis
-    analyze_skill_gaps,
-    analyze_career_alignment,
-    get_career_advice,
-    # Market
-    search_jobs,
-    get_tech_trends,
-    get_salary_insights,
-    analyze_market_fit,
-    analyze_market_skills,
-    gather_market_data,
-    # Financial
-    convert_currency,
-    compare_salary_ppp,
-    # Generation
-    generate_cv,
-    generate_cv_draft,
-    # Memory
-    remember_decision,
-    remember_job_application,
-    recall_memories,
-    get_memory_stats,
-    # Settings
-    get_current_config,
-    update_setting,
-]
+# Single source of truth for all agent tools, organized by category.
+# This structure drives tool registration, help display, and UI styling.
+_TOOLS_BY_CATEGORY = {
+    "profile": [
+        get_user_profile,
+        update_user_name,
+        update_current_role,
+        update_salary_info,
+        update_user_skills,
+        set_target_roles,
+        update_user_goal,
+    ],
+    "gathering": [
+        gather_portfolio_data,
+        gather_linkedin_data,
+        gather_assessment_data,
+        gather_cv_data,
+        gather_all_career_data,
+    ],
+    "github": [
+        search_github_repos,
+        get_github_repo,
+        get_github_profile,
+    ],
+    "gitlab": [
+        search_gitlab_projects,
+        get_gitlab_project,
+        get_gitlab_file,
+    ],
+    "knowledge": [
+        search_career_knowledge,
+        get_knowledge_stats,
+        index_career_knowledge,
+        clear_career_knowledge,
+    ],
+    "analysis": [
+        analyze_skill_gaps,
+        analyze_career_alignment,
+        get_career_advice,
+    ],
+    "market": [
+        search_jobs,
+        get_tech_trends,
+        get_salary_insights,
+        analyze_market_fit,
+        analyze_market_skills,
+        gather_market_data,
+    ],
+    "financial": [
+        convert_currency,
+        compare_salary_ppp,
+    ],
+    "generation": [
+        generate_cv,
+        generate_cv_draft,
+    ],
+    "memory": [
+        remember_decision,
+        remember_job_application,
+        recall_memories,
+        get_memory_stats,
+    ],
+    "settings": [
+        get_current_config,
+        update_setting,
+    ],
+}
 
+_ALL_TOOLS = [t for tools in _TOOLS_BY_CATEGORY.values() for t in tools]
 _tool_names = [t.name for t in _ALL_TOOLS]
-__all__ = [*_tool_names, "get_all_tools"]  # pyright: ignore[reportUnsupportedDunderAll]
+__all__ = [*_tool_names, "get_all_tools", "get_tool_categories"]  # pyright: ignore
 
 
 def get_all_tools() -> list:
@@ -122,3 +134,16 @@ def get_all_tools() -> list:
     market, financial, generation, knowledge, memory, and settings.
     """
     return list(_ALL_TOOLS)
+
+
+def get_tool_categories() -> dict[str, str]:
+    """Get a mapping of tool names to their categories.
+
+    Returns:
+        Mapping of tool_name -> category_name
+    """
+    mapping = {}
+    for cat, tools in _TOOLS_BY_CATEGORY.items():
+        for t in tools:
+            mapping[t.name] = cat
+    return mapping

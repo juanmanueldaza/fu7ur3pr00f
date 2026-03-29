@@ -8,7 +8,7 @@ import logging
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.config import settings
-from fu7ur3pr00f.constants import GITHUB_API_BASE as _GITHUB_API_BASE
+from fu7ur3pr00f.constants import GITHUB_API_BASE, HTTP_TIMEOUT
 from fu7ur3pr00f.mcp.pool import MCPErrorType, call_mcp, get_error_type
 
 logger = logging.getLogger(__name__)
@@ -37,14 +37,14 @@ def _github_http(tool_name: str, args: dict) -> str:
         return error
 
     try:
-        with httpx.Client(timeout=20) as client:
+        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
             if tool_name == "search_repositories":
                 params = {
                     "q": args.get("query", ""),
                     "per_page": args.get("perPage", 10),
                 }
                 response = client.get(
-                    f"{_GITHUB_API_BASE}/search/repositories",
+                    f"{GITHUB_API_BASE}/search/repositories",
                     headers=headers,
                     params=params,
                 )
@@ -57,7 +57,7 @@ def _github_http(tool_name: str, args: dict) -> str:
                 path = (args.get("path") or "").lstrip("/")
                 if not owner or not repo:
                     return "GitHub API error: owner and repo are required."
-                url = f"{_GITHUB_API_BASE}/repos/{owner}/{repo}/contents"
+                url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/contents"
                 if path:
                     url = f"{url}/{path}"
                 response = client.get(url, headers=headers)
@@ -78,7 +78,7 @@ def _github_http(tool_name: str, args: dict) -> str:
                 return response.text
 
             if tool_name == "get_me":
-                response = client.get(f"{_GITHUB_API_BASE}/user", headers=headers)
+                response = client.get(f"{GITHUB_API_BASE}/user", headers=headers)
                 response.raise_for_status()
                 return response.text
 

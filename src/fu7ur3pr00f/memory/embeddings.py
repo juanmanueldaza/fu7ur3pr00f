@@ -21,7 +21,7 @@ from typing import Any
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 
 from fu7ur3pr00f.config import settings
-from fu7ur3pr00f.constants import MAX_EMBEDDING_CACHE_SIZE
+from fu7ur3pr00f.constants import HTTP_TIMEOUT_LONG, MAX_EMBEDDING_CACHE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,7 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
         if self._client is None:
             import httpx
 
-            self._client = httpx.Client(base_url=self._base_url, timeout=60.0)
+            self._client = httpx.Client(base_url=self._base_url, timeout=HTTP_TIMEOUT_LONG)
             logger.debug("Ollama embedding client initialized")
         return self._client
 

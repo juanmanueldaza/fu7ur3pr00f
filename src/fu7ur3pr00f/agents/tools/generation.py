@@ -5,7 +5,7 @@ from typing import Literal
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.utils.services import get_profile
 
 
 @tool
@@ -59,7 +59,7 @@ def generate_cv_draft(target_role: str) -> str:
 
     Use this for a quick preview before generating a full CV.
     """
-    profile = load_profile()
+    profile = get_profile()
 
     if not profile.name:
         return (

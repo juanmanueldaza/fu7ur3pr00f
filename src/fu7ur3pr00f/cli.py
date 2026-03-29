@@ -1,24 +1,9 @@
 """FutureProof CLI - Career Intelligence System."""
 
-import inspect
 import logging
 from typing import Annotated
 
-import click
 import typer
-
-# Monkeypatch click.Parameter.make_metavar to accept 'ctx' parameter.
-# This fixes a compatibility issue where Typer's click integration
-# expects make_metavar to accept a 'ctx' argument (newer click behavior)
-# but the installed click version doesn't provide it.
-_parameter = click.Parameter
-if "ctx" not in inspect.signature(_parameter.make_metavar).parameters:
-    _original_make_metavar = _parameter.make_metavar
-
-    def _patched_make_metavar(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-        return _original_make_metavar(self)  # type: ignore[call-arg]
-
-    _parameter.make_metavar = _patched_make_metavar
 
 from . import __version__  # noqa: E402
 from .config import settings  # noqa: E402

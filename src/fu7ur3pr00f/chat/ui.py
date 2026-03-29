@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.theme import Theme
 
+from fu7ur3pr00f.agents.tools import get_tool_categories
 from fu7ur3pr00f.constants import (
     COLOR_ACCENT,
     COLOR_ERROR,
@@ -22,6 +23,7 @@ from fu7ur3pr00f.constants import (
     COLOR_SUCCESS,
     COLOR_WARNING,
 )
+from fu7ur3pr00f.memory.profile import UserProfile
 
 # ── Nautical theme (inspired by daza.ar) ─────────────────────────────────
 
@@ -55,59 +57,7 @@ _TOOL_CATEGORIES: dict[str, tuple[str, str]] = {
     "settings": ("\u2699", "#94a3b8"),  # ⚙  slate
 }
 
-_TOOL_TO_CATEGORY: dict[str, str] = {
-    # Profile
-    "get_user_profile": "profile",
-    "update_user_name": "profile",
-    "update_current_role": "profile",
-    "update_user_skills": "profile",
-    "set_target_roles": "profile",
-    "update_user_goal": "profile",
-    "update_salary_info": "profile",
-    # Gathering
-    "gather_portfolio_data": "gathering",
-    "gather_linkedin_data": "gathering",
-    "gather_assessment_data": "gathering",
-    "gather_all_career_data": "gathering",
-    # GitHub
-    "search_github_repos": "github",
-    "get_github_repo": "github",
-    "get_github_profile": "github",
-    # GitLab
-    "search_gitlab_projects": "gitlab",
-    "get_gitlab_project": "gitlab",
-    "get_gitlab_file": "gitlab",
-    # Knowledge
-    "search_career_knowledge": "knowledge",
-    "get_knowledge_stats": "knowledge",
-    "index_career_knowledge": "knowledge",
-    "clear_career_knowledge": "knowledge",
-    # Analysis
-    "analyze_skill_gaps": "analysis",
-    "analyze_career_alignment": "analysis",
-    "get_career_advice": "analysis",
-    # Generation
-    "generate_cv": "generation",
-    "generate_cv_draft": "generation",
-    # Market
-    "search_jobs": "market",
-    "get_tech_trends": "market",
-    "get_salary_insights": "market",
-    "gather_market_data": "market",
-    "analyze_market_fit": "market",
-    "analyze_market_skills": "market",
-    # Financial (maps to market category)
-    "convert_currency": "market",
-    "compare_salary_ppp": "market",
-    # Memory
-    "remember_decision": "memory",
-    "remember_job_application": "memory",
-    "recall_memories": "memory",
-    "get_memory_stats": "memory",
-    # Settings
-    "get_current_config": "settings",
-    "update_setting": "settings",
-}
+_TOOL_TO_CATEGORY: dict[str, str] = get_tool_categories()
 
 
 def _tool_style(tool_name: str) -> tuple[str, str]:
@@ -267,21 +217,36 @@ def display_welcome() -> None:
     console.print()
 
 
+def _display_panel(
+    content: str | Text | Markdown,
+    title: str,
+    color: str = COLOR_INFO,
+    box_style: box.Box = box.ROUNDED,
+    subtitle: str | None = None,
+    padding: tuple[int, int] = (0, 1),
+) -> None:
+    """Helper to display a consistent Rich panel."""
+    console.print(
+        Panel(
+            content,
+            title=f"[bold {color}]{title}[/bold {color}]",
+            subtitle=subtitle,
+            subtitle_align="right",
+            border_style=color,
+            box=box_style,
+            padding=padding,
+        )
+    )
+    console.print()
+
+
 def display_error(message: str) -> None:
     """Display an error message.
 
     Args:
         message: The error message to display
     """
-    console.print(
-        Panel(
-            Text(message, style=f"{COLOR_ERROR}"),
-            title=f"[bold {COLOR_ERROR}]Error[/bold {COLOR_ERROR}]",
-            border_style=f"{COLOR_ERROR}",
-            box=box.ROUNDED,
-        )
-    )
-    console.print()
+    _display_panel(Text(message, style=COLOR_ERROR), "Error", COLOR_ERROR)
 
 
 def display_interrupt_confirmation(question: str, details: str = "") -> None:
@@ -297,16 +262,8 @@ def display_interrupt_confirmation(question: str, details: str = "") -> None:
         content_parts.append("")
         content_parts.append(details)
 
-    content = Text("\n".join(content_parts), style=f"{COLOR_WARNING}")
-
-    console.print(
-        Panel(
-            content,
-            title=f"[bold {COLOR_WARNING}]Confirmation[/bold {COLOR_WARNING}]",
-            border_style=f"{COLOR_WARNING}",
-            box=box.ROUNDED,
-        )
-    )
+    content = Text("\n".join(content_parts), style=COLOR_WARNING)
+    _display_panel(content, "Confirmation", COLOR_WARNING)
 
 
 def display_help() -> None:
@@ -350,20 +307,17 @@ def display_help() -> None:
     console.print()
 
 
-def display_profile_summary() -> None:
-    """Display the user's profile summary."""
-    from fu7ur3pr00f.memory.profile import load_profile
+def display_profile_summary(profile: UserProfile) -> None:
+    """Display the user's profile summary.
 
-    profile = load_profile()
-
+    Args:
+        profile: The user profile to display
+    """
     if not profile.name:
-        console.print(
-            Panel(
-                "No profile configured yet. Tell me about yourself to get started!",
-                title="[bold #5bc0be]Your Profile[/bold #5bc0be]",
-                border_style="#5bc0be",
-                box=box.ROUNDED,
-            )
+        _display_panel(
+            "No profile configured yet. Tell me about yourself to get started!",
+            "Your Profile",
+            "#5bc0be",
         )
         return
 
@@ -388,31 +342,20 @@ def display_profile_summary() -> None:
     if profile.salary_expectations:
         profile_parts.append(f"**Compensation:** {profile.salary_expectations}")
 
-    console.print(
-        Panel(
-            Markdown("\n".join(profile_parts)),
-            title="[bold #5bc0be]Your Profile[/bold #5bc0be]",
-            border_style="#5bc0be",
-            box=box.ROUNDED,
-        )
-    )
-    console.print()
+    _display_panel(Markdown("\n".join(profile_parts)), "Your Profile", "#5bc0be")
 
 
-def display_goals() -> None:
-    """Display the user's career goals."""
-    from fu7ur3pr00f.memory.profile import load_profile
+def display_goals(profile: UserProfile) -> None:
+    """Display the user's career goals.
 
-    profile = load_profile()
-
+    Args:
+        profile: The user profile containing goals
+    """
     if not profile.goals:
-        console.print(
-            Panel(
-                "No goals set yet. Tell me about your career aspirations!",
-                title="[bold #5bc0be]Your Goals[/bold #5bc0be]",
-                border_style="#5bc0be",
-                box=box.ROUNDED,
-            )
+        _display_panel(
+            "No goals set yet. Tell me about your career aspirations!",
+            "Your Goals",
+            "#5bc0be",
         )
         return
 
@@ -422,15 +365,7 @@ def display_goals() -> None:
         status_text = f" ({goal.status})" if goal.status != "active" else ""
         goal_parts.append(f"{i}. {priority_icon} {goal.description}{status_text}")
 
-    console.print(
-        Panel(
-            "\n".join(goal_parts),
-            title="[bold #5bc0be]Your Goals[/bold #5bc0be]",
-            border_style="#5bc0be",
-            box=box.ROUNDED,
-        )
-    )
-    console.print()
+    _display_panel("\n".join(goal_parts), "Your Goals", "#5bc0be")
 
 
 def display_specialist_progress(
@@ -489,7 +424,7 @@ def display_blackboard_result(
             console.print(
                 Panel(
                     Markdown(narrative),
-                    title=f"[bold {COLOR_WARNING}]INTEGRATED CAREER ANALYSIS[/bold {COLOR_WARNING}]",
+                    title=f"[bold {COLOR_WARNING}]INTEGRATED ANALYSIS[/bold {COLOR_WARNING}]",
                     subtitle=(f"[italic]{contributors} · {elapsed:.1f}s[/italic]"),
                     subtitle_align="right",
                     border_style=f"{COLOR_WARNING}",

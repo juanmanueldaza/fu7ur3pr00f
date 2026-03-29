@@ -73,6 +73,13 @@ class MCPClient(ABC):
     Implements the Dependency Inversion Principle - high-level modules
     depend on this abstraction, not concrete implementations.
 
+    Error Handling Contract (LSP compliance):
+    - On success: Return MCPToolResult with is_error=False
+    - On connection error: Raise MCPConnectionError
+    - On tool error: Raise MCPToolError (do NOT return is_error=True)
+
+    This ensures consistent error handling across all clients.
+
     To add a new MCP server:
     1. Create a new class that extends MCPClient
     2. Implement connect(), disconnect(), call_tool(), list_tools()

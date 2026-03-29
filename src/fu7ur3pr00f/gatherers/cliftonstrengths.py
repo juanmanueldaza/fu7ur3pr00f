@@ -27,6 +27,10 @@ from ..memory.chunker import Section
 
 logger = logging.getLogger(__name__)
 
+# Security limits
+_MAX_PDF_SIZE = 50 * 1024 * 1024  # 50MB max PDF size
+_PDF_MAGIC = b"%PDF"  # PDF file signature
+
 # Filename indicators for detecting Gallup CliftonStrengths PDFs
 GALLUP_PDF_INDICATORS = [
     "top_5",
@@ -173,7 +177,35 @@ class CliftonStrengthsGatherer:
         return sections
 
     def _is_gallup_pdf(self, path: Path) -> bool:
-        """Check if a PDF is a Gallup CliftonStrengths report."""
+        """Check if a PDF is a Gallup CliftonStrengths report.
+
+        Security: Validates file size and PDF magic number before processing.
+        """
+        from ..utils.security import validate_file_size
+
+        # Check file size
+        try:
+            validate_file_size(path, _MAX_PDF_SIZE, "PDF")
+        except (FileNotFoundError, ValueError) as e:
+            logger.warning("%s", e)
+            return False
+        except OSError:
+            logger.warning("Cannot access PDF file: %s", path)
+            return False
+
+        # Check PDF magic number
+        try:
+            header = path.read_bytes()[:4]
+            if header != _PDF_MAGIC:
+                logger.warning(
+                    "Invalid PDF magic number: %r (expected %r)", header, _PDF_MAGIC
+                )
+                return False
+        except OSError:
+            logger.warning("Cannot read PDF file header: %s", path)
+            return False
+
+        # Check filename indicators
         name = path.name.lower()
         return any(indicator in name for indicator in GALLUP_PDF_INDICATORS)
 
@@ -334,6 +366,67 @@ class CliftonStrengthsGatherer:
         if not data.top_5 and len(data.top_10) >= CLIFTON_TOP_5_MAX_RANK:
             data.top_5 = list(data.top_10[:CLIFTON_TOP_5_MAX_RANK])
 
+    def _extract_section_text(
+        self,
+        text: str,
+        start_pattern: str,
+        end_pattern: str,
+    ) -> str:
+        """Extract text between two patterns.
+
+        DRY helper to eliminate duplicated section extraction logic.
+
+        Args:
+            text: Full text to search
+            start_pattern: Regex pattern for section start
+            end_pattern: Regex pattern for section end
+
+        Returns:
+            Extracted section text or empty string if not found
+        """
+        start_match = re.search(start_pattern, text)
+        if not start_match:
+            return ""
+
+        start = start_match.end()
+        end_match = re.search(end_pattern, text[start:])
+        end = start + (end_match.start() if end_match else len(text) - start)
+
+        return self._clean_copyright(text[start:end])
+
+    def _extract_strength_section(
+        self,
+        section_text: str,
+        insight: StrengthInsight,
+        header_pattern: str,
+        end_marker: str = "QUESTIONS",
+    ) -> str:
+        """Extract a strength's section from formatted text.
+
+        DRY helper for extracting content blocks for specific strengths.
+
+        Args:
+            section_text: Text containing strength sections
+            insight: Strength insight to find
+            header_pattern: Regex pattern for strength header
+            end_marker: Text marking end of section
+
+        Returns:
+            Raw extracted text for this strength
+        """
+        pattern = re.compile(
+            rf"{header_pattern}",
+            re.IGNORECASE,
+        )
+        match = pattern.search(section_text)
+        if not match:
+            return ""
+
+        # Find end: next marker or end of text
+        remaining = section_text[match.end() :]
+        end_pos = remaining.find(end_marker)
+        return remaining[:end_pos] if end_pos != -1 else remaining
+
     def _split_personalized_insights(self, text: str) -> list[str]:
         """Split personalized insights text into individual paragraphs.
 
@@ -383,41 +476,30 @@ class CliftonStrengthsGatherer:
         data: CliftonStrengthsData,
     ) -> None:
         """Parse Section I — personalized insights for each strength."""
-        section_i = re.search(r"Section I:\s*Awareness", text)
-        section_ii = re.search(r"Section II:\s*Application", text)
-        if not section_i:
+        section_text = self._extract_section_text(
+            text,
+            r"Section I:\s*Awareness",
+            r"Section II:\s*Application",
+        )
+        if not section_text:
             return
-
-        start = section_i.end()
-        end = section_ii.start() if section_ii else len(text)
-        section_text = self._clean_copyright(text[start:end])
 
         for insight in data.top_10:
             # Find this strength's personalized insights block
-            pattern = re.compile(
+            raw = self._extract_strength_section(
+                section_text,
+                insight,
                 rf"{re.escape(insight.name)}\s*\n.*?"
                 r"YOUR PERSONALIZED STRENGTHS INSIGHTS",
-                re.DOTALL | re.IGNORECASE,
             )
-            match = pattern.search(section_text)
-            if not match:
+            if not raw:
                 continue
 
-            # Extract from after "What makes you stand out?" to next "QUESTIONS"
-            block_start = match.end()
             # Skip the "What makes you stand out?" header if present
-            standout = re.search(
-                r"What makes you stand out\?",
-                section_text[block_start:],
-            )
+            standout = re.search(r"What makes you stand out\?", raw)
             if standout and standout.start() < 50:
-                block_start += standout.end()
+                raw = raw[standout.end() :]
 
-            questions_pos = section_text.find("QUESTIONS", block_start)
-            if questions_pos == -1:
-                questions_pos = len(section_text)
-
-            raw = section_text[block_start:questions_pos]
             paragraphs = self._split_personalized_insights(raw)
             if paragraphs:
                 insight.unique_insights = [self._clean_text(p) for p in paragraphs]
@@ -428,34 +510,24 @@ class CliftonStrengthsGatherer:
         data: CliftonStrengthsData,
     ) -> None:
         """Parse Section II — 10 Ideas for Action per strength."""
-        section_ii = re.search(r"Section II:\s*Application", text)
-        section_iii = re.search(r"Section III:\s*Achievement", text)
-        if not section_ii:
+        section_text = self._extract_section_text(
+            text,
+            r"Section II:\s*Application",
+            r"Section III:\s*Achievement",
+        )
+        if not section_text:
             return
-
-        start = section_ii.end()
-        end = section_iii.start() if section_iii else len(text)
-        section_text = self._clean_copyright(text[start:end])
 
         for insight in data.top_10:
             # Find "StrengthName\nIDEAS FOR ACTION"
-            pattern = re.compile(
+            raw = self._extract_strength_section(
+                section_text,
+                insight,
                 rf"(?:^|\n)\s*{re.escape(insight.name)}\s*\n\s*IDEAS FOR ACTION",
-                re.IGNORECASE,
+                end_marker="QUESTIONS",
             )
-            match = pattern.search(section_text)
-            if not match:
+            if not raw:
                 continue
-
-            # Extract from after "IDEAS FOR ACTION" to next "QUESTIONS"
-            ideas_start = section_text.find("IDEAS FOR ACTION", match.start())
-            ideas_start = section_text.find("\n", ideas_start) + 1
-
-            questions_pos = section_text.find("QUESTIONS", ideas_start)
-            if questions_pos == -1:
-                questions_pos = len(section_text)
-
-            raw = section_text[ideas_start:questions_pos]
 
             # Split into individual action items by paragraph breaks
             items = [
@@ -474,32 +546,26 @@ class CliftonStrengthsGatherer:
         data: CliftonStrengthsData,
     ) -> None:
         """Parse Section III — 'Sounds Like This' real quotes per strength."""
-        section_iii = re.search(r"Section III:\s*Achievement", text)
-        if not section_iii:
+        section_text = self._extract_section_text(
+            text,
+            r"Section III:\s*Achievement",
+            r"QUESTIONS",
+        )
+        if not section_text:
             return
-
-        section_text = self._clean_copyright(text[section_iii.end() :])
 
         for insight in data.top_10:
             # Find "[STRENGTH] SOUNDS LIKE THIS:"
-            pattern = re.compile(
+            raw = self._extract_strength_section(
+                section_text,
+                insight,
                 rf"{re.escape(insight.name.upper())}\s+SOUNDS LIKE THIS:",
-                re.IGNORECASE,
+                end_marker="SOUNDS LIKE THIS:",
             )
-            match = pattern.search(section_text)
-            if not match:
+            if not raw:
                 continue
 
-            # Find end: next "SOUNDS LIKE THIS:" or "QUESTIONS" or end
-            remaining = section_text[match.end() :]
-            next_marker = re.search(
-                r"[A-Z][A-Z-]+\s+SOUNDS LIKE THIS:|QUESTIONS",
-                remaining,
-            )
-            raw = remaining[: next_marker.start()] if next_marker else remaining
-
-            # Split into individual quotes by attribution pattern:
-            # "FirstName L., title:"
+            # Split into individual quotes by attribution pattern
             quote_splits = re.split(
                 r"(?=\n[A-Z][a-z]+\s+[A-Z]\.?,\s+)",
                 raw,
@@ -531,39 +597,29 @@ class CliftonStrengthsGatherer:
             )
             return
 
-        # Find "Your Personalized Strengths Insights" header
-        header = re.search(r"Your Personalized Strengths Insights", text)
-        if not header:
+        section_text = self._extract_section_text(
+            text,
+            r"Your Personalized Strengths Insights",
+            r"COPYRIGHT STANDARDS",
+        )
+        if not section_text:
             return
-
-        section_text = self._clean_copyright(text[header.end() :])
 
         for i, insight in enumerate(data.top_10):
             # Headers are "STRENGTH ®" (uppercase)
-            pattern = re.compile(
+            raw = self._extract_strength_section(
+                section_text,
+                insight,
                 rf"{re.escape(insight.name.upper())}\s+",
-                re.IGNORECASE,
+                end_marker=(
+                    data.top_10[i + 1].name.upper()
+                    if i + 1 < len(data.top_10)
+                    else "COPYRIGHT"
+                ),
             )
-            match = pattern.search(section_text)
-            if not match:
+            if not raw:
                 continue
 
-            # Find end: next strength header or COPYRIGHT STANDARDS
-            end_pos = len(section_text)
-            if i + 1 < len(data.top_10):
-                next_pattern = re.compile(
-                    rf"{re.escape(data.top_10[i + 1].name.upper())}\s+",
-                    re.IGNORECASE,
-                )
-                next_match = next_pattern.search(section_text[match.end() :])
-                if next_match:
-                    end_pos = match.end() + next_match.start()
-
-            copyright_pos = section_text.find("COPYRIGHT STANDARDS", match.end())
-            if copyright_pos != -1 and copyright_pos < end_pos:
-                end_pos = copyright_pos
-
-            raw = section_text[match.end() : end_pos]
             paragraphs = self._split_personalized_insights(raw)
             if paragraphs:
                 insight.unique_insights = [self._clean_text(p) for p in paragraphs]

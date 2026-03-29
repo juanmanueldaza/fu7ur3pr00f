@@ -47,14 +47,14 @@ def _auto_populate_profile() -> str | None:  # noqa: C901 TODO: refactor
     Searches for name, role, and location from LinkedIn data and updates
     the profile. Returns a summary of what was populated, or None.
     """
-    from fu7ur3pr00f.memory.profile import edit_profile, load_profile
-    from fu7ur3pr00f.services.knowledge_service import KnowledgeService
+    from fu7ur3pr00f.memory.profile import edit_profile
+    from fu7ur3pr00f.utils.services import get_knowledge_service, get_profile
 
-    profile = load_profile()
+    profile = get_profile()
     if profile.name and profile.current_role:
         return None  # Already populated
 
-    service = KnowledgeService()
+    service = get_knowledge_service()
     updates: list[str] = []
 
     # Search for profile headline (contains name, role, location)

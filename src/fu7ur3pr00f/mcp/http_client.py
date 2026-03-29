@@ -239,6 +239,7 @@ class HTTPMCPClient(MCPClient):
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
         response_extractor: ResponseExtractor | None = None,
+        base_url: str | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Generic API request with configurable extraction.
 
@@ -246,12 +247,13 @@ class HTTPMCPClient(MCPClient):
         all HTTP-based MCP clients.
 
         Args:
-            endpoint: API endpoint path (appended to BASE_URL)
+            endpoint: API endpoint path (appended to BASE_URL or base_url)
             method: HTTP method (default: GET)
             params: Query parameters
             json_body: JSON body for POST/PUT requests
             response_extractor: Function to extract items from response.
                               Pass None to return full response as list.
+            base_url: Optional override for BASE_URL
 
         Returns:
             Tuple of (items list, full response data)
@@ -265,9 +267,8 @@ class HTTPMCPClient(MCPClient):
         if json_body:
             request_kwargs["json"] = json_body
 
-        response = await client.request(
-            method, f"{self.BASE_URL}{endpoint}", **request_kwargs
-        )
+        url = base_url + endpoint if base_url else f"{self.BASE_URL}{endpoint}"
+        response = await client.request(method, url, **request_kwargs)
         response.raise_for_status()
 
         data = response.json()

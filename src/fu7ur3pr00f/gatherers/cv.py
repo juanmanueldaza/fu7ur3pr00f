@@ -12,9 +12,16 @@ from pathlib import Path
 
 from ..memory.chunker import Section
 from ..services.exceptions import NoDataError, ServiceError
+from ..utils.security import (
+    anonymize_career_data,
+    sanitize_for_prompt,
+    validate_file_size,
+)
 
 logger = logging.getLogger(__name__)
 
+# Security limits
+_MAX_CV_SIZE = 10 * 1024 * 1024  # 10MB max CV file size
 
 _pdf_text_cache: dict[tuple[str, float, int], str] = {}
 
@@ -48,10 +55,12 @@ class CVGatherer:
             FileNotFoundError: if file_path does not exist or is not a regular file.
             ServiceError: if pdftotext binary is not installed.
             NoDataError: if the file is empty or yields no extractable text.
+            ValueError: if the file exceeds maximum size limit.
         """
         path = Path(file_path)
-        if not path.exists() or not path.is_file():
-            raise FileNotFoundError(f"CV file not found: {path}")
+
+        # Security: Validate file size (also checks existence)
+        validate_file_size(path, _MAX_CV_SIZE, "CV file")
 
         suffix = path.suffix.lower()
 
@@ -137,10 +146,19 @@ class CVGatherer:
         Sends the raw text to the LLM and asks for a structured JSON list
         of section title + content pairs. Falls back to empty list on failure
         (caller returns a single fallback section).
+
+        Security: Anonymizes PII and sanitizes content before sending to LLM
+        to prevent prompt injection attacks.
         """
         from langchain_core.messages import HumanMessage
 
         from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+
+        # Security: Anonymize PII before sending to external LLM
+        anonymized_text = anonymize_career_data(text, preserve_professional_emails=True)
+
+        # Security: Sanitize to prevent prompt injection
+        sanitized_text = sanitize_for_prompt(anonymized_text[:8000])
 
         prompt = (
             "Extract all sections from this CV/resume text.\n"
@@ -148,7 +166,7 @@ class CVGatherer:
             '  "title": the section heading (e.g. "Experience", "Education", "Skills")\n'
             '  "content": the full text body of that section\n'
             "Only include sections with meaningful content (at least 2 lines).\n\n"
-            f"CV text:\n{text[:8000]}\n\n"
+            f"CV text:\n{sanitized_text}\n\n"
             "Respond with valid JSON only — no markdown, no explanation:\n"
             '[{"title": "...", "content": "..."}, ...]'
         )

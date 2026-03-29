@@ -10,24 +10,21 @@ The base class handles:
 - Keyword-based intent routing
 """
 
-import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from langgraph.errors import GraphInterrupt as _GraphInterrupt
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
+from fu7ur3pr00f.agents.specialists._tool_executor import ToolExecutor
 from fu7ur3pr00f.constants import (
     CAREER_CONTEXT_MAX_CHARS,
-    ERROR_TOOL_EXECUTION,
-    ERROR_TOOL_NOT_FOUND,
     MAX_TOOL_ROUNDS,
     MAX_TOTAL_TOOL_CALLS,
-    TOOL_RESULT_MAX_CHARS,
-    TOOL_RESULT_PREVIEW_CHARS,
 )
+from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 from fu7ur3pr00f.prompts import load_prompt
 from fu7ur3pr00f.utils.security import sanitize_for_prompt
 
@@ -117,15 +114,7 @@ class BaseAgent(ABC):
         blackboard: CareerBlackboard,
         stream_writer: Any = None,
     ) -> SpecialistFinding:
-        """Multi-turn tool-calling contribution loop.
-
-        Binds tools to the model and iterates until the model produces a
-        final text response (no more tool calls), up to MAX_TOOL_ROUNDS.
-        """
-        from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-
-        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
-
+        """Multi-turn tool-calling contribution loop."""
         query = blackboard.get("query", "")
 
         system_content = (
@@ -140,33 +129,17 @@ class BaseAgent(ABC):
             len(system_content),
             query[:80],
         )
-        logger.warning(
-            "[%s] human_content first 500 chars: %s",
-            self.name,
-            human_content[:500],
-        )
 
         messages: list[Any] = [
             SystemMessage(content=system_content),
             HumanMessage(content=human_content),
         ]
 
-        # Build tool name → tool function lookup
         tool_map = {t.name: t for t in self.tools}
-
-        # Turn-scoped cache for idempotent tools (shared across all specialists)
-        _CACHEABLE_TOOLS: frozenset[str] = frozenset(
-            {
-                "get_user_profile",
-                "search_career_knowledge",
-                "get_github_profile",
-                "search_github_repos",
-                "search_gitlab_projects",
-            }
-        )
         tool_cache: dict[str, str] = (
             blackboard.get("_tool_cache", {}) if blackboard else {}
         )
+        executor = ToolExecutor(self.name, tool_map)
 
         try:
             model, _ = get_model_with_fallback(purpose="agent")
@@ -191,93 +164,26 @@ class BaseAgent(ABC):
 
             messages.append(response)
 
-            # No tool calls → final text response
             if not getattr(response, "tool_calls", None):
                 break
 
-            # Check if adding more tool calls would exceed the cap
             if tool_call_count + len(response.tool_calls) > MAX_TOTAL_TOOL_CALLS:
                 logger.warning(
-                    "%s: tool call cap reached (%d/%d), stopping early",
+                    "%s: tool call cap reached (%d/%d)",
                     self.name,
                     tool_call_count,
                     MAX_TOTAL_TOOL_CALLS,
                 )
                 break
 
-            # Execute each tool call
             tool_call_count += len(response.tool_calls)
-            for tc in response.tool_calls:
-                tool_name = tc["name"]
-                tool_args = tc.get("args", {})
-                tool_id = tc["id"]
+            result = executor.execute_calls(
+                response.tool_calls, messages, tool_cache, stream_writer
+            )
+            tool_cache = result.cache_updated
 
-                # Cache hit — return silently without showing duplicate panels
-                if tool_name in _CACHEABLE_TOOLS:
-                    cache_key = f"{tool_name}:{json.dumps(tool_args, sort_keys=True)}"
-                    if cache_key in tool_cache:
-                        logger.debug(
-                            "%s: cache hit for %s(%r), skipping re-fetch",
-                            self.name,
-                            tool_name,
-                            tool_args,
-                        )
-                        messages.append(
-                            ToolMessage(
-                                content=tool_cache[cache_key], tool_call_id=tool_id
-                            )
-                        )
-                        continue
-                else:
-                    cache_key = ""
-
-                if stream_writer:
-                    stream_writer(
-                        {
-                            "type": "tool_start",
-                            "specialist": self.name,
-                            "tool": tool_name,
-                            "args": tool_args,
-                        }
-                    )
-
-                tool_fn = tool_map.get(tool_name)
-                if tool_fn is None:
-                    result_str = ERROR_TOOL_NOT_FOUND.format(
-                        name=tool_name, agent=self.name
-                    )
-                    logger.warning("%s: tool not found: %s", self.name, tool_name)
-                else:
-                    try:
-                        result = tool_fn.invoke(tool_args)
-                        result_str = str(result)[:TOOL_RESULT_MAX_CHARS]
-                    except _GraphInterrupt:
-                        raise
-                    except Exception as e:
-                        result_str = ERROR_TOOL_EXECUTION.format(
-                            tool=tool_name, error=e
-                        )
-                        logger.warning(
-                            "%s: tool error (%s): %s", self.name, tool_name, e
-                        )
-
-                # Populate cache for idempotent tools
-                if cache_key and tool_fn is not None:
-                    tool_cache[cache_key] = result_str
-                    if blackboard is not None:
-                        blackboard["_tool_cache"] = tool_cache
-
-                if stream_writer:
-                    stream_writer(
-                        {
-                            "type": "tool_result",
-                            "specialist": self.name,
-                            "tool": tool_name,
-                            "result": result_str[:TOOL_RESULT_PREVIEW_CHARS],
-                        }
-                    )
-
-                messages.append(ToolMessage(content=result_str, tool_call_id=tool_id))
+        if blackboard is not None:
+            blackboard["_tool_cache"] = tool_cache
 
         return self._extract_findings({"messages": messages}, query)
 

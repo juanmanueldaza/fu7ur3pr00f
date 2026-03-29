@@ -59,16 +59,19 @@ def build_dynamic_prompt(request: ModelRequest) -> str:
 
 def _build_prompt_uncached() -> str:
     """Generate the full system prompt (no caching)."""
-    from fu7ur3pr00f.memory.profile import load_profile
     from fu7ur3pr00f.prompts import load_prompt
-    from fu7ur3pr00f.services.knowledge_service import KnowledgeService
     from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
+    from fu7ur3pr00f.utils.services import (
+        get_knowledge_service,
+        get_profile,
+        reload_profile,
+    )
 
     # Single stats call — reused for auto-populate and data section
-    service = KnowledgeService()
+    service = get_knowledge_service()
     stats = service.get_stats()
 
-    profile = load_profile()
+    profile = get_profile()
     summary = profile.summary()
 
     # Auto-populate profile if data exists but profile is empty
@@ -78,7 +81,8 @@ def _build_prompt_uncached() -> str:
                 from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
 
                 _auto_populate_profile()
-                profile = load_profile()
+                # Reload profile after auto-populate to get updated data
+                profile = reload_profile()
                 summary = profile.summary()
 
     profile_context = (

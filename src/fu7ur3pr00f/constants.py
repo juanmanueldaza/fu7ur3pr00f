@@ -41,7 +41,8 @@ MAX_EMBEDDING_CACHE_SIZE = 1000
 # ---------------------------------------------------------------------------
 # Timeouts (seconds)
 # ---------------------------------------------------------------------------
-HTTP_TIMEOUT = 20
+HTTP_TIMEOUT = 20  # Standard API calls
+HTTP_TIMEOUT_LONG = 60  # Embeddings, large file transfers
 
 # ---------------------------------------------------------------------------
 # CliftonStrengths tiers

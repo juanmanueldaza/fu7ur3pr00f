@@ -62,16 +62,8 @@ class JobSpyMCPClient(MCPClient):
             raise MCPToolError("Client not connected")
 
         if not self._jobspy_available:
-            return MCPToolResult(
-                content=json.dumps(
-                    {
-                        "error": "JobSpy not installed. "
-                        "Install with: pip install python-jobspy",
-                        "fallback": "Use Brave Search for job data instead",
-                    }
-                ),
-                tool_name=tool_name,
-                is_error=True,
+            raise MCPToolError(
+                "JobSpy not installed. Install with: pip install python-jobspy"
             )
 
         try:

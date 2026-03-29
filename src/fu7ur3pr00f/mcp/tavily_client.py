@@ -9,7 +9,8 @@ from typing import Any
 from fu7ur3pr00f.constants import TAVILY_API_BASE
 
 from ..config import settings
-from .base import MCPConnectionError, MCPToolResult
+from ..utils.security import sanitize_error
+from .base import MCPConnectionError, MCPToolError, MCPToolResult
 from .http_client import HTTPMCPClient
 
 
@@ -52,8 +53,6 @@ class TavilyMCPClient(HTTPMCPClient):
 
     async def _search(self, query: str, max_results: int = 10) -> MCPToolResult:
         """Perform a search using Tavily API."""
-        client = self._ensure_client()
-
         payload = {
             "api_key": self._api_key,
             "query": query,
@@ -61,25 +60,26 @@ class TavilyMCPClient(HTTPMCPClient):
             "include_answer": True,
         }
 
-        response = await client.post(self.BASE_URL, json=payload)
-        response.raise_for_status()
+        try:
+            response = await self._ensure_client().post(self.BASE_URL, json=payload)
+            response.raise_for_status()
+            self._check_response_size(response)
+            data = response.json()
+        except Exception as e:
+            raise MCPToolError(sanitize_error(f"Tavily API error: {e}")) from e
 
-        data = response.json()
-        results = []
-
-        for item in data.get("results", []):
-            results.append(
-                {
-                    "title": item.get("title", ""),
-                    "url": item.get("url", ""),
-                    "content": item.get("content", ""),
-                }
-            )
+        results = [
+            {
+                "title": item.get("title", ""),
+                "url": item.get("url", ""),
+                "content": item.get("content", ""),
+            }
+            for item in data.get("results", [])
+        ]
 
         output = {
             "query": query,
             "answer": data.get("answer", ""),
             "results": results,
         }
-
         return self._format_response(output, data, "web_search")

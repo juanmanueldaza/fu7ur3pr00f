@@ -14,6 +14,7 @@ from .agents.tools import get_all_tools
 from .config import settings
 from .constants import GITHUB_API_BASE, HTTP_TIMEOUT
 from .mcp.factory import MCPClientFactory, MCPServerType
+from .utils.security import sanitize_error
 
 
 def _print_result(name: str, ok: bool, detail: str = "") -> None:
@@ -82,9 +83,11 @@ async def _check_mcp_server(server_type: MCPServerType) -> bool:
             if ok:
                 _print_result("MCP:github", True, detail)
                 return True
-            _print_result("MCP:github", False, detail or str(exc))
+            # Security: Sanitize error detail
+            _print_result("MCP:github", False, sanitize_error(detail or str(exc)))
             return False
-        _print_result(f"MCP:{server_type}", False, str(exc))
+        # Security: Sanitize error message
+        _print_result(f"MCP:{server_type}", False, sanitize_error(str(exc)))
         return False
     finally:
         with contextlib.suppress(Exception):
@@ -108,7 +111,8 @@ def _check_github_rest() -> tuple[bool, str]:
             return False, f"REST {response.status_code}"
         return True, "rest fallback"
     except Exception as exc:
-        return False, f"REST error: {exc}"
+        # Security: Sanitize error to prevent token leakage
+        return False, sanitize_error(f"REST error: {exc}")
 
 
 async def _run_async_checks() -> dict[str, Any]:

@@ -11,6 +11,10 @@ from fu7ur3pr00f.constants import STACKOVERFLOW_API_BASE
 from .base import MCPToolError, MCPToolResult
 from .http_client import HTTPMCPClient
 
+# Security limits
+_MAX_TAGS_PER_REQUEST = 20  # Stack Exchange API limit
+_MAX_PAGE_SIZE = 100  # Maximum page size
+
 
 class StackOverflowMCPClient(HTTPMCPClient):
     """Stack Overflow MCP client for tech trends.
@@ -63,6 +67,40 @@ class StackOverflowMCPClient(HTTPMCPClient):
             params["key"] = self._api_key
         return params
 
+    async def _api_request(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Make API request and extract results.
+
+        DRY helper to eliminate repeated API call patterns.
+
+        Args:
+            endpoint: API endpoint (e.g., "/tags", "/questions")
+            params: Query parameters (will be merged with _base_params)
+
+        Returns:
+            Tuple of (items list, full response data)
+
+        Raises:
+            MCPToolError: If API request fails
+        """
+        client = self._ensure_client()
+
+        request_params = self._base_params()
+        if params:
+            request_params.update(params)
+
+        response = await client.get(
+            f"{self.BASE_URL}{endpoint}",
+            params=request_params,  # type: ignore[arg-type]
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        return data.get("items", []), data
+
     async def _get_tag_popularity(
         self,
         tags: list[str],
@@ -75,36 +113,25 @@ class StackOverflowMCPClient(HTTPMCPClient):
         Returns:
             MCPToolResult with tag popularity data
         """
-        client = self._ensure_client()
-
         if not tags:
             raise MCPToolError("At least one tag is required")
 
         # Stack Exchange API: /tags/{tags}/info for exact tag lookups
         # Use semicolon-separated tags for batch lookup
-        tags_param = ";".join(tags[:20])  # Max 20 tags
-
-        params = self._base_params()
+        tags_param = ";".join(tags[:_MAX_TAGS_PER_REQUEST])
 
         # Use /tags/{tags}/info endpoint for exact matches
-        response = await client.get(
-            f"{self.BASE_URL}/tags/{tags_param}/info", params=params
-        )
-        response.raise_for_status()
+        items, data = await self._api_request(f"/tags/{tags_param}/info")
 
-        data = response.json()
-        items = data.get("items", [])
-
-        results = []
-        for item in items:
-            results.append(
-                {
-                    "tag": item.get("name", ""),
-                    "question_count": item.get("count", 0),
-                    "has_synonyms": item.get("has_synonyms", False),
-                    "is_moderator_only": item.get("is_moderator_only", False),
-                }
-            )
+        results = [
+            {
+                "tag": item.get("name", ""),
+                "question_count": item.get("count", 0),
+                "has_synonyms": item.get("has_synonyms", False),
+                "is_moderator_only": item.get("is_moderator_only", False),
+            }
+            for item in items
+        ]
 
         output = {
             "source": "stackoverflow",
@@ -128,32 +155,22 @@ class StackOverflowMCPClient(HTTPMCPClient):
         Returns:
             MCPToolResult with trending tags
         """
-        client = self._ensure_client()
+        params = {
+            "order": "desc",
+            "sort": "popular",
+            "pagesize": min(page_size, _MAX_PAGE_SIZE),
+        }
 
-        params = self._base_params()
-        params.update(
+        items, data = await self._api_request("/tags", params)
+
+        results = [
             {
-                "order": "desc",
-                "sort": "popular",
-                "pagesize": min(page_size, 100),
+                "tag": item.get("name", ""),
+                "question_count": item.get("count", 0),
+                "has_synonyms": item.get("has_synonyms", False),
             }
-        )
-
-        response = await client.get(f"{self.BASE_URL}/tags", params=params)
-        response.raise_for_status()
-
-        data = response.json()
-        items = data.get("items", [])
-
-        results = []
-        for item in items:
-            results.append(
-                {
-                    "tag": item.get("name", ""),
-                    "question_count": item.get("count", 0),
-                    "has_synonyms": item.get("has_synonyms", False),
-                }
-            )
+            for item in items
+        ]
 
         output = {
             "source": "stackoverflow",
@@ -176,18 +193,10 @@ class StackOverflowMCPClient(HTTPMCPClient):
         Returns:
             MCPToolResult with tag details
         """
-        client = self._ensure_client()
-
         if not tag:
             raise MCPToolError("Tag name is required")
 
-        params = self._base_params()
-
-        response = await client.get(f"{self.BASE_URL}/tags/{tag}/info", params=params)
-        response.raise_for_status()
-
-        data = response.json()
-        items = data.get("items", [])
+        items, data = await self._api_request(f"/tags/{tag}/info")
 
         if not items:
             output = {
@@ -231,33 +240,22 @@ class StackOverflowMCPClient(HTTPMCPClient):
         Returns:
             MCPToolResult with question data including view counts and scores
         """
-        client = self._ensure_client()
-
         if not tag:
             raise MCPToolError("Tag is required")
 
-        params = self._base_params()
-        params.update(
-            {
-                "tagged": tag,
-                "order": "desc",
-                "sort": sort,
-                "pagesize": min(page_size, 100),
-                "filter": "withbody",  # Include question body for more context
-            }
-        )
+        params = {
+            "tagged": tag,
+            "order": "desc",
+            "sort": sort,
+            "pagesize": min(page_size, _MAX_PAGE_SIZE),
+            "filter": "withbody",  # Include question body for more context
+        }
 
-        response = await client.get(f"{self.BASE_URL}/questions", params=params)
-        response.raise_for_status()
-
-        data = response.json()
-        items = data.get("items", [])
+        items, data = await self._api_request("/questions", params)
 
         questions = []
         for item in items:
-            # Extract owner info
             owner = item.get("owner", {})
-
             questions.append(
                 {
                     "id": item.get("question_id"),
@@ -277,7 +275,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
                 }
             )
 
-        # Calculate some aggregate stats
+        # Calculate aggregate stats
         total_views = sum(q["view_count"] for q in questions)
         avg_score = (
             sum(q["score"] for q in questions) / len(questions) if questions else 0

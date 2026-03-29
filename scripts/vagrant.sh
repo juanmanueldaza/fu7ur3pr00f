@@ -2,11 +2,24 @@
 set -euo pipefail
 
 # Unified Vagrant management script
-# Replaces: vagrant_dev_setup.sh, run_vagrant_apt_smoke.sh, vagrant_test_multi.sh
+# Security: All variables quoted, VM names validated against allowlist
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 vagrant_dir="${repo_root}/vagrant"
+
+# Security: Allowlist of valid VM names
+VALID_VMS=("dev" "ubuntu2404" "debian12")
+
+is_valid_vm() {
+  local vm="$1"
+  for valid in "${VALID_VMS[@]}"; do
+    if [[ "${vm}" == "${valid}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 usage() {
   cat <<'EOF'
@@ -163,7 +176,12 @@ EOF"
 
   ssh)
     vm="${2:-dev}"
-    vagrant ssh "$vm"
+    # Security: Validate VM name against allowlist
+    if ! is_valid_vm "${vm}"; then
+      echo "Error: Invalid VM name '${vm}'. Valid names: ${VALID_VMS[*]}" >&2
+      exit 1
+    fi
+    vagrant ssh "${vm}"
     ;;
 
   status|ps)
@@ -174,8 +192,14 @@ EOF"
 
   halt)
     if [[ -n "${2:-}" ]]; then
-      echo "Stopping $2..."
-      vagrant halt "$2"
+      vm="$2"
+      # Security: Validate VM name against allowlist
+      if ! is_valid_vm "${vm}"; then
+        echo "Error: Invalid VM name '${vm}'. Valid names: ${VALID_VMS[*]}" >&2
+        exit 1
+      fi
+      echo "Stopping ${vm}..."
+      vagrant halt "${vm}"
     else
       echo "Stopping all VMs..."
       vagrant halt

@@ -61,6 +61,25 @@ OLLAMA_BASE_URL=http://localhost:11434  # Local, offline
 
 See [.env.example](.env.example) for all options.
 
+## Chat Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` or `/h` | Show help message |
+| `/setup` | Configure LLM providers and API keys |
+| `/gather` | Gather career data (LinkedIn, CliftonStrengths, CV, portfolio) |
+| `/profile` | View your career profile |
+| `/goals` | View your career goals |
+| `/thread [name]` | Show or switch conversation thread |
+| `/threads` | List all conversation threads |
+| `/memory` | Show memory and profile stats |
+| `/debug` | Toggle debug mode (verbose logging) |
+| `/verbose` | Show system information |
+| `/agents` | List available specialist agents |
+| `/clear` | Clear current thread history |
+| `/reset` | Factory reset (delete all generated data) |
+| `/quit` or `/q` | Exit chat |
+
 ## Architecture
 
 ### Single-Agent (Default)
@@ -68,7 +87,7 @@ See [.env.example](.env.example) for all options.
 ```mermaid
 graph LR
     User <-->|Rich UI, HITL| Chat[Chat Client]
-    Chat <--> Agent[Single Agent<br/>40 tools]
+    Chat <--> Agent[Single Agent<br/>41 tools]
     Agent --> ChromaDB[(ChromaDB<br/>RAG + Memory)]
     Agent --> LLM[Multi-Provider<br/>LLM Fallback]
     Agent --> MCP[12 MCP Clients<br/>GitHub, Jobs, Search]
@@ -100,7 +119,7 @@ graph TB
 - **Keyword fallback**: Automatic fallback if LLM unavailable (rate limits, network errors)
 - **Fast paths**: Factual queries → coach only; follow-ups → reuse previous specialists
 - **Structured output**: `RoutingDecision` model guarantees valid specialist names
-- **Specialist guidance**: All instructions load from `prompts/md/specialist_guidance.md` (no fallbacks)
+- **Specialist guidance**: All instructions load from `prompts/md/specialist_guidance.md` (no hardcoded fallbacks)
 
 **Design decisions:**
 
@@ -114,6 +133,43 @@ graph TB
 | Two-pass synthesis | `AnalysisSynthesisMiddleware` replaces generic LLM output with focused reasoning |
 | HITL confirmation | Destructive/expensive operations require user approval via `interrupt()` |
 | Prompt-driven | All specialist behavior from prompts folder, zero hardcoded fallbacks |
+
+## Tools
+
+**41 tools** organized by domain:
+
+| Category | Tools |
+|----------|-------|
+| **Profile** (7) | `get_user_profile`, `update_user_name`, `update_current_role`, `update_salary_info`, `update_user_skills`, `set_target_roles`, `update_user_goal` |
+| **Gathering** (5) | `gather_portfolio_data`, `gather_linkedin_data`, `gather_assessment_data`, `gather_cv_data`, `gather_all_career_data` |
+| **GitHub** (3) | `search_github_repos`, `get_github_repo`, `get_github_profile` |
+| **GitLab** (3) | `search_gitlab_projects`, `get_gitlab_project`, `get_gitlab_file` |
+| **Knowledge** (4) | `search_career_knowledge`, `get_knowledge_stats`, `index_career_knowledge`, `clear_career_knowledge` |
+| **Analysis** (3) | `analyze_skill_gaps`, `analyze_career_alignment`, `get_career_advice` |
+| **Market** (6) | `search_jobs`, `get_tech_trends`, `get_salary_insights`, `analyze_market_fit`, `analyze_market_skills`, `gather_market_data` |
+| **Financial** (2) | `convert_currency`, `compare_salary_ppp` |
+| **Generation** (2) | `generate_cv`, `generate_cv_draft` |
+| **Memory** (4) | `remember_decision`, `remember_job_application`, `recall_memories`, `get_memory_stats` |
+| **Settings** (2) | `get_current_config`, `update_setting` |
+
+## MCP Clients
+
+**12 MCP clients** for real-time data access:
+
+| Client | Purpose |
+|--------|---------|
+| `github` | Repository search, file access, profile |
+| `financial` | Currency conversion, PPP comparison |
+| `tavily` | Web search, salary research |
+| `hn` | Hacker News jobs, trending discussions |
+| `jobspy` | Multi-board job aggregation |
+| `remoteok` | Remote job listings |
+| `himalayas` | Remote job listings |
+| `remotive` | Remote job listings |
+| `jobicy` | Remote job listings |
+| `weworkremotely` | Remote job listings |
+| `devto` | Developer articles, trends |
+| `stackoverflow` | Tag trends, popular questions |
 
 ## Development
 
@@ -132,15 +188,13 @@ ruff check . --fix
 
 | Script | Purpose |
 |--------|---------|
-| `setup.sh` | One-time Azure/config setup |
-| `fresh_install_check.sh` | Validate pipx install |
-| `clean_dev_artifacts.sh` | Clean build artifacts |
-| `build_deb.sh` | Build .deb package |
-| `build_apt_repo.sh` | Build apt repository |
-| `validate_apt_artifact.sh` | Test .deb in Docker |
-| `vagrant.sh` | Vagrant VM management |
-
-See [docs/scripts.md](docs/scripts.md) for detailed usage.
+| `scripts/setup.sh` | One-time Azure/config setup |
+| `scripts/fresh_install_check.sh` | Validate pipx install |
+| `scripts/clean_dev_artifacts.sh` | Clean build artifacts |
+| `scripts/build_deb.sh` | Build .deb package |
+| `scripts/build_apt_repo.sh` | Build apt repository |
+| `scripts/validate_apt_artifact.sh` | Test .deb in Docker |
+| `scripts/vagrant.sh` | Vagrant VM management |
 
 ### Testing
 
@@ -161,14 +215,12 @@ scripts/vagrant.sh test-apt
 scripts/vagrant.sh multi
 ```
 
-See [docs/development.md](docs/development.md) for details.
-
 ## System Dependencies (Optional)
 
 | Feature | Package |
 |---------|---------|
-| GitLab | `sudo apt install glab` |
-| CliftonStrengths PDF | `sudo apt install poppler-utils` |
+| GitLab CLI | `sudo apt install glab` |
+| CliftonStrengths PDF parsing | `sudo apt install poppler-utils` |
 | CV PDF export | `sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libfontconfig1 libgdk-pixbuf-2.0-0` |
 
 ## Tech Stack
@@ -177,28 +229,18 @@ Python 3.13 · LangChain + LangGraph · ChromaDB · Typer + Rich · WeasyPrint �
 
 ## Documentation
 
-### Getting Started
-- [Quick Start](#quick-start) — Install and run
-- [Configuration](docs/configuration.md) — LLM providers, settings
-- [Chat Commands](docs/chat_commands.md) — All commands reference
+Documentation is embedded in the codebase:
 
-### User Guides
-- [Data Gathering](docs/gatherers.md) — Import LinkedIn, GitHub, CV
-- [CV Generation](docs/cv_generation.md) — Generate ATS-optimized CVs
-- [Troubleshooting](docs/troubleshooting.md) — Common issues
+- **Prompts**: [`src/fu7ur3pr00f/prompts/md/`](src/fu7ur3pr00f/prompts/md/) — All system and specialist prompts
+- **Tools**: [`src/fu7ur3pr00f/agents/tools/`](src/fu7ur3pr00f/agents/tools/) — Tool implementations with docstrings
+- **MCP Clients**: [`src/fu7ur3pr00f/mcp/`](src/fu7ur3pr00f/mcp/) — MCP client implementations
+- **Memory**: [`src/fu7ur3pr00f/memory/`](src/fu7ur3pr00f/memory/) — ChromaDB, RAG, episodic memory
+- **Gatherers**: [`src/fu7ur3pr00f/gatherers/`](src/fu7ur3pr00f/gatherers/) — Data collection modules
 
-### Reference
-- [Architecture](docs/architecture.md) — System design
-- [Tools](docs/tools.md) — All 40 tools
-- [MCP Clients](docs/mcp_clients.md) — All 12 MCP clients
-- [Memory System](docs/memory_system.md) — ChromaDB, RAG
-- [Prompts](docs/prompts.md) — Prompt templates
-- [Scripts](docs/scripts.md) — Build and test scripts
-
-### Contributing
-- [Contributing](CONTRIBUTING.md) — How to contribute
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Security](SECURITY.md)
+Key documentation files:
+- [`QWEN.md`](QWEN.md) — Project context for AI assistants
+- [`GEMINI.md`](GEMINI.md) — Additional project documentation
+- [`.env.example`](.env.example) — Configuration reference
 
 ---
 

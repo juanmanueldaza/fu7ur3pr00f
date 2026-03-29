@@ -14,6 +14,10 @@ from fu7ur3pr00f.constants import HN_API_BASE, HN_BASE_URL
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient
 
+# Security limits
+_MAX_QUERY_LENGTH = 200  # Maximum search query length
+_MAX_HITS_PER_PAGE = 1000  # Maximum hits to fetch
+
 
 class HackerNewsMCPClient(HTTPMCPClient):
     """Hacker News MCP client using Algolia Search API.
@@ -123,6 +127,84 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "extract_job_postings",
         ]
 
+    @staticmethod
+    def _validate_query(query: str) -> str:
+        """Validate and sanitize search query.
+
+        Args:
+            query: User-provided search query
+
+        Returns:
+            Sanitized query string
+
+        Raises:
+            ValueError: If query is invalid
+        """
+        if not query:
+            return ""
+
+        # Truncate to max length
+        if len(query) > _MAX_QUERY_LENGTH:
+            query = query[:_MAX_QUERY_LENGTH]
+
+        # Remove potentially dangerous characters
+        # Allow alphanumeric, spaces, and common punctuation
+        query = re.sub(r"[^a-zA-Z0-9\s.,\-_+&()]", "", query)
+
+        return query.strip()
+
+    async def _api_request(
+        self,
+        endpoint: str,
+        params: dict[str, Any],
+        response_key: str = "hits",
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Make API request and extract results.
+
+        DRY helper to eliminate repeated API call patterns.
+
+        Args:
+            endpoint: API endpoint (e.g., "/search", "/search_by_date")
+            params: Query parameters
+            response_key: Key to extract results from response
+
+        Returns:
+            Tuple of (items list, full response data)
+        """
+        client = self._ensure_client()
+
+        response = await client.get(
+            f"{self.BASE_URL}{endpoint}",
+            params=params,  # type: ignore[arg-type]
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        return data.get(response_key, []), data
+
+    def _format_story(self, hit: dict[str, Any]) -> dict[str, Any]:
+        """Format a story/item from API response.
+
+        DRY helper for consistent story formatting.
+
+        Args:
+            hit: Raw API response item
+
+        Returns:
+            Formatted story dict
+        """
+        object_id = hit.get("objectID", "")
+        return {
+            "id": object_id,
+            "title": hit.get("title", ""),
+            "url": hit.get("url", ""),
+            "author": hit.get("author", ""),
+            "points": hit.get("points", 0),
+            "num_comments": hit.get("num_comments", 0),
+            "created_at": hit.get("created_at", ""),
+            "hn_url": f"{HN_BASE_URL}/item?id={object_id}",
+        }
+
     # Tool handler methods (called by HTTPMCPClient.call_tool via _get_tool_handler)
 
     async def _tool_search_hn(self, args: dict[str, Any]) -> MCPToolResult:
@@ -162,36 +244,18 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
     async def _search_hn(self, query: str) -> MCPToolResult:
         """Search Hacker News for a query."""
-        client = self._ensure_client()
+        # Security: Validate and sanitize query
+        sanitized_query = self._validate_query(query)
 
         params = {
-            "query": query,
+            "query": sanitized_query,
             "tags": "story",
             "hitsPerPage": 50,
         }
 
-        response = await client.get(
-            f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
-        )
-        response.raise_for_status()
+        hits, data = await self._api_request("/search", params)
 
-        data = response.json()
-        hits = data.get("hits", [])
-
-        results = []
-        for hit in hits:
-            results.append(
-                {
-                    "id": hit.get("objectID", ""),
-                    "title": hit.get("title", ""),
-                    "url": hit.get("url", ""),
-                    "author": hit.get("author", ""),
-                    "points": hit.get("points", 0),
-                    "num_comments": hit.get("num_comments", 0),
-                    "created_at": hit.get("created_at", ""),
-                    "hn_url": (f"{HN_BASE_URL}/" f"item?id={hit.get('objectID', '')}"),
-                }
-            )
+        results = [self._format_story(hit) for hit in hits]
 
         output = {"results": results, "total": len(results)}
         return self._format_response(output, data, "search_hn")
@@ -218,30 +282,23 @@ class HackerNewsMCPClient(HTTPMCPClient):
             hits_multiplier: Multiplier for hitsPerPage (use >1 to over-fetch)
             include_hn_url: If True, adds hn_url to each thread dict
         """
-        client = self._ensure_client()
-
         params = {
             "query": query,
             "tags": "story,author_whoishiring",
             "hitsPerPage": months * max(hits_multiplier, 1),
         }
 
-        response = await client.get(
-            f"{self.BASE_URL}/search_by_date",
-            params=params,  # type: ignore[arg-type]
-        )
-        response.raise_for_status()
+        hits, data = await self._api_request("/search_by_date", params)
 
-        data = response.json()
-        threads = []
-
-        for hit in data.get("hits", []):
+        threads: list[dict[str, Any]] = []
+        for hit in hits:
             title = hit.get("title", "")
             lower_title = title.lower()
             if title_filter not in lower_title:
                 continue
             if exclude_filter and exclude_filter in lower_title:
                 continue
+
             thread: dict[str, Any] = {
                 "title": title,
                 "objectID": hit.get("objectID", ""),
@@ -249,9 +306,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 "num_comments": hit.get("num_comments", 0),
             }
             if include_hn_url:
-                thread["hn_url"] = (
-                    f"{HN_BASE_URL}/item?" f"id={hit.get('objectID', '')}"
-                )
+                thread["hn_url"] = f"{HN_BASE_URL}/item?id={hit.get('objectID', '')}"
             threads.append(thread)
             if len(threads) >= months:
                 break
@@ -324,34 +379,14 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
     async def _get_top_stories(self, limit: int = 30) -> MCPToolResult:
         """Get top tech stories from HN."""
-        client = self._ensure_client()
-
         params = {
             "tags": "front_page",
             "hitsPerPage": limit,
         }
 
-        response = await client.get(
-            f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
-        )
-        response.raise_for_status()
+        hits, data = await self._api_request("/search", params)
 
-        data = response.json()
-        stories = []
-
-        for hit in data.get("hits", []):
-            stories.append(
-                {
-                    "id": hit.get("objectID", ""),
-                    "title": hit.get("title", ""),
-                    "url": hit.get("url", ""),
-                    "author": hit.get("author", ""),
-                    "points": hit.get("points", 0),
-                    "num_comments": hit.get("num_comments", 0),
-                    "created_at": hit.get("created_at", ""),
-                    "hn_url": (f"{HN_BASE_URL}/" f"item?id={hit.get('objectID', '')}"),
-                }
-            )
+        stories = [self._format_story(hit) for hit in hits]
 
         output = {"stories": stories, "total": len(stories)}
         return self._format_response(output, data, "get_top_stories")

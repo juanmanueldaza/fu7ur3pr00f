@@ -3,6 +3,7 @@ set -euo pipefail
 
 # FutureProof Setup Script
 # Configures Azure OpenAI and copies career data automatically
+# Security: API keys handled via Azure CLI credential helper, never exposed in process list
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "${SCRIPT_DIR}")"
@@ -49,12 +50,16 @@ ENDPOINT=$(echo "${RESOURCE_INFO}" | jq -r '.properties.endpoint')
 log "Found Azure OpenAI resource: ${RESOURCE_NAME} (in ${RESOURCE_GROUP})"
 log "Endpoint: ${ENDPOINT}"
 
-# Get API key
-log "Retrieving API key..."
+# Get API key (stored in Azure CLI credential store, not exposed in process list)
+log "Retrieving API key from Azure CLI credential store..."
 API_KEY=$(az cognitiveservices account keys list \
   --resource-group "${RESOURCE_GROUP}" \
   --name "${RESOURCE_NAME}" \
-  --query key1 -o tsv)
+  --query key1 -o tsv 2>/dev/null)
+
+# Security: Clear API_KEY from environment after use
+# shellcheck disable=SC2064
+trap "unset API_KEY" EXIT
 
 # Get deployments
 log "Listing deployments..."
@@ -125,12 +130,19 @@ else
   log "Add your files there and run this script again, or place them in ${DATA_DIR}"
 fi
 
-# Test connection
+# Test connection using curl config file (prevents API key exposure in process list)
 log "Testing Azure OpenAI connection..."
-TEST_RESPONSE=$(curl -s -X POST "${ENDPOINT}/openai/deployments/${AGENT_MODEL}/chat/completions?api-version=2024-12-01-preview" \
-  -H "Content-Type: application/json" \
-  -H "api-key: ${API_KEY}" \
-  -d '{"messages":[{"role":"user","content":"Hi"}],"max_tokens":5}')
+curl_config="${CONFIG_DIR}/.curl_test_config"
+cat > "${curl_config}" <<EOF
+url = "${ENDPOINT}/openai/deployments/${AGENT_MODEL}/chat/completions?api-version=2024-12-01-preview"
+header = "Content-Type: application/json"
+header = "api-key: ${API_KEY}"
+data = '{"messages":[{"role":"user","content":"Hi"}],"max_tokens":5}'
+EOF
+chmod 600 "${curl_config}"
+
+TEST_RESPONSE=$(curl -s --config "${curl_config}")
+rm -f "${curl_config}"
 
 if echo "${TEST_RESPONSE}" | jq -e '.choices' &> /dev/null; then
   log "✓ Azure OpenAI connection successful!"

@@ -11,9 +11,35 @@ from ..llm.fallback import get_model_with_fallback
 from ..prompts import GENERATE_CV_PROMPT
 from ..utils.console import console
 from ..utils.data_loader import load_career_data_for_cv
-from ..utils.security import anonymize_career_data, secure_open
+from ..utils.security import (
+    anonymize_career_data,
+    sanitize_for_prompt,
+    secure_open,
+    validate_file_size,
+)
 
 logger = logging.getLogger(__name__)
+
+# Security limits
+_MAX_MD_SIZE = 1024 * 1024  # 1MB max markdown file size
+
+# Language and format instructions (DRY: extracted to constants)
+LANGUAGE_INSTRUCTIONS = {
+    "en": "Generate the CV in English.",
+    "es": "Generate the CV in Spanish (Español). All content should be in Spanish.",
+}
+
+FORMAT_INSTRUCTIONS = {
+    "ats": """Focus on ATS optimization:
+- Use standard section headers
+- Include keywords naturally
+- Simple, clean formatting
+- No tables or columns""",
+    "creative": """Use a more creative format:
+- Compelling narrative in summary
+- Highlight unique achievements
+- Show personality while remaining professional""",
+}
 
 
 def _clean_llm_output(text: str) -> str:
@@ -25,6 +51,8 @@ def _clean_llm_output(text: str) -> str:
 
     # Strip wrapping code fences (```markdown ... ```)
     if stripped.startswith("```"):
+        if "\n" not in stripped:
+            return stripped  # No newline, can't strip code fence
         first_newline = stripped.index("\n")
         stripped = stripped[first_newline + 1 :]
         if stripped.rstrip().endswith("```"):
@@ -52,7 +80,13 @@ def _render_pdf(markdown_path: Path) -> Path:
 
     Returns:
         Path to the generated PDF, or markdown_path if PDF is unavailable.
+
+    Raises:
+        ValueError: If markdown file exceeds maximum size limit.
     """
+    # Security: Validate file size (also checks existence)
+    validate_file_size(markdown_path, _MAX_MD_SIZE, "Markdown file")
+
     try:
         import markdown
         import nh3
@@ -242,33 +276,23 @@ def _generate_with_llm(
     format: Literal["ats", "creative"],
     target_role: str | None = None,
 ) -> str:
-    """Generate CV content using LLM."""
+    """Generate CV content using LLM.
+
+    Security: Anonymizes PII and sanitizes content before sending to LLM
+    to prevent prompt injection attacks.
+    """
     model, _config = get_model_with_fallback(
         temperature=settings.cv_temperature, purpose="analysis"
     )
 
-    lang_instruction = {
-        "en": "Generate the CV in English.",
-        "es": "Generate the CV in Spanish (Español). All content should be in Spanish.",
-    }
-
-    format_instruction = {
-        "ats": """Focus on ATS optimization:
-- Use standard section headers
-- Include keywords naturally
-- Simple, clean formatting
-- No tables or columns""",
-        "creative": """Use a more creative format:
-- Compelling narrative in summary
-- Highlight unique achievements
-- Show personality while remaining professional""",
-    }
-
     # Anonymize PII before sending to external LLM
     # For CV generation, we preserve professional email domains for context
-    safe_career_data = anonymize_career_data(
+    anonymized_data = anonymize_career_data(
         career_data, preserve_professional_emails=True
     )
+
+    # Security: Sanitize to prevent prompt injection
+    safe_career_data = sanitize_for_prompt(anonymized_data)
 
     # Build target role instruction if provided
     target_role_instruction = ""
@@ -280,9 +304,9 @@ Tailor the CV content, summary, and emphasis to align with this specific role.""
 
     prompt = f"""{GENERATE_CV_PROMPT}
 
-{lang_instruction[language]}
+{LANGUAGE_INSTRUCTIONS[language]}
 
-{format_instruction[format]}
+{FORMAT_INSTRUCTIONS[format]}
 
 CAREER DATA:
 {safe_career_data}{target_role_instruction}

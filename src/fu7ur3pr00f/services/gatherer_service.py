@@ -63,9 +63,9 @@ class GathererService:
     def _get_knowledge_service(self) -> "KnowledgeService":
         """Get or create the knowledge service."""
         if self._knowledge_service is None:
-            from .knowledge_service import KnowledgeService
+            from fu7ur3pr00f.utils.services import get_knowledge_service
 
-            self._knowledge_service = KnowledgeService()
+            self._knowledge_service = get_knowledge_service()
         return self._knowledge_service
 
     def _index_sections(

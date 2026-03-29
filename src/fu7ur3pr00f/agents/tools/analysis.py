@@ -5,8 +5,8 @@ import logging
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import invoke_with_context
-from fu7ur3pr00f.memory.profile import load_profile
 from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.utils.services import get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def analyze_skill_gaps(target_role: str) -> str:
 
     except Exception as e:
         logger.exception("Skill gap analysis failed for '%s'", target_role)
-        profile = load_profile()
+        profile = get_profile()
         current_skills = profile.technical_skills + profile.soft_skills
 
         if not current_skills:

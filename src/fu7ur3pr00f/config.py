@@ -7,6 +7,8 @@ from dotenv import set_key
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .utils.security import secure_mkdir
+
 # User-level config lives alongside profile and memory data.
 _USER_ENV_PATH = Path.home() / ".fu7ur3pr00f" / ".env"
 
@@ -212,7 +214,7 @@ class Settings(BaseSettings):
         return ""
 
     def factory_reset(self) -> int:
-        """Delete all generated data and configuration, returning count of items cleared.
+        """Delete generated data and config, returning the number of items cleared.
 
         Preserves data/raw/ (LinkedIn ZIPs, PDFs).
         """
@@ -283,9 +285,13 @@ class Settings(BaseSettings):
 
     def ensure_directories(self) -> None:
         """Create all required directories with restrictive permissions."""
-        from fu7ur3pr00f.utils.security import secure_mkdir
-
-        for dir_path in [self.raw_dir, self.processed_dir, self.output_dir]:
+        secure_mkdir(self.data_dir)
+        for dir_path in [
+            self.raw_dir,
+            self.processed_dir,
+            self.output_dir,
+            self.market_cache_dir,
+        ]:
             secure_mkdir(dir_path)
 
 
@@ -321,7 +327,7 @@ def write_user_setting(key: str, value: str) -> None:
     if cleaner:
         value = cleaner(value)
     env_path = get_user_env_path()
-    env_path.parent.mkdir(parents=True, exist_ok=True)
+    secure_mkdir(env_path.parent)
     if not env_path.exists():
         env_path.touch(mode=0o600)
     set_key(str(env_path), key, value)

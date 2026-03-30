@@ -6,6 +6,7 @@ for indexing into the career knowledge base.
 
 import json
 import logging
+import re
 import shutil
 import subprocess  # nosec B404 — required for pdftotext CLI
 from pathlib import Path
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)
 _MAX_CV_SIZE = 10 * 1024 * 1024  # 10MB max CV file size
 
 _pdf_text_cache: dict[tuple[str, float, int], str] = {}
+_SECTION_HEADING_RE = re.compile(
+    r"^\s{0,3}(?:#{1,6}\s+)?([A-Z][A-Za-z &/+()-]{1,60})\s*$"
+)
 
 
 def _file_cache_key(path: Path) -> tuple[str, float, int]:
@@ -77,8 +81,11 @@ class CVGatherer:
 
         sections = self._parse_sections_with_llm(raw_text)
         if not sections:
+            sections = self._parse_sections_locally(raw_text)
+        if not sections:
             logger.debug(
-                "LLM returned no sections for '%s', using fallback section.", path.name
+                "Structured section parsing failed for '%s', using fallback section.",
+                path.name,
             )
             return [Section("CV Content", raw_text)]
 
@@ -155,7 +162,10 @@ class CVGatherer:
         from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 
         # Security: Anonymize PII before sending to external LLM
-        anonymized_text = anonymize_career_data(text, preserve_professional_emails=True)
+        anonymized_text = anonymize_career_data(
+            text,
+            preserve_professional_emails=True,
+        )
 
         # Security: Sanitize to prevent prompt injection
         sanitized_text = sanitize_for_prompt(anonymized_text[:8000])
@@ -163,7 +173,8 @@ class CVGatherer:
         prompt = (
             "Extract all sections from this CV/resume text.\n"
             "Return a JSON array where each element has:\n"
-            '  "title": the section heading (e.g. "Experience", "Education", "Skills")\n'
+            '  "title": the section heading '
+            '(e.g. "Experience", "Education", "Skills")\n'
             '  "content": the full text body of that section\n'
             "Only include sections with meaningful content (at least 2 lines).\n\n"
             f"CV text:\n{sanitized_text}\n\n"
@@ -188,3 +199,61 @@ class CVGatherer:
                 "LLM section extraction failed, using fallback", exc_info=True
             )
             return []
+
+    def _parse_sections_locally(self, text: str) -> list[Section]:
+        """Parse common Markdown/plain-text CV headings without an LLM.
+
+        This fallback keeps the gatherer reliable in offline and CI environments.
+        """
+        sections: list[Section] = []
+        current_title: str | None = None
+        current_lines: list[str] = []
+
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            heading = self._normalize_heading(line)
+            if heading:
+                self._append_section(sections, current_title, current_lines)
+                current_title = heading
+                current_lines = []
+                continue
+
+            if current_title and line:
+                current_lines.append(raw_line.rstrip())
+
+        self._append_section(sections, current_title, current_lines)
+        return sections
+
+    def _normalize_heading(self, line: str) -> str | None:
+        """Return a normalized section title when a line looks like a heading."""
+        if not line:
+            return None
+
+        match = _SECTION_HEADING_RE.match(line)
+        if not match:
+            return None
+
+        title = match.group(1).strip("# ").strip()
+        normalized = " ".join(word.capitalize() for word in title.split())
+        known_headings = {
+            "Experience",
+            "Education",
+            "Skills",
+            "Projects",
+            "Summary",
+            "Profile",
+            "Certifications",
+            "Languages",
+            "Achievements",
+        }
+        return normalized if normalized in known_headings else None
+
+    def _append_section(
+        self,
+        sections: list[Section],
+        title: str | None,
+        lines: list[str],
+    ) -> None:
+        """Append a structured section if it has enough content."""
+        if title and len([line for line in lines if line.strip()]) >= 2:
+            sections.append(Section(title, "\n".join(lines).strip()))

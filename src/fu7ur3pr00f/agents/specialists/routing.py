@@ -11,6 +11,7 @@ Usage:
 import logging
 from dataclasses import dataclass
 
+from fu7ur3pr00f._config import load_config
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
@@ -19,6 +20,61 @@ from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
 from fu7ur3pr00f.agents.specialists.learning import LearningAgent
 
 logger = logging.getLogger(__name__)
+
+_SPECIALIST_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "coach": (
+        "promotion",
+        "promoted",
+        "staff engineer",
+        "principal",
+        "leadership",
+        "manager",
+        "grow",
+        "career",
+    ),
+    "learning": (
+        "learn",
+        "learning",
+        "study",
+        "course",
+        "roadmap",
+        "practice",
+        "skill",
+        "training",
+    ),
+    "jobs": (
+        "job",
+        "jobs",
+        "hiring",
+        "salary",
+        "compensation",
+        "interview",
+        "offer",
+        "remote",
+        "position",
+    ),
+    "code": (
+        "github",
+        "gitlab",
+        "repository",
+        "repo",
+        "portfolio",
+        "open source",
+        "oss",
+        "project",
+    ),
+    "founder": (
+        "startup",
+        "founder",
+        "saas",
+        "business",
+        "mvp",
+        "bootstrapp",
+        "fundraising",
+        "venture",
+    ),
+}
+_MULTI_SPECIALIST_KEYWORDS = tuple(load_config("routing_keywords"))
 
 
 @dataclass
@@ -89,12 +145,15 @@ class RoutingService:
             return RoutingResult(specialists=result, method="llm", confidence=0.9)
         except Exception:
             logger.warning(
-                "LLM routing failed for %r, defaulting to coach",
+                "LLM routing failed for %r, using keyword fallback",
                 query[:60],
                 exc_info=True,
             )
+            specialists = self._route_with_keywords(query)
             return RoutingResult(
-                specialists=["coach"], method="fallback", confidence=0.5
+                specialists=specialists,
+                method="keyword",
+                confidence=0.6 if specialists != ["coach"] else 0.5,
             )
 
     def _route_with_llm(
@@ -138,6 +197,32 @@ class RoutingService:
             if name in self._specialists
         ]
         return valid or ["coach"]
+
+    def _route_with_keywords(self, query: str) -> list[str]:
+        """Route using deterministic keyword scoring.
+
+        Keeps routing useful when the LLM is unavailable, which is common in
+        local development and CI runs.
+        """
+        lowered = query.lower()
+        scores: dict[str, int] = {}
+
+        for specialist, keywords in _SPECIALIST_KEYWORDS.items():
+            score = sum(1 for keyword in keywords if keyword in lowered)
+            if score:
+                scores[specialist] = score
+
+        if not scores:
+            return ["coach"]
+
+        ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+        top_score = ordered[0][1]
+        selected = [name for name, score in ordered if score == top_score]
+
+        if any(keyword in lowered for keyword in _MULTI_SPECIALIST_KEYWORDS):
+            return selected[: min(len(selected), 3)]
+
+        return [selected[0]]
 
     def get_specialist(self, name: str) -> BaseAgent:
         """Return the specialist agent object by name."""

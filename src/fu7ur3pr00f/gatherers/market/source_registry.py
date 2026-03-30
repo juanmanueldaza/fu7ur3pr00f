@@ -7,6 +7,7 @@ This follows the Open/Closed Principle: open for extension (add new sources),
 closed for modification (don't change gather() logic).
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -79,10 +80,44 @@ def _build_jobicy_args(role: str, location: str, limit: int) -> dict[str, Any]:
 
     Jobicy's `tag` expects simple keywords (e.g. "developer"), not full titles.
     Jobicy's `geo` expects country slugs (e.g. "spain"), not city names.
-    Use only the first keyword from the role as tag; skip geo (remote-only board).
+    Skip vague prefixes like "senior", "full", or "ai" and prefer a stable role noun.
+    Skip geo entirely because Jobicy is a remote-only board.
     """
-    # Extract first meaningful keyword from role
-    tag = role.split()[0].lower() if role else None
+    words = re.findall(r"[a-z0-9+#.-]+", role.lower())
+    stopwords = {
+        "ai",
+        "ml",
+        "llm",
+        "genai",
+        "generative",
+        "agentic",
+        "full",
+        "stack",
+        "senior",
+        "staff",
+        "principal",
+        "lead",
+        "remote",
+    }
+    preferred_tags = [
+        "developer",
+        "engineer",
+        "frontend",
+        "backend",
+        "fullstack",
+        "devops",
+        "python",
+        "javascript",
+        "typescript",
+        "react",
+        "vue",
+        "node",
+    ]
+
+    tag = next((word for word in preferred_tags if word in words), None)
+    if tag is None:
+        tag = next((word for word in words if word not in stopwords), None)
+
     return {"count": limit, "tag": tag}
 
 

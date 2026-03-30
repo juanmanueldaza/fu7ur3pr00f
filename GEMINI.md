@@ -11,6 +11,7 @@ The system uses a sophisticated multi-agent orchestration pattern based on **Lan
 -   **Memory & RAG**: Uses **ChromaDB** for vector-based knowledge (RAG) and episodic memory. Conversation history is persisted via a thread-based checkpointer.
 -   **MCP Integration**: Integrates with 12+ **Model Context Protocol (MCP)** clients for real-time data from GitHub, LinkedIn, job boards (JobSpy, Himalayas, etc.), and search engines (Tavily).
 -   **Data Gatherers**: Modular gatherers for LinkedIn ZIP exports, CliftonStrengths PDFs, CVs (PDF/MD/TXT), and portfolios, indexing directly into ChromaDB.
+-   **Offline Fallbacks**: Routing falls back to deterministic keyword scoring, and CV parsing falls back to local heading extraction when LLM calls are unavailable.
 
 ## 🛠️ Building and Running
 
@@ -70,11 +71,13 @@ Located in `scripts/`:
 - **Security**: 
     - Use `src/fu7ur3pr00f/utils/security.py` for PII anonymization and SSRF protection.
     - Never log or print API keys/secrets.
+    - Keep file-based gatherers scoped to approved local roots: home, the repo workspace, and `/tmp`.
 - **Synthesis**: Follow the two-pass synthesis pattern where `AnalysisSynthesisMiddleware` refines specialist outputs.
 - **HITL (Human-In-The-Loop)**: Use LangGraph `interrupt()` for destructive or expensive operations (e.g., large-scale web scraping, file deletions).
 
 ### Testing Rules
 - **Mocking**: Always mock external services (LLMs, HTTP calls, ChromaDB) in unit tests. No real API calls allowed during `pytest`.
+- **Fallback Coverage**: Preserve tests for offline keyword routing, local CV parsing, and sandbox-safe cache behavior.
 - **Structure**: Tests must mirror the `src` directory structure (e.g., `tests/gatherers/` for `src/fu7ur3pr00f/gatherers/`).
 - **Fixtures**: Utilize shared fixtures in `tests/conftest.py`.
 

@@ -67,7 +67,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
             params["key"] = self._api_key
         return params
 
-    async def _api_request(
+    async def _stackexchange_request(
         self,
         endpoint: str,
         params: dict[str, Any] | None = None,
@@ -121,7 +121,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
         tags_param = ";".join(tags[:_MAX_TAGS_PER_REQUEST])
 
         # Use /tags/{tags}/info endpoint for exact matches
-        items, data = await self._api_request(f"/tags/{tags_param}/info")
+        items, data = await self._stackexchange_request(f"/tags/{tags_param}/info")
 
         results = [
             {
@@ -161,7 +161,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
             "pagesize": min(page_size, _MAX_PAGE_SIZE),
         }
 
-        items, data = await self._api_request("/tags", params)
+        items, data = await self._stackexchange_request("/tags", params)
 
         results = [
             {
@@ -196,7 +196,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
         if not tag:
             raise MCPToolError("Tag name is required")
 
-        items, data = await self._api_request(f"/tags/{tag}/info")
+        items, data = await self._stackexchange_request(f"/tags/{tag}/info")
 
         if not items:
             output = {
@@ -251,7 +251,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
             "filter": "withbody",  # Include question body for more context
         }
 
-        items, data = await self._api_request("/questions", params)
+        items, data = await self._stackexchange_request("/questions", params)
 
         questions = []
         for item in items:

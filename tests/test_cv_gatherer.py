@@ -1,6 +1,4 @@
 """Tests for CVGatherer — PDF and Markdown CV parsing."""
-
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -329,19 +327,13 @@ class TestGatherCvDataTool:
         assert "not found" in result.lower() or "access denied" in result.lower()
 
     def test_gather_cv_data_unsupported_format(self, tmp_path):
-        # Create a test file in home directory to pass the path check
-
         from fu7ur3pr00f.agents.tools.gathering import gather_cv_data
 
-        test_file = Path.home() / ".fu7ur3pr00f" / "test_cv.docx"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file = tmp_path / "test_cv.docx"
         test_file.write_bytes(b"fake docx")
 
-        try:
-            result = gather_cv_data.invoke({"file_path": str(test_file)})
-            assert "unsupported format" in result.lower()
-        finally:
-            test_file.unlink(missing_ok=True)
+        result = gather_cv_data.invoke({"file_path": str(test_file)})
+        assert "unsupported format" in result.lower()
 
     def test_gather_cv_data_path_outside_home(self):
         from fu7ur3pr00f.agents.tools.gathering import gather_cv_data

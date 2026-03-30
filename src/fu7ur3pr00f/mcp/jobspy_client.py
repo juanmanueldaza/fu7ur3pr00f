@@ -4,11 +4,15 @@ Uses JobSpy to aggregate jobs from LinkedIn, Indeed, Glassdoor, ZipRecruiter.
 MIT licensed, no authentication required.
 """
 
+import asyncio
 import json
+import logging
 from typing import Any
 
 from .base import MCPClient, MCPToolError, MCPToolResult
 from .job_schema import generate_job_id
+
+logger = logging.getLogger(__name__)
 
 
 class JobSpyMCPClient(MCPClient):
@@ -158,6 +162,16 @@ class JobSpyMCPClient(MCPClient):
 
         return "worldwide"
 
+    async def _run_scrape(self, search_params: dict[str, Any]):
+        """Run JobSpy's synchronous scraper in a worker thread."""
+        from jobspy import scrape_jobs  # type: ignore[import-not-found]
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: scrape_jobs(**search_params),
+        )
+
     async def _search_jobs(
         self,
         search_term: str,
@@ -169,8 +183,6 @@ class JobSpyMCPClient(MCPClient):
         """Search for jobs across multiple platforms."""
         if not self._jobspy_available:
             raise MCPToolError("JobSpy not available")
-
-        from jobspy import scrape_jobs  # type: ignore[import-not-found]
 
         sites = site_names or ["linkedin", "indeed"]
 
@@ -203,14 +215,25 @@ class JobSpyMCPClient(MCPClient):
             search_params["is_remote"] = True
 
         try:
-            # Run the synchronous scrape_jobs in a thread
-            import asyncio
-
-            loop = asyncio.get_event_loop()
-            jobs_df = await loop.run_in_executor(
-                None,
-                lambda: scrape_jobs(**search_params),
-            )
+            try:
+                jobs_df = await self._run_scrape(search_params)
+            except Exception as e:
+                if "linkedin" in sites and len(sites) > 1:
+                    logger.warning(
+                        (
+                            "JobSpy search failed with linkedin included; "
+                            "retrying without linkedin: %s"
+                        ),
+                        e,
+                    )
+                    retry_params = {
+                        **search_params,
+                        "site_name": [s for s in sites if s != "linkedin"],
+                    }
+                    jobs_df = await self._run_scrape(retry_params)
+                    sites = retry_params["site_name"]
+                else:
+                    raise
 
             # Convert DataFrame to list of dicts
             if jobs_df is not None and not jobs_df.empty:

@@ -1,11 +1,65 @@
 """Market intelligence tools for the career agent."""
 
+import re
+
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import run_market_analysis
 from fu7ur3pr00f.prompts import load_prompt
 
-from ._async import run_async
+from ._async import run_async_call
+
+
+def _normalize_location_tokens(location: str) -> set[str]:
+    """Convert a user location into lowercase tokens for fuzzy matching."""
+    normalized = location.strip().lower()
+    if not normalized:
+        return set()
+
+    aliases = {
+        "spain": {"spain", "espana", "españa", "madrid", "barcelona", "valencia"},
+        "europe": {
+            "europe",
+            "eu",
+            "european union",
+            "emea",
+            "spain",
+            "portugal",
+            "france",
+            "germany",
+            "italy",
+            "netherlands",
+            "uk",
+            "united kingdom",
+        },
+        "remote": {"remote", "worldwide", "anywhere"},
+    }
+
+    tokens = {
+        token
+        for token in re.split(r"[^a-z0-9]+", normalized)
+        if token and len(token) > 1
+    }
+    expanded = set(tokens)
+    for token in list(tokens) + [normalized]:
+        expanded.update(aliases.get(token, set()))
+    return expanded
+
+
+def _is_location_relevant(job: dict, requested_location: str) -> bool:
+    """Check whether a job location is compatible with the requested location."""
+    requested_tokens = _normalize_location_tokens(requested_location)
+    if not requested_tokens:
+        return True
+
+    job_location = str(job.get("location", "")).strip().lower()
+    if not job_location:
+        return "remote" in requested_tokens
+
+    if "remote" in job_location or job.get("is_remote", False):
+        return True
+
+    return any(token in job_location for token in requested_tokens)
 
 
 @tool
@@ -30,7 +84,7 @@ def search_jobs(
     from fu7ur3pr00f.gatherers.market import JobMarketGatherer
 
     gatherer = JobMarketGatherer()
-    data = run_async(gatherer.gather(role=query, location=location, limit=limit))
+    data = run_async_call(gatherer.gather, role=query, location=location, limit=limit)
 
     jobs = data.get("job_listings", [])
     summary = data.get("summary", {})
@@ -92,7 +146,7 @@ def get_tech_trends(topic: str = "") -> str:
     from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
 
     gatherer = TechTrendsGatherer()
-    data = run_async(gatherer.gather(topic=topic))
+    data = run_async_call(gatherer.gather, topic=topic)
 
     stories = data.get("trending_stories", [])
     hiring = data.get("hiring_trends", {})
@@ -140,28 +194,36 @@ def get_salary_insights(role: str, location: str = "remote") -> str:
     from fu7ur3pr00f.gatherers.market import JobMarketGatherer
 
     gatherer = JobMarketGatherer()
-    data = run_async(
-        gatherer.gather(
-            role=role,
-            location=location,
-            include_salary=True,
-            limit=10,
-        )
+    data = run_async_call(
+        gatherer.gather,
+        role=role,
+        location=location,
+        include_salary=True,
+        limit=10,
     )
 
     salary_data = data.get("salary_data", [])
     jobs_with_salary = [j for j in data.get("job_listings", []) if j.get("salary")]
+    relevant_jobs_with_salary = [
+        job for job in jobs_with_salary if _is_location_relevant(job, location)
+    ]
 
     result_parts = [f"Salary insights for {role!r} ({location}):"]
 
-    if jobs_with_salary:
+    if relevant_jobs_with_salary:
         result_parts.append(
-            f"\n**From job listings:** ({len(jobs_with_salary)} with salary)"
+            f"\n**From job listings:** ({len(relevant_jobs_with_salary)} with salary)"
         )
-        for job in jobs_with_salary[:5]:
+        for job in relevant_jobs_with_salary[:5]:
             company = job.get("company", "Unknown")
             salary = job.get("salary", "")
-            result_parts.append(f"  - {company}: {salary}")
+            job_location = job.get("location", "Remote")
+            result_parts.append(f"  - {company} ({job_location}): {salary}")
+    elif jobs_with_salary:
+        result_parts.append(
+            "\n**From job listings:** No salary-bearing listings clearly matched the "
+            f"requested location {location!r}; ignoring mismatched locations."
+        )
 
     if salary_data:
         result_parts.append("\n**Salary research:**")
@@ -238,7 +300,7 @@ def gather_market_data(source: str = "all") -> str:
         from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
 
         gatherer = TechTrendsGatherer()
-        data = run_async(gatherer.gather_with_cache(refresh=True))
+        data = run_async_call(gatherer.gather_with_cache, refresh=True)
         stories = data.get("trending_stories", [])
         hiring = data.get("hiring_trends", {})
         hn_jobs = data.get("hn_job_postings", [])
@@ -253,8 +315,10 @@ def gather_market_data(source: str = "all") -> str:
         from fu7ur3pr00f.gatherers.market import JobMarketGatherer
 
         gatherer = JobMarketGatherer()
-        data = run_async(
-            gatherer.gather_with_cache(refresh=True, role="Software Developer")
+        data = run_async_call(
+            gatherer.gather_with_cache,
+            refresh=True,
+            role="Software Developer",
         )
         listings = data.get("job_listings", [])
         sources_list = data.get("summary", {}).get("sources", [])
@@ -269,7 +333,7 @@ def gather_market_data(source: str = "all") -> str:
         from fu7ur3pr00f.gatherers.market import ContentTrendsGatherer
 
         gatherer = ContentTrendsGatherer()
-        data = run_async(gatherer.gather_with_cache(refresh=True, focus="all"))
+        data = run_async_call(gatherer.gather_with_cache, refresh=True, focus="all")
         articles = data.get("devto_articles", [])
         so_trends = data.get("stackoverflow_trends", {})
         topic_pop = so_trends.get("topic_popularity", [])

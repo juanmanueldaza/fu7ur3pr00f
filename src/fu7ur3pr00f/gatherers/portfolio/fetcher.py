@@ -150,10 +150,8 @@ class PortfolioFetcher:
             # Not a literal IP — resolve DNS below
 
         # Resolve hostname with timeout and check ALL addresses (IPv4 + IPv6)
+        socket_module = socket
         try:
-            # Use a socket with timeout for DNS resolution
-            import socket as socket_module  # noqa: PLC0415
-
             # Set default timeout for getaddrinfo
             old_timeout = socket_module.getdefaulttimeout()
             socket_module.setdefaulttimeout(_DNS_TIMEOUT)
@@ -236,7 +234,8 @@ class PortfolioFetcher:
             # Security: Check response size
             if len(response.content) > _MAX_RESPONSE_SIZE:
                 raise ValueError(
-                    f"Response exceeds maximum size of {_MAX_RESPONSE_SIZE // 1024 // 1024}MB"
+                    "Response exceeds maximum size of "
+                    f"{_MAX_RESPONSE_SIZE // 1024 // 1024}MB"
                 )
 
             logger.debug("Fetched %d bytes from %s", len(response.text), url)

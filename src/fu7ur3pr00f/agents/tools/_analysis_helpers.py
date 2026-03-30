@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from langchain_core.messages import HumanMessage
 
-from fu7ur3pr00f.agents.tools._async import run_async
+from fu7ur3pr00f.agents.tools._async import run_async_call
 from fu7ur3pr00f.llm.fallback import get_model_with_fallback
 
 logger = logging.getLogger(__name__)
@@ -108,6 +108,6 @@ def fetch_tech_list() -> str:
     from fu7ur3pr00f.gatherers.market.tech_trends_gatherer import TechTrendsGatherer
 
     gatherer = TechTrendsGatherer()
-    market_data = run_async(gatherer.gather_with_cache())
+    market_data = run_async_call(gatherer.gather_with_cache)
     trends = market_data.get("hiring_trends", {})
     return ", ".join(t[0] for t in trends.get("top_technologies", [])[:8])

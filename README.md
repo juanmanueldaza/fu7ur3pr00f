@@ -105,7 +105,7 @@ graph TB
 **Routing Architecture:**
 
 - **LLM-based semantic routing**: Understands query intent, selects 1-4 specialists
-- **Keyword fallback**: Automatic fallback if LLM unavailable (rate limits, network errors)
+- **Keyword fallback**: Deterministic fallback if LLM unavailable (rate limits, network errors)
 - **Fast paths**: Factual queries → coach only; follow-ups → reuse previous specialists
 - **Structured output**: `RoutingDecision` model guarantees valid specialist names
 - **Specialist guidance**: All instructions load from `prompts/md/specialist_guidance.md` (no hardcoded fallbacks)
@@ -116,7 +116,7 @@ graph TB
 |----------|-----|
 | Multi-agent blackboard | Single agent with 41 tools; specialists provide focused reasoning via blackboard pattern |
 | LLM routing | Keyword matching too brittle — "leverage strengths to win money" should route to 3 specialists, not 1 |
-| Keyword fallback | Network-resilient: continues working if LLM unavailable |
+| Keyword fallback | Network-resilient: keeps routing obvious queries to the right specialist even if the LLM is unavailable |
 | Blackboard pattern | Multi-specialist analysis with shared context and iteration |
 | Database-first | Gatherers index directly to ChromaDB — no intermediate files |
 | Two-pass synthesis | `AnalysisSynthesisMiddleware` replaces generic LLM output with focused reasoning |
@@ -203,6 +203,10 @@ scripts/vagrant.sh test-apt
 # Multi-agent system testing
 scripts/vagrant.sh multi
 ```
+
+Offline behavior:
+- Specialist routing falls back to deterministic keyword scoring in CI or other offline environments.
+- CV parsing falls back to local heading extraction for Markdown and plain-text resumes when LLM section extraction is unavailable.
 
 ## System Dependencies (Optional)
 

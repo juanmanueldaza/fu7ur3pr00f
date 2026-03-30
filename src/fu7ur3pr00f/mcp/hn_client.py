@@ -153,7 +153,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         return query.strip()
 
-    async def _api_request(
+    async def _search_api(
         self,
         endpoint: str,
         params: dict[str, Any],
@@ -253,7 +253,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "hitsPerPage": 50,
         }
 
-        hits, data = await self._api_request("/search", params)
+        hits, data = await self._search_api("/search", params)
 
         results = [self._format_story(hit) for hit in hits]
 
@@ -288,7 +288,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "hitsPerPage": months * max(hits_multiplier, 1),
         }
 
-        hits, data = await self._api_request("/search_by_date", params)
+        hits, data = await self._search_api("/search_by_date", params)
 
         threads: list[dict[str, Any]] = []
         for hit in hits:
@@ -384,7 +384,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "hitsPerPage": limit,
         }
 
-        hits, data = await self._api_request("/search", params)
+        hits, data = await self._search_api("/search", params)
 
         stories = [self._format_story(hit) for hit in hits]
 

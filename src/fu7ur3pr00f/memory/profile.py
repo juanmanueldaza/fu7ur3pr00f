@@ -7,6 +7,7 @@ This is the "semantic memory" layer - persistent facts about the user that
 should be available across all conversations.
 """
 
+import contextlib
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -211,7 +212,7 @@ def load_profile() -> UserProfile:
         return UserProfile()
 
     try:
-        with open(path) as f:
+        with path.open(encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return UserProfile.from_dict(data)
     except (yaml.YAMLError, OSError) as e:
@@ -261,4 +262,8 @@ def edit_profile(modifier: Callable[["UserProfile"], None]) -> "UserProfile":
         profile = load_profile()
         modifier(profile)
         save_profile(profile)
+        with contextlib.suppress(Exception):
+            from fu7ur3pr00f.utils.services import get_profile
+
+            get_profile.cache_clear()
         return profile

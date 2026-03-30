@@ -50,7 +50,11 @@ return {"error": "..."}                   # Bad
 
 **HITL**: Destructive/expensive operations use LangGraph `interrupt()`.
 
-**LLM routing + keyword fallback**: Semantic routing with network-resilient fallback.
+**LLM routing + keyword fallback**: Semantic routing with deterministic fallback, so offline/CI runs still classify obvious jobs, learning, code, and founder queries correctly.
+
+**Offline CV parsing fallback**: `gatherers/cv.py` tries LLM section extraction first, then local heading parsing, and only then falls back to a single `CV Content` section.
+
+**Cache safety**: Market gatherers write `0o600` cache files and fall back to `/tmp/fu7ur3pr00f_market_cache` if the user cache directory is not writable.
 
 ### 5. When Qwen Modifies Code
 
@@ -109,6 +113,7 @@ return {"error": "..."}                   # Bad
 - PII is anonymized before LLM calls (`utils/security.py`)
 - Portfolio fetchers enforce SSRF protection (no private IP access)
 - Secrets in `~/.fu7ur3pr00f/.env` with `0o600` permissions
+- File-based gatherers may read from home, the current repo, or `/tmp`; do not widen that allowlist casually.
 
 ### 10. When in Doubt
 

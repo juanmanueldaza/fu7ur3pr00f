@@ -225,40 +225,40 @@ class TestOrchestratorAgent:
             assert result == ["coach"]
 
     def test_routing_learning(self):
-        """Test routing to learning specialist."""
+        """Keyword fallback should route learning queries without the LLM."""
         orch = self._make_orchestrator()
         with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
             mock_model.side_effect = RuntimeError("LLM failed")
             result = orch.route("I want to learn Python")
         assert isinstance(result, list)
-        assert result == ["coach"]
+        assert result == ["learning"]
 
     def test_routing_jobs(self):
-        """Test routing to jobs specialist."""
+        """Keyword fallback should route jobs queries without the LLM."""
         orch = self._make_orchestrator()
         with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
             mock_model.side_effect = RuntimeError("LLM failed")
             result = orch.route("Find remote senior developer jobs")
         assert isinstance(result, list)
-        assert result == ["coach"]
+        assert result == ["jobs"]
 
     def test_routing_code(self):
-        """Test routing to code specialist."""
+        """Keyword fallback should route code queries without the LLM."""
         orch = self._make_orchestrator()
         with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
             mock_model.side_effect = RuntimeError("LLM failed")
             result = orch.route("Review my GitHub repos and profile")
         assert isinstance(result, list)
-        assert result == ["coach"]
+        assert result == ["code"]
 
     def test_routing_founder(self):
-        """Test routing to founder specialist."""
+        """Keyword fallback should route founder queries without the LLM."""
         orch = self._make_orchestrator()
         with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
             mock_model.side_effect = RuntimeError("LLM failed")
             result = orch.route("Launch my SaaS startup idea")
         assert isinstance(result, list)
-        assert result == ["coach"]
+        assert result == ["founder"]
 
     def test_routing_default(self):
         """Test default routing falls back to coach."""
@@ -269,8 +269,8 @@ class TestOrchestratorAgent:
         assert isinstance(result, list)
         assert result == ["coach"]
 
-    def test_routing_llm_failure_defaults_to_coach(self):
-        """When LLM fails, routing falls back to coach only."""
+    def test_routing_llm_failure_uses_keyword_fallback(self):
+        """When LLM fails, routing should still classify obvious queries."""
         orch = self._make_orchestrator()
         with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_model:
             mock_model.side_effect = RuntimeError("LLM failed")
@@ -392,8 +392,7 @@ class TestIntegration:
             mock_model.side_effect = RuntimeError("LLM failed")
             names = orch.route("Search for remote Python jobs paying over $150k")
         assert isinstance(names, list)
-        # When LLM fails, defaults to coach
-        assert names == ["coach"]
+        assert names == ["jobs"]
 
         # Verify jobs specialist exists and has correct tools
         specialist = orch.get_specialist("jobs")

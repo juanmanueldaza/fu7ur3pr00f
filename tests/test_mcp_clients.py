@@ -69,6 +69,16 @@ class TestMCPClientFactory:
 
 
 class TestFinancialClient:
+    def test_resolve_country_code_falls_back_without_pycountry(self):
+        from fu7ur3pr00f.mcp import financial_client
+
+        with (
+            patch.object(financial_client, "pycountry", None),
+            patch.object(financial_client, "with_pycountry", False),
+        ):
+            assert financial_client.resolve_country_code("Spain") == "ESP"
+            assert financial_client.resolve_country_code("AR") == "ARG"
+
     @pytest.mark.asyncio
     async def test_list_tools(self):
         from fu7ur3pr00f.mcp.financial_client import FinancialMCPClient

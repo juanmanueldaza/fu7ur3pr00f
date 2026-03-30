@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_home_path(raw: str) -> tuple[Path, str | None]:
-    """Expand and validate path is within home directory.
+    """Expand and validate path is within an approved local directory.
 
     Args:
         raw: Raw path string (may contain ~ or relative components)
@@ -19,8 +19,13 @@ def _resolve_home_path(raw: str) -> tuple[Path, str | None]:
         (resolved_path, None) on success, (_, error_str) on denial
     """
     resolved = Path(raw).expanduser().resolve()
-    if not resolved.is_relative_to(Path.home()):
-        return resolved, "Access denied: path must be within your home directory."
+    allowed_roots = [Path.home(), Path.cwd(), Path("/tmp")]
+    if not any(resolved.is_relative_to(root) for root in allowed_roots):
+        return (
+            resolved,
+            "Access denied: path must be within your home directory, "
+            "repository, or /tmp.",
+        )
     return resolved, None
 
 

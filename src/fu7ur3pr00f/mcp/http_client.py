@@ -24,7 +24,7 @@ Usage:
 import json
 from abc import abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import httpx
 
@@ -88,7 +88,10 @@ class HTTPMCPClient(MCPClient):
                 tool_name = name[6:]  # Strip "_tool_" prefix
                 handler = getattr(self, name)
                 if callable(handler):
-                    self._tool_handlers[tool_name] = handler
+                    self._tool_handlers[tool_name] = cast(
+                        Callable[[dict[str, Any]], Awaitable[MCPToolResult]],
+                        handler,
+                    )
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for HTTP requests.
@@ -240,7 +243,7 @@ class HTTPMCPClient(MCPClient):
         json_body: dict[str, Any] | None = None,
         response_extractor: ResponseExtractor | None = None,
         base_url: str | None = None,
-    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], Any]:
         """Generic API request with configurable extraction.
 
         DRY helper to eliminate repeated API call patterns across
@@ -272,7 +275,7 @@ class HTTPMCPClient(MCPClient):
         response.raise_for_status()
 
         data = response.json()
-        if response_extractor:
+        if response_extractor and isinstance(data, dict):
             items = response_extractor(data)
         else:
             items = data if isinstance(data, list) else []

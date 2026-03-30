@@ -74,6 +74,7 @@ def get_history_path() -> Path:
 
 # ── Command Handlers ────────────────────────────────────────────────────────
 
+
 def _cmd_quit(chat_state: dict, arg: str) -> bool:
     console.print(f"[{COLOR_INFO}]Goodbye! Your conversation is saved.[/{COLOR_INFO}]")
     return True
@@ -105,7 +106,8 @@ def _cmd_clear(chat_state: dict, arg: str) -> bool:
 def _cmd_thread(chat_state: dict, arg: str) -> bool:
     if not arg:
         console.print(
-            f"[{COLOR_INFO}]Current thread: [bold]{chat_state['thread_id']}[/bold][/{COLOR_INFO}]"
+            f"[{COLOR_INFO}]Current thread: "
+            f"[bold]{chat_state['thread_id']}[/bold][/{COLOR_INFO}]"
         )
     else:
         if not _VALID_THREAD_ID_RE.match(arg):
@@ -125,10 +127,14 @@ def _cmd_thread(chat_state: dict, arg: str) -> bool:
 def _cmd_threads(chat_state: dict, arg: str) -> bool:
     thread_list = list_threads()
     if thread_list:
-        console.print(f"[bold {COLOR_ACCENT}]Conversation threads:[/bold {COLOR_ACCENT}]")
+        console.print(
+            f"[bold {COLOR_ACCENT}]Conversation threads:[/bold {COLOR_ACCENT}]"
+        )
         for t in thread_list:
             marker = " (active)" if t == chat_state["thread_id"] else ""
-            console.print(f"  - {t}[bold {COLOR_WARNING}]{marker}[/bold {COLOR_WARNING}]")
+            console.print(
+                f"  - {t}[bold {COLOR_WARNING}]{marker}[/bold {COLOR_WARNING}]"
+            )
     else:
         console.print(f"[{COLOR_INFO}]No conversation threads found.[/{COLOR_INFO}]")
     return False
@@ -157,18 +163,27 @@ def _cmd_gather(chat_state: dict, arg: str) -> bool:
     logging.getLogger("fu7ur3pr00f.gatherers").setLevel(logging.INFO)
 
     try:
+        from fu7ur3pr00f.agents.middleware import invalidate_prompt_cache
+        from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
         from fu7ur3pr00f.services.gatherer_service import GathererService
+        from fu7ur3pr00f.utils.services import reload_profile
 
         service = GathererService()
         results = service.gather_all(verbose=True)
+        populated = _auto_populate_profile()
+        reload_profile()
+        invalidate_prompt_cache()
 
         successful = sum(1 for s in results.values() if s)
         console.print(
-            f"\n[{COLOR_SUCCESS}]✓ Gathered {successful}/{len(results)} sources[/{COLOR_SUCCESS}]"
+            f"\n[{COLOR_SUCCESS}]✓ Gathered "
+            f"{successful}/{len(results)} sources[/{COLOR_SUCCESS}]"
         )
         console.print(
             f"[{COLOR_SUCCESS}]✓ Data indexed to knowledge base[/{COLOR_SUCCESS}]\n"
         )
+        if populated:
+            console.print(f"[{COLOR_INFO}]{populated}[/{COLOR_INFO}]\n")
     except Exception as e:
         logger.exception("Gather failed")
         display_error(sanitize_error(f"Gather failed: {e}"))
@@ -181,7 +196,8 @@ def _cmd_agents(chat_state: dict, arg: str) -> bool:
     console.print("[bold #5bc0be]Specialist Agents[/bold #5bc0be]\n")
     for a in agents:
         console.print(
-            f"  [bold {COLOR_WARNING}]{a['name']}[/bold {COLOR_WARNING}]: {a['description']}"
+            f"  [bold {COLOR_WARNING}]{a['name']}[/bold {COLOR_WARNING}]: "
+            f"{a['description']}"
         )
     console.print()
     return False
@@ -234,7 +250,8 @@ def _cmd_reset(chat_state: dict, arg: str) -> bool:
     deleted = settings.factory_reset()
 
     console.print(
-        f"\n[{COLOR_SUCCESS}]Factory reset complete.[/{COLOR_SUCCESS}] Cleared {deleted} items."
+        f"\n[{COLOR_SUCCESS}]Factory reset complete.[/{COLOR_SUCCESS}] "
+        f"Cleared {deleted} items."
     )
     console.print(f"[{COLOR_INFO}]Restart FutureProof to start fresh.[/{COLOR_INFO}]")
     return True
@@ -325,9 +342,7 @@ def _ensure_orchestrator(thread_id: str, first_run: bool = False) -> tuple:
             raise
 
 
-def run_chat(
-    thread_id: str = "main",
-) -> None:  # noqa: C901 - Main chat loop with command/tool handling
+def run_chat(thread_id: str = "main") -> None:  # noqa: C901 - command-heavy main loop
     """Run the synchronous chat loop.
 
     Args:

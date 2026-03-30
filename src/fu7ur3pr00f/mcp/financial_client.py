@@ -6,13 +6,12 @@ Uses two free APIs (no authentication required):
 - World Bank: Purchasing Power Parity (PPP) conversion factors
   https://api.worldbank.org/v2/
 
-Uses pycountry for ISO country code resolution.
+Prefers pycountry for ISO country code resolution, but keeps working without it.
 """
 
 import time
+from importlib import import_module
 from typing import Any
-
-import pycountry
 
 from fu7ur3pr00f.constants import FOREX_API_BASE, PPP_API_BASE
 
@@ -26,11 +25,41 @@ _ppp_cache: dict[str, tuple[float, float, str]] = {}  # code -> (ts, ratio, year
 
 _PPP_CACHE_TTL = 24 * 3600  # 24 hours (annual data)
 
+_COUNTRY_CODE_FALLBACKS = {
+    "ar": "ARG",
+    "arg": "ARG",
+    "argentina": "ARG",
+    "es": "ESP",
+    "esp": "ESP",
+    "spain": "ESP",
+    "us": "USA",
+    "usa": "USA",
+    "united states": "USA",
+    "united states of america": "USA",
+    "uk": "GBR",
+    "gb": "GBR",
+    "gbr": "GBR",
+    "united kingdom": "GBR",
+}
+
+
+def _load_pycountry() -> Any:
+    """Load pycountry lazily so the dependency remains optional."""
+    try:
+        return import_module("pycountry")
+    except ModuleNotFoundError:
+        return None
+
+
+pycountry = _load_pycountry()
+with_pycountry = pycountry is not None
+
 
 def resolve_country_code(country: str) -> str:
     """Resolve country name or code to ISO 3166-1 alpha-3.
 
-    Uses pycountry library for robust country code resolution.
+    Uses pycountry library for robust country code resolution when installed.
+    Falls back to a small built-in alias table for common countries.
     Handles full names ("Argentina"), alpha-2 ("AR"), and alpha-3 ("ARG").
 
     Args:
@@ -43,25 +72,35 @@ def resolve_country_code(country: str) -> str:
         ValueError: If country cannot be resolved
     """
     stripped = country.strip()
+    lowered = stripped.lower()
 
-    # Try alpha-3 first (3 letters)
-    if len(stripped) == 3 and stripped.isalpha():
-        country_obj = pycountry.countries.get(alpha_3=stripped.upper())
+    if not stripped:
+        raise ValueError("Country is required")
+
+    if pycountry is not None:
+        # Try alpha-3 first (3 letters)
+        if len(stripped) == 3 and stripped.isalpha():
+            country_obj = pycountry.countries.get(alpha_3=stripped.upper())
+            if country_obj:
+                return country_obj.alpha_3
+
+        # Try alpha-2 (2 letters)
+        if len(stripped) == 2 and stripped.isalpha():
+            country_obj = pycountry.countries.get(alpha_2=stripped.upper())
+            if country_obj:
+                return country_obj.alpha_3
+
+        # Try by name (case-insensitive)
+        country_obj = pycountry.countries.search_fuzzy(stripped)
         if country_obj:
-            return country_obj.alpha_3
+            return country_obj[0].alpha_3
 
-    # Try alpha-2 (2 letters)
-    if len(stripped) == 2 and stripped.isalpha():
-        country_obj = pycountry.countries.get(alpha_2=stripped.upper())
-        if country_obj:
-            return country_obj.alpha_3
+    fallback = _COUNTRY_CODE_FALLBACKS.get(lowered)
+    if fallback:
+        return fallback
 
-    # Try by name (case-insensitive)
-    country_obj = pycountry.countries.search_fuzzy(stripped)
-    if country_obj:
-        return country_obj[0].alpha_3
-
-    raise ValueError(f"Cannot resolve country: {country!r}")
+    suffix = "" if with_pycountry else " (install pycountry for broader matching)"
+    raise ValueError(f"Cannot resolve country: {country!r}{suffix}")
 
 
 class FinancialMCPClient(HTTPMCPClient):
@@ -126,6 +165,8 @@ class FinancialMCPClient(HTTPMCPClient):
         country = args.get("country", "")
         code = resolve_country_code(country)
         now = time.time()
+        ppp_ratio: float | None = None
+        year: str | None = None
 
         cached = _ppp_cache.get(code)
         if cached and (now - cached[0]) < _PPP_CACHE_TTL:
@@ -150,8 +191,8 @@ class FinancialMCPClient(HTTPMCPClient):
     def _find_latest_ppp(self, entries: list) -> tuple[float | None, str | None]:
         """Find most recent non-null PPP value."""
         for entry in entries:
-            if entry.get("value") is not None:
-                return entry["value"], entry.get("date", "")
+            if isinstance(entry, dict) and entry.get("value") is not None:
+                return float(entry["value"]), str(entry.get("date", ""))
         return None, None
 
     def _format_ppp_output(
@@ -160,11 +201,11 @@ class FinancialMCPClient(HTTPMCPClient):
         code: str,
         ppp_ratio: float | None,
         year: str | None,
-        raw_data: dict,
+        raw_data: Any,
     ) -> MCPToolResult:
         """Format PPP output consistently."""
         if ppp_ratio is None:
-            output = {
+            output: dict[str, Any] = {
                 "country": country,
                 "country_code": code,
                 "ppp_ratio": None,

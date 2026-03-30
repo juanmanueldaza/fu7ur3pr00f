@@ -25,6 +25,8 @@ from .source_registry import JOB_SOURCE_REGISTRY, SALARY_SOURCE
 
 logger = logging.getLogger(__name__)
 
+_REMOTE_ONLY_SOURCES = {"remoteok", "himalayas", "jobicy", "weworkremotely", "remotive"}
+
 
 class JobMarketGatherer(MarketGatherer):
     """Gather job market data from multiple sources.
@@ -108,6 +110,7 @@ class JobMarketGatherer(MarketGatherer):
             for j in results["job_listings"]
             if "remote" in str(j.get("location", "")).lower()
             or j.get("is_remote", False)
+            or j.get("site") in _REMOTE_ONLY_SOURCES
         )
 
         # Gather salary data (special handling for different response format)

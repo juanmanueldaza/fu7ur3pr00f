@@ -117,6 +117,9 @@ class BaseAgent(ABC):
         """Multi-turn tool-calling contribution loop."""
         query = blackboard.get("query", "")
 
+        # Auto-search knowledge base if profile is empty (runs once per specialist)
+        self._auto_search_knowledge_base(blackboard)
+
         system_content = (
             self.system_prompt.replace("{user_query}", sanitize_for_prompt(query))
             + _CONTRIBUTE_INSTRUCTION
@@ -187,6 +190,45 @@ class BaseAgent(ABC):
 
         return self._extract_findings({"messages": messages}, query)
 
+    def _auto_search_knowledge_base(self, blackboard: CareerBlackboard) -> None:
+        """Auto-search KB for user identity when profile is empty.
+
+        Runs once per specialist if profile has no name. Injects results
+        into blackboard._kb_context for the LLM to use.
+        """
+        # Check if already searched (avoid duplicate searches)
+        if blackboard.get("_kb_context"):
+            return
+
+        # Check if profile is empty
+        profile = blackboard.get("user_profile", {})
+        has_profile = bool(profile and profile.get("name"))
+
+        if has_profile:
+            return  # Profile has data, no need to auto-search
+
+        # Auto-search knowledge base for user identity
+        try:
+            from fu7ur3pr00f.agents.tools.knowledge import search_career_knowledge
+
+            # Search for identity info - StructuredTool must be invoked with args
+            identity_result = search_career_knowledge.invoke(
+                {"query": "my name who am I profile"},
+            )
+            if identity_result and "No career data" not in identity_result:
+                # Inject into blackboard context for the LLM to use
+                blackboard["_kb_context"] = (
+                    f"\n[AUTO-SEARCH: User identity found in knowledge base]\n"
+                    f"{identity_result[:2000]}\n[/AUTO-SEARCH]"
+                )
+                logger.warning(
+                    "[%s] Auto-searched KB for identity, found %d chars",
+                    self.name,
+                    len(identity_result),
+                )
+        except Exception as e:
+            logger.warning("[%s] Auto-search failed: %s", self.name, e)
+
     def _build_context(self, blackboard: CareerBlackboard) -> str:
         """Build the human message context from blackboard state."""
         query = blackboard.get("query", "")
@@ -222,12 +264,17 @@ class BaseAgent(ABC):
         # Previous findings section
         context_msg = self._format_previous_findings(previous_findings)
 
-        full_prompt = f"USER QUERY: {query}\n\nUser Profile:\n{profile_context}"
+        full_prompt = f"USER QUERY: {query}"
 
-        # Auto-searched knowledge base context (injected by coach when profile empty)
+        # Auto-searched knowledge base context (injected when profile empty)
+        # Place this EARLY so LLM sees it before instructions
         kb_context = blackboard.get("_kb_context")
         if kb_context:
-            full_prompt += f"\n\n{kb_context}"
+            full_prompt += "\n\n=== KNOWLEDGE BASE DATA ===\n"
+            full_prompt += kb_context
+            full_prompt += "\n=== END KNOWLEDGE BASE DATA ==="
+
+        full_prompt += f"\n\nUser Profile:\n{profile_context}"
 
         # Append specialist guidance — fill placeholders with actual values
         from fu7ur3pr00f.prompts import load_prompt

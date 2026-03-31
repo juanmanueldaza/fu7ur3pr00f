@@ -253,9 +253,9 @@ def update_setting(key: str, value: str) -> str:
 
     if key in _RESTART_KEYS:
         from fu7ur3pr00f.agents.specialists.orchestrator import reset_orchestrator
-        from fu7ur3pr00f.llm.fallback import reset_fallback_manager
+        from fu7ur3pr00f.llm.model_selection import reset_model_selection_manager
 
-        reset_fallback_manager()
+        reset_model_selection_manager()
         reset_orchestrator()
         result += ". New model will be used on the next message."
 

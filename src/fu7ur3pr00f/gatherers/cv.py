@@ -159,7 +159,7 @@ class CVGatherer:
         """
         from langchain_core.messages import HumanMessage
 
-        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+        from fu7ur3pr00f.llm.model_selection import get_model
 
         # Security: Anonymize PII before sending to external LLM
         anonymized_text = anonymize_career_data(
@@ -183,7 +183,7 @@ class CVGatherer:
         )
 
         try:
-            model, _ = get_model_with_fallback(purpose="summary")
+            model, _ = get_model(purpose="summary")
             result = model.invoke([HumanMessage(content=prompt)])
             content = result.content.strip()  # type: ignore
             start = content.find("[")

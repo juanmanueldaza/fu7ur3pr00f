@@ -71,7 +71,7 @@ See [.env.example](.env.example) for all options.
 | `/profile` | View your career profile |
 | `/goals` | View your career goals |
 | `/thread [name]` | Show or switch conversation thread |
-| `/threads` | List all conversation threads |
+| `/threads` | List saved user conversation threads |
 | `/memory` | Show memory and profile stats |
 | `/debug` | Toggle debug mode (verbose logging) |
 | `/verbose` | Show system information |
@@ -109,6 +109,7 @@ graph TB
 - **Fast paths**: Factual queries → coach only; follow-ups → reuse previous specialists
 - **Structured output**: `RoutingDecision` model guarantees valid specialist names
 - **Specialist guidance**: All instructions load from `prompts/md/specialist_guidance.md` (no hardcoded fallbacks)
+- **Direct model selection**: Purpose-specific models are selected from configured provider settings; invocation errors surface directly instead of retrying across models
 
 **Design decisions:**
 
@@ -117,6 +118,7 @@ graph TB
 | Multi-agent blackboard | Single agent with 41 tools; specialists provide focused reasoning via blackboard pattern |
 | LLM routing | Keyword matching too brittle — "leverage strengths to win money" should route to 3 specialists, not 1 |
 | Keyword fallback | Network-resilient: keeps routing obvious queries to the right specialist even if the LLM is unavailable |
+| Direct model selection | Keeps model behavior explicit: choose the configured model and surface real errors instead of hiding them behind runtime fallback |
 | Blackboard pattern | Multi-specialist analysis with shared context and iteration |
 | Database-first | Gatherers index directly to ChromaDB — no intermediate files |
 | Two-pass synthesis | `AnalysisSynthesisMiddleware` replaces generic LLM output with focused reasoning |
@@ -207,6 +209,7 @@ scripts/vagrant.sh multi
 Offline behavior:
 - Specialist routing falls back to deterministic keyword scoring in CI or other offline environments.
 - CV parsing falls back to local heading extraction for Markdown and plain-text resumes when LLM section extraction is unavailable.
+- Sensitive LinkedIn/social sections such as conversations and sponsored message threads are excluded before knowledge indexing, not just hidden at search time.
 
 ## System Dependencies (Optional)
 

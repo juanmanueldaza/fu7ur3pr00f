@@ -238,7 +238,7 @@ def check_opportunity_alignment(
 
     from langchain_core.messages import HumanMessage
 
-    from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+    from fu7ur3pr00f.llm.model_selection import get_model
 
     if user_values is None:
         user_values = [
@@ -250,21 +250,22 @@ def check_opportunity_alignment(
         ]
 
     values_list = ", ".join(user_values)
-    breakdown_schema = ", ".join(f'"{v}": <int 0-100>' for v in user_values)
+    breakdown_schema = ", ".join(f"{v!r}: <int 0-100>" for v in user_values)
     prompt = (
         f"Analyze this job opportunity for alignment with the developer's values.\n\n"
         f"Company: {company_name}\n"
         f"Job description:\n{job_description[:3000]}\n\n"
         f"Values to evaluate (in priority order): {values_list}\n\n"
-        f"For each value, score 0-100 based on evidence in the description. "
-        f"Then compute an overall weighted score (higher priority values count more).\n\n"
+        "For each value, score 0-100 based on evidence in the description. "
+        "Then compute an overall weighted score "
+        "(higher priority values count more).\n\n"
         f"Respond with valid JSON only:\n"
         f'{{"score": <int 0-100>, "breakdown": {{{breakdown_schema}}}, '
         f'"recommendation": "<one sentence>"}}'
     )
 
     try:
-        model, _ = get_model_with_fallback(purpose="analysis")
+        model, _ = get_model(purpose="analysis")
         result = model.invoke([HumanMessage(content=prompt)])
         content = result.content.strip()  # type: ignore
         # Extract JSON from response

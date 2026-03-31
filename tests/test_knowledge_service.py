@@ -2,8 +2,10 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+from fu7ur3pr00f.memory.chunker import Section
+from fu7ur3pr00f.memory.knowledge import KnowledgeSource
 from fu7ur3pr00f.services.knowledge_service import KnowledgeService
 
 
@@ -25,6 +27,25 @@ class TestKnowledgeService:
             stats = service.get_stats()
         assert isinstance(stats, dict)
         assert "total_chunks" in stats
+
+    def test_index_sections_excludes_sensitive_prefixes_before_indexing(self):
+        store = MagicMock()
+        store.get_ids_by_filter.return_value = []
+        store.index_sections.return_value = ["chunk-1"]
+        service = KnowledgeService(store=store)
+
+        sections = [
+            Section(name="Experience", content="Built systems"),
+            Section(name="Conversation: Alice", content="Private DM"),
+            Section(name="Sponsored Conversation", content="Sponsored InMail"),
+        ]
+
+        count = service.index_sections(KnowledgeSource.LINKEDIN, sections)
+
+        assert count == 1
+        store.index_sections.assert_called_once()
+        indexed_sections = store.index_sections.call_args.kwargs["sections"]
+        assert [section.name for section in indexed_sections] == ["Experience"]
 
 
 class TestCareerKnowledgeStore:

@@ -543,7 +543,7 @@ class TestAnalysisSynthesisMiddleware:
 
         with (
             patch(
-                "fu7ur3pr00f.llm.fallback.get_model_with_fallback",
+                "fu7ur3pr00f.llm.model_selection.get_model",
                 return_value=(mock_model, MagicMock(description="test-model")),
             ),
             patch(
@@ -590,7 +590,7 @@ class TestAnalysisSynthesisMiddleware:
 
         with (
             patch(
-                "fu7ur3pr00f.llm.fallback.get_model_with_fallback",
+                "fu7ur3pr00f.llm.model_selection.get_model",
                 return_value=(mock_model, MagicMock(description="test-model")),
             ),
             patch(

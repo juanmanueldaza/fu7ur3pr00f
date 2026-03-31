@@ -34,7 +34,7 @@ def classify(
     """
     from langchain_core.messages import HumanMessage
 
-    from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+    from fu7ur3pr00f.llm.model_selection import get_model
 
     # No history → always a new query, no LLM needed
     if not conversation_history:
@@ -72,10 +72,12 @@ def classify(
     )
 
     try:
-        model, _ = get_model_with_fallback(purpose="summary", temperature=0.0)
+        model, _ = get_model(purpose="summary", temperature=0.0)
         result = model.invoke([HumanMessage(content=prompt)])
         # First word of response is the turn type
-        first_word = result.content.strip().split()[0].lower().rstrip(".")  # type: ignore
+        first_word = (
+            result.content.strip().split()[0].lower().rstrip(".")  # type: ignore
+        )
         if first_word in _VALID_TYPES:
             logger.debug("classify: %r → %s (llm)", query[:60], first_word)
             return first_word  # type: ignore

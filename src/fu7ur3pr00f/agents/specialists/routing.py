@@ -170,7 +170,7 @@ class RoutingService:
         from langchain_core.messages import HumanMessage
 
         from fu7ur3pr00f.agents.specialists.routing_schema import RoutingDecision
-        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+        from fu7ur3pr00f.llm.model_selection import get_model
         from fu7ur3pr00f.prompts import load_prompt
 
         # Build context from conversation history
@@ -186,7 +186,7 @@ class RoutingService:
             context=context,
         )
 
-        model, _ = get_model_with_fallback(purpose="summary", temperature=0.0)
+        model, _ = get_model(purpose="summary", temperature=0.0)
         router = model.with_structured_output(RoutingDecision)
         result = router.invoke([HumanMessage(content=prompt)])  # type: ignore
 

@@ -107,7 +107,7 @@ You are a senior software architect conducting an exhaustive code quality audit 
    - `agents/specialists/routing.py` — can new specialists be added without modification?
    - `mcp/factory.py` — does adding a client require modifying existing code?
    - `tools/__init__.py` — is tool registration extensible?
-   - `llm/fallback.py` — can new providers be added easily?
+   - `llm/model_selection.py` — can new providers be added easily?
 
 3. **Inheritance vs. Composition**
    - Deep inheritance trees that are hard to extend
@@ -182,7 +182,7 @@ You are a senior software architect conducting an exhaustive code quality audit 
 
 2. **Specific Checks:**
    - Check all files for `ChromaDB()` direct calls vs. using abstraction
-   - Look for `ChatOpenAI()`, `ChatAnthropic()` etc. direct usage vs. `get_model_with_fallback()`
+   - Look for `ChatOpenAI()`, `ChatAnthropic()` etc. direct usage vs. `get_model()`
    - Check if tools instantiate MCP clients directly vs. using factory/injection
 
 3. **Inversion Failures**
@@ -218,7 +218,7 @@ You are a senior software architect conducting an exhaustive code quality audit 
 3. **Specific Checks:**
    - `agents/blackboard/` — is the blackboard pattern necessary complexity?
    - `agents/middleware/` — is two-pass synthesis over-engineering?
-   - `llm/fallback.py` — is the fallback chain appropriately simple?
+   - `llm/model_selection.py` — is the provider/model selection logic appropriately simple?
    - `utils/security.py` — are TOCTOU protections necessary or overkill?
 
 4. **Clever Code**

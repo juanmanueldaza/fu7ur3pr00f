@@ -111,7 +111,7 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         last_human_idx: int,
     ) -> ModelResponse:
         """Build a focused synthesis from tool results via a separate LLM call."""
-        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+        from fu7ur3pr00f.llm.model_selection import get_model
         from fu7ur3pr00f.prompts import load_prompt
         from fu7ur3pr00f.utils.security import (
             anonymize_career_data,
@@ -155,7 +155,7 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         )
 
         # Call synthesis model
-        model, config = get_model_with_fallback(purpose="synthesis")
+        model, config = get_model(purpose="synthesis")
         logger.info("Synthesis model: %s", config.description)
 
         # Google Gemini requires HumanMessage for synthesis

@@ -12,7 +12,7 @@ from collections.abc import Callable
 from langchain_core.messages import HumanMessage
 
 from fu7ur3pr00f.agents.tools._async import run_async_call
-from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+from fu7ur3pr00f.llm.model_selection import get_model
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def invoke_with_context(
         career_context=career_context,
     )
 
-    model, _ = get_model_with_fallback(purpose="analysis")
+    model, _ = get_model(purpose="analysis")
     result = model.invoke([HumanMessage(content=full_prompt)])
     return result.content  # type: ignore
 

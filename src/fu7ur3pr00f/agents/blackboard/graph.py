@@ -40,7 +40,7 @@ def _make_specialist_node(specialist: Any):
 
             stream_writer = get_stream_writer()
         except (ImportError, RuntimeError):
-            logger.warning(
+            logger.debug(
                 "Stream writer unavailable for %s",
                 specialist_name,
                 exc_info=True,
@@ -164,7 +164,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     """
     from langchain_core.messages import HumanMessage, SystemMessage
 
-    from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+    from fu7ur3pr00f.llm.model_selection import get_model
 
     findings = state.get("findings", {})
     query = state.get("query", "")
@@ -251,7 +251,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     )
 
     try:
-        model, _ = get_model_with_fallback(purpose="synthesis")
+        model, _ = get_model(purpose="synthesis")
         result = model.invoke(
             [
                 SystemMessage(content=load_prompt("blackboard_synthesis_system")),

@@ -112,9 +112,9 @@ class OrchestratorAgent:
     def get_model_name(self, specialist_name: str | None = None) -> str | None:
         """Return the model description used by specialists."""
         try:
-            from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+            from fu7ur3pr00f.llm.model_selection import get_model
 
-            _, config = get_model_with_fallback(purpose="agent")
+            _, config = get_model(purpose="agent")
             return config.description
         except Exception:
             logger.warning(

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from ..config import settings
-from ..llm.fallback import get_model_with_fallback
+from ..llm.model_selection import get_model
 from ..prompts import GENERATE_CV_PROMPT
 from ..utils.console import console
 from ..utils.data_loader import load_career_data_for_cv
@@ -281,9 +281,7 @@ def _generate_with_llm(
     Security: Anonymizes PII and sanitizes content before sending to LLM
     to prevent prompt injection attacks.
     """
-    model, _config = get_model_with_fallback(
-        temperature=settings.cv_temperature, purpose="analysis"
-    )
+    model, _config = get_model(temperature=settings.cv_temperature, purpose="analysis")
 
     # Anonymize PII before sending to external LLM
     # For CV generation, we preserve professional email domains for context

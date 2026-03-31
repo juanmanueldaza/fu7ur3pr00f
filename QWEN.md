@@ -52,7 +52,11 @@ return {"error": "..."}                   # Bad
 
 **LLM routing + keyword fallback**: Semantic routing with deterministic fallback, so offline/CI runs still classify obvious jobs, learning, code, and founder queries correctly.
 
+**Direct model selection**: Purpose-specific models are selected from provider settings in `llm/model_selection.py`; invocation errors surface directly instead of retrying across models.
+
 **Offline CV parsing fallback**: `gatherers/cv.py` tries LLM section extraction first, then local heading parsing, and only then falls back to a single `CV Content` section.
+
+**Knowledge privacy filtering**: Sensitive LinkedIn/social sections such as conversation threads and sponsored messages are excluded before ChromaDB indexing.
 
 **Cache safety**: Market gatherers write `0o600` cache files and fall back to `/tmp/fu7ur3pr00f_market_cache` if the user cache directory is not writable.
 
@@ -77,7 +81,7 @@ return {"error": "..."}                   # Bad
 | `src/fu7ur3pr00f/agents/blackboard/` | Blackboard pattern implementation |
 | `src/fu7ur3pr00f/agents/middleware/` | Dynamic prompts, synthesis, tool repair |
 | `src/fu7ur3pr00f/memory/` | ChromaDB RAG + episodic memory |
-| `src/fu7ur3pr00f/llm/fallback.py` | Multi-provider fallback routing |
+| `src/fu7ur3pr00f/llm/model_selection.py` | Multi-provider model selection |
 | `src/fu7ur3pr00f/agents/tools/` | **41 tools** organized by domain |
 | `src/fu7ur3pr00f/mcp/` | **12 MCP clients** for real-time data |
 | `tests/conftest.py` | Shared pytest fixtures |

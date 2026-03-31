@@ -76,7 +76,10 @@ class BlackboardExecutor:
             Final blackboard state with all findings
         """
         from fu7ur3pr00f.agents.blackboard.graph import build_blackboard_graph
-        from fu7ur3pr00f.memory.checkpointer import get_checkpointer
+        from fu7ur3pr00f.memory.checkpointer import (
+            clear_thread_history,
+            get_checkpointer,
+        )
 
         # Initialize blackboard
         initial = make_initial_blackboard(
@@ -86,7 +89,7 @@ class BlackboardExecutor:
             max_iterations=self.scheduler.max_iterations,
         )
 
-        logger.warning(
+        logger.info(
             "Starting blackboard execution: query=%r, "
             "specialists=%s, max_iterations=%d",
             query[:80],
@@ -100,7 +103,8 @@ class BlackboardExecutor:
         checkpointer = get_checkpointer()
         graph = build_blackboard_graph(self.specialists, self.scheduler, checkpointer)
 
-        config = {"configurable": {"thread_id": f"bb_{uuid.uuid4().hex[:12]}"}}
+        internal_thread_id = f"bb_{uuid.uuid4().hex[:12]}"
+        config = {"configurable": {"thread_id": internal_thread_id}}
 
         # Stream updates from the graph with custom events for real-time progress
         # NOTE: In LangGraph 1.x, interrupt() is suppressed at root level and
@@ -109,67 +113,69 @@ class BlackboardExecutor:
         final_state: CareerBlackboard = initial
         started_specialists: set[str] = set()
 
-        stream_input: Any = initial
-        while True:
-            pending_interrupt: Any = None
-            for chunk in graph.stream(
-                stream_input, config, stream_mode=["updates", "custom"]
-            ):
-                mode, data = chunk  # Unpack tuple (always a 2-tuple)
-                # Detect interrupt chunk — LangGraph yields it, never raises it
-                if (
-                    mode == "updates"
-                    and isinstance(data, dict)
-                    and "__interrupt__" in data
+        try:
+            stream_input: Any = initial
+            while True:
+                pending_interrupt: Any = None
+                for chunk in graph.stream(
+                    stream_input, config, stream_mode=["updates", "custom"]
                 ):
-                    pending_interrupt = data["__interrupt__"]
-                else:
-                    self._process_stream_event(
-                        mode,
-                        data,
-                        on_specialist_start,
-                        on_specialist_complete,
-                        on_tool_start,
-                        on_tool_result,
-                        started_specialists,
-                    )
+                    mode, data = chunk  # Unpack tuple (always a 2-tuple)
+                    # Detect interrupt chunk — LangGraph yields it, never raises it
+                    if (
+                        mode == "updates"
+                        and isinstance(data, dict)
+                        and "__interrupt__" in data
+                    ):
+                        pending_interrupt = data["__interrupt__"]
+                    else:
+                        self._process_stream_event(
+                            mode,
+                            data,
+                            on_specialist_start,
+                            on_specialist_complete,
+                            on_tool_start,
+                            on_tool_result,
+                            started_specialists,
+                        )
 
-            if pending_interrupt is None:
-                break  # Stream completed with no interrupt
+                if pending_interrupt is None:
+                    break  # Stream completed with no interrupt
 
-            if confirm_fn is None:
-                # No handler — raise so caller knows confirmation was required
-                raise _GraphInterrupt(pending_interrupt)
+                if confirm_fn is None:
+                    raise _GraphInterrupt(pending_interrupt)
 
-            # Extract the first Interrupt object's value
-            interrupts = (
-                pending_interrupt
-                if isinstance(pending_interrupt, (list, tuple))
-                else (pending_interrupt,)
-            )
-            first = interrupts[0] if interrupts else None
-            if first is None:
-                break
+                interrupts = (
+                    pending_interrupt
+                    if isinstance(pending_interrupt, (list, tuple))
+                    else (pending_interrupt,)
+                )
+                first = interrupts[0] if interrupts else None
+                if first is None:
+                    break
 
-            val = first.value if hasattr(first, "value") else first
-            question = (
-                val.get("question", "Confirm?") if isinstance(val, dict) else str(val)
-            )
-            details = val.get("details", "") if isinstance(val, dict) else ""
-            approved = confirm_fn(question, details)
-            from langgraph.types import Command
+                val = first.value if hasattr(first, "value") else first
+                question = (
+                    val.get("question", "Confirm?")
+                    if isinstance(val, dict)
+                    else str(val)
+                )
+                details = val.get("details", "") if isinstance(val, dict) else ""
+                approved = confirm_fn(question, details)
+                from langgraph.types import Command
 
-            stream_input = Command(resume=approved)
+                stream_input = Command(resume=approved)
 
-        # Get final state from graph (checkpointer is authoritative)
-        snap = graph.get_state(config)
-        if snap:
-            final_state = dict(snap.values)  # type: ignore
+            snap = graph.get_state(config)
+            if snap:
+                final_state = dict(snap.values)  # type: ignore
+        finally:
+            clear_thread_history(internal_thread_id)
 
         execution_time = time.time() - execution_start
 
         findings = final_state.get("findings", {})
-        logger.warning(
+        logger.info(
             "Blackboard execution complete: "
             "%d specialists, %d iterations, %.2fs — "
             "findings_keys=%s, errors=%s",
@@ -180,7 +186,7 @@ class BlackboardExecutor:
             final_state.get("errors", []),
         )
         for spec_name, finding in findings.items():
-            logger.warning(
+            logger.debug(
                 "  [%s] confidence=%.2f, " "reasoning=%r",
                 spec_name,
                 finding.get("confidence", 0),

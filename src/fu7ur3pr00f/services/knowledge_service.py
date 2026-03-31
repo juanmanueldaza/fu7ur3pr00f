@@ -82,8 +82,13 @@ class KnowledgeService:
         """
         t0 = time.monotonic()
 
-        # Filter out excluded sections to prevent PII indexing
-        sections_to_index = [s for s in sections if s.name not in _EXCLUDED_SECTIONS]
+        # Filter out excluded sections and prefixes to prevent PII indexing
+        sections_to_index = [
+            s
+            for s in sections
+            if s.name not in _EXCLUDED_SECTIONS
+            and not s.name.startswith(_EXCLUDED_PREFIXES)
+        ]
 
         # Get existing chunk IDs BEFORE indexing new content
         old_ids = self.store.get_ids_by_filter({"source": source.value})

@@ -53,7 +53,7 @@ def build_conversation_graph(  # noqa: C901
         active_goals = state.get("active_goals", [])
 
         turn_type = classify(query, turns, active_goals)
-        logger.warning(
+        logger.info(
             "Turn %d: query=%r → classified as %r",
             len(turns) + 1,
             query[:80],
@@ -82,7 +82,7 @@ def build_conversation_graph(  # noqa: C901
             # new_query, steer, workflow_step → standard routing
             routed = orchestrator.route(query, conversation_history, turn_type)
 
-        logger.warning(
+        logger.info(
             "Routed: query=%r, turn_type=%s → %s",
             query[:60],
             turn_type,
@@ -110,7 +110,7 @@ def build_conversation_graph(  # noqa: C901
         orchestrator = get_orchestrator()
         executor = orchestrator.get_executor(routed)
 
-        logger.warning(
+        logger.info(
             "execute_inner: query=%r, routed=%s, " "turn_type=%s, constraints=%d",
             query[:80],
             routed,
@@ -129,7 +129,7 @@ def build_conversation_graph(  # noqa: C901
                 on_tool_result=on_tool_result,
                 confirm_fn=confirm_fn,
             )
-            logger.warning(
+            logger.info(
                 "Inner blackboard completed: " "findings=%s",
                 list(blackboard.get("findings", {}).keys()),
             )
@@ -225,14 +225,16 @@ def build_conversation_graph(  # noqa: C901
         try:
             from langchain_core.messages import HumanMessage
 
-            from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+            from fu7ur3pr00f.llm.model_selection import get_model
             from fu7ur3pr00f.memory.profile import load_profile
             from fu7ur3pr00f.prompts import load_prompt
 
             prompt_template = load_prompt("suggest_next")
             findings_text = _format_findings_for_prompt(findings)
             profile = load_profile()
-            profile_status = "empty" if not profile.name else f"has data ({profile.name})"
+            profile_status = (
+                "empty" if not profile.name else f"has data ({profile.name})"
+            )
             prompt = prompt_template.format(
                 query=blackboard.get("query", ""),
                 findings_text=findings_text,
@@ -241,7 +243,7 @@ def build_conversation_graph(  # noqa: C901
                 open_questions=", ".join(open_questions[:2]) or "none",
                 profile_status=profile_status,
             )
-            model, _ = get_model_with_fallback(purpose="analysis")
+            model, _ = get_model(purpose="analysis")
             response = model.invoke([HumanMessage(content=prompt)])
             raw = response.content if hasattr(response, "content") else str(response)
             suggestions = _parse_suggestions(str(raw))

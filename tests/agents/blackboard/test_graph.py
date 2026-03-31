@@ -210,7 +210,7 @@ class TestSynthesizeNode:
         mock_response.content = "Integrated career advice narrative."
         mock_model.invoke.return_value = mock_response
 
-        with patch("fu7ur3pr00f.llm.fallback.get_model_with_fallback") as mock_fallback:
+        with patch("fu7ur3pr00f.llm.model_selection.get_model") as mock_fallback:
             mock_fallback.return_value = (mock_model, MagicMock())
             result = _synthesize_node(state)
 

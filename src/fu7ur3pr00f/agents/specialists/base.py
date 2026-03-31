@@ -24,7 +24,7 @@ from fu7ur3pr00f.constants import (
     MAX_TOOL_ROUNDS,
     MAX_TOTAL_TOOL_CALLS,
 )
-from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+from fu7ur3pr00f.llm.model_selection import get_model
 from fu7ur3pr00f.prompts import load_prompt
 from fu7ur3pr00f.utils.security import sanitize_for_prompt
 
@@ -126,7 +126,7 @@ class BaseAgent(ABC):
         )
         human_content = self._build_context(blackboard)
 
-        logger.warning(
+        logger.debug(
             "[%s] system_prompt length=%d, query=%r",
             self.name,
             len(system_content),
@@ -145,7 +145,7 @@ class BaseAgent(ABC):
         executor = ToolExecutor(self.name, tool_map)
 
         try:
-            model, _ = get_model_with_fallback(purpose="agent")
+            model, _ = get_model(purpose="agent")
             model_with_tools = model.bind_tools(self.tools)
         except Exception as e:
             logger.error("%s: failed to bind tools: %s", self.name, e)
@@ -171,7 +171,7 @@ class BaseAgent(ABC):
                 break
 
             if tool_call_count + len(response.tool_calls) > MAX_TOTAL_TOOL_CALLS:
-                logger.warning(
+                logger.info(
                     "%s: tool call cap reached (%d/%d)",
                     self.name,
                     tool_call_count,
@@ -221,13 +221,13 @@ class BaseAgent(ABC):
                     f"\n[AUTO-SEARCH: User identity found in knowledge base]\n"
                     f"{identity_result[:2000]}\n[/AUTO-SEARCH]"
                 )
-                logger.warning(
+                logger.info(
                     "[%s] Auto-searched KB for identity, found %d chars",
                     self.name,
                     len(identity_result),
                 )
         except Exception as e:
-            logger.warning("[%s] Auto-search failed: %s", self.name, e)
+            logger.info("[%s] Auto-search failed: %s", self.name, e)
 
     def _build_context(self, blackboard: CareerBlackboard) -> str:
         """Build the human message context from blackboard state."""
@@ -330,11 +330,11 @@ class BaseAgent(ABC):
         from fu7ur3pr00f.agents.blackboard.findings_schema import (
             SpecialistFindingsModel,
         )
-        from fu7ur3pr00f.llm.fallback import get_model_with_fallback
+        from fu7ur3pr00f.llm.model_selection import get_model
 
         messages = agent_result.get("messages", [])
         if not messages:
-            logger.warning(
+            logger.info(
                 "%s._extract_findings: no messages in agent_result",
                 self.name,
             )
@@ -364,7 +364,7 @@ class BaseAgent(ABC):
             )
 
         try:
-            model, _ = get_model_with_fallback(purpose="analysis")
+            model, _ = get_model(purpose="analysis")
             extractor = model.with_structured_output(SpecialistFindingsModel)
 
             extraction_prompt = (
@@ -386,7 +386,7 @@ class BaseAgent(ABC):
             return result.model_dump(exclude_none=True)  # type: ignore
 
         except Exception as e:
-            logger.warning(
+            logger.info(
                 "%s._extract_findings structured extraction "
                 "failed: %s — agent_text=%r",
                 self.name,

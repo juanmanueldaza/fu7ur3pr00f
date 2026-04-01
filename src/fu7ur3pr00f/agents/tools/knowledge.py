@@ -3,11 +3,12 @@
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
+from fu7ur3pr00f.memory.knowledge import KnowledgeSource
+from fu7ur3pr00f.utils.services import get_knowledge_service as _get
+
 
 def _get_knowledge_service():
     """Get a KnowledgeService instance."""
-    from fu7ur3pr00f.utils.services import get_knowledge_service as _get
-
     return _get()
 
 
@@ -16,8 +17,6 @@ def _parse_source(source: str):
 
     Returns KnowledgeSource on success, or an error string on invalid source.
     """
-    from fu7ur3pr00f.memory.knowledge import KnowledgeSource
-
     try:
         return KnowledgeSource(source)
     except ValueError:

@@ -1,0 +1,6 @@
+"""Tool execution limits and guardrails."""
+
+TOOL_RESULT_MAX_CHARS = 3000
+TOOL_RESULT_PREVIEW_CHARS = 500
+MAX_TOOL_ROUNDS = 10
+MAX_TOTAL_TOOL_CALLS = 25

@@ -2,11 +2,16 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.llm.model_selection import (
     ModelConfig,
     ModelSelectionManager,
     _build_provider_kwargs,
     build_default_chain,
+    get_model,
+    get_model_selection_manager,
+    reset_model_selection_manager,
 )
 
 
@@ -124,3 +129,124 @@ class TestModelSelectionManager:
         assert status["total_models"] == 2
         assert len(status["available_models"]) == 2
         assert status["current_model"] is None
+
+
+class TestModelConfigDataclass:
+    """Test ModelConfig dataclass defaults."""
+
+    def test_reasoning_defaults_false(self) -> None:
+        config = ModelConfig("openai", "gpt-4", "GPT-4")
+        assert config.reasoning is False
+
+    def test_reasoning_can_be_set(self) -> None:
+        config = ModelConfig("openai", "o4-mini", "O4 Mini", reasoning=True)
+        assert config.reasoning is True
+
+
+class TestCreateModel:
+    """Test _create_model method."""
+
+    def test_rejects_unknown_provider(self) -> None:
+        chain = [ModelConfig("unknown", "model", "Unknown")]
+        manager = ModelSelectionManager(model_chain=chain)
+        with pytest.raises(ValueError, match="Unknown provider"):
+            manager._create_model(chain[0])
+
+    def test_skips_temperature_for_reasoning_models(self) -> None:
+        mock_init = MagicMock()
+        chain = [ModelConfig("openai", "o4-mini", "O4 Mini", reasoning=True)]
+
+        with patch(
+            "fu7ur3pr00f.llm.model_selection.init_chat_model",
+            mock_init,
+        ):
+            manager = ModelSelectionManager(model_chain=chain)
+            manager._create_model(chain[0])
+
+        call_kwargs = mock_init.call_args.kwargs
+        assert "temperature" not in call_kwargs
+        assert "max_tokens" not in call_kwargs
+
+    def test_skips_temperature_for_o_prefix_models(self) -> None:
+        mock_init = MagicMock()
+        chain = [ModelConfig("openai", "o3-mini", "O3 Mini")]
+
+        with patch(
+            "fu7ur3pr00f.llm.model_selection.init_chat_model",
+            mock_init,
+        ):
+            manager = ModelSelectionManager(model_chain=chain)
+            manager._create_model(chain[0])
+
+        call_kwargs = mock_init.call_args.kwargs
+        assert "temperature" not in call_kwargs
+
+    def test_includes_temperature_for_non_reasoning_models(self) -> None:
+        mock_init = MagicMock()
+        chain = [ModelConfig("openai", "gpt-4", "GPT-4")]
+
+        with patch(
+            "fu7ur3pr00f.llm.model_selection.init_chat_model",
+            mock_init,
+        ):
+            manager = ModelSelectionManager(model_chain=chain)
+            manager._create_model(chain[0], temperature=0.5)
+
+        call_kwargs = mock_init.call_args.kwargs
+        assert call_kwargs["temperature"] == 0.5
+        assert call_kwargs["max_tokens"] == 4096
+
+
+class TestGlobalManager:
+    """Test global singleton functions."""
+
+    def test_get_manager_returns_instance(self) -> None:
+        reset_model_selection_manager()
+        manager = get_model_selection_manager()
+        assert isinstance(manager, ModelSelectionManager)
+
+    def test_get_manager_returns_same_instance(self) -> None:
+        reset_model_selection_manager()
+        m1 = get_model_selection_manager()
+        m2 = get_model_selection_manager()
+        assert m1 is m2
+
+    def test_reset_clears_instance(self) -> None:
+        reset_model_selection_manager()
+        m1 = get_model_selection_manager()
+        reset_model_selection_manager()
+        m2 = get_model_selection_manager()
+        assert m1 is not m2
+
+
+class TestGetModel:
+    """Test get_model convenience function."""
+
+    def test_without_purpose(self) -> None:
+        mock_model = MagicMock()
+        mock_config = ModelConfig("openai", "gpt-4", "GPT-4")
+
+        with patch(
+            "fu7ur3pr00f.llm.model_selection.get_model_selection_manager"
+        ) as mock_mgr:
+            mock_mgr.return_value.get_model.return_value = (
+                mock_model,
+                mock_config,
+            )
+            model, config = get_model()
+
+        assert model is mock_model
+        assert config is mock_config
+
+    def test_with_purpose(self) -> None:
+        mock_model = MagicMock()
+        mock_config = ModelConfig("openai", "gpt-4", "GPT-4")
+
+        with patch(
+            "fu7ur3pr00f.llm.model_selection.get_model_for_purpose"
+        ) as mock_purpose:
+            mock_purpose.return_value = (mock_model, mock_config)
+            model, config = get_model(purpose="agent")
+
+        assert model is mock_model
+        mock_purpose.assert_called_once_with("agent", None)

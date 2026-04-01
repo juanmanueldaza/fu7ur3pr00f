@@ -53,9 +53,12 @@ class TestBuildDynamicPrompt:
         mock_service.get_stats.return_value = mock_stats
 
         with (
-            patch("fu7ur3pr00f.utils.services.get_profile", return_value=mock_profile),
             patch(
-                "fu7ur3pr00f.utils.services.get_knowledge_service",
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_profile",
+                return_value=mock_profile,
+            ),
+            patch(
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_knowledge_service",
                 return_value=mock_service,
             ),
         ):
@@ -135,11 +138,11 @@ class TestBuildDynamicPrompt:
 
         with (
             patch(
-                "fu7ur3pr00f.utils.services.get_profile",
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_profile",
                 return_value=profile,
             ),
             patch(
-                "fu7ur3pr00f.utils.services.get_knowledge_service",
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_knowledge_service",
                 return_value=mock_service,
             ),
         ):
@@ -178,11 +181,11 @@ class TestBuildDynamicPrompt:
 
         with (
             patch(
-                "fu7ur3pr00f.utils.services.get_profile",
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_profile",
                 return_value=profile,
             ),
             patch(
-                "fu7ur3pr00f.utils.services.get_knowledge_service",
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_knowledge_service",
                 return_value=mock_service,
             ),
         ):
@@ -266,7 +269,7 @@ class TestAnalysisSynthesisMiddleware:
             ),
             ToolMessage(
                 content=(
-                    "### Professional Identity\n" "- Senior Engineer at Accenture\n..."
+                    "### Professional Identity\n- Senior Engineer at Accenture\n..."
                 ),
                 tool_call_id="call_1",
                 name="analyze_career_alignment",
@@ -543,7 +546,7 @@ class TestAnalysisSynthesisMiddleware:
 
         with (
             patch(
-                "fu7ur3pr00f.llm.model_selection.get_model",
+                "fu7ur3pr00f.agents.middleware.analysis_synthesis.get_model",
                 return_value=(mock_model, MagicMock(description="test-model")),
             ),
             patch(
@@ -590,7 +593,7 @@ class TestAnalysisSynthesisMiddleware:
 
         with (
             patch(
-                "fu7ur3pr00f.llm.model_selection.get_model",
+                "fu7ur3pr00f.agents.middleware.analysis_synthesis.get_model",
                 return_value=(mock_model, MagicMock(description="test-model")),
             ),
             patch(

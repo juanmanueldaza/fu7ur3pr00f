@@ -5,6 +5,7 @@ from typing import Literal
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
+from fu7ur3pr00f.generators import create_cv
 from fu7ur3pr00f.utils.services import get_profile
 
 
@@ -36,8 +37,6 @@ def generate_cv(
     )
     if not approved:
         return "CV generation cancelled."
-
-    from fu7ur3pr00f.generators import create_cv
 
     output_path = create_cv(language=language, format=format, target_role=target_role)
 

@@ -5,6 +5,11 @@ import re
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import run_market_analysis
+from fu7ur3pr00f.gatherers.market import (
+    ContentTrendsGatherer,
+    JobMarketGatherer,
+    TechTrendsGatherer,
+)
 from fu7ur3pr00f.prompts import load_prompt
 
 from ._async import run_async_call
@@ -81,8 +86,6 @@ def search_jobs(
     Use this when the user asks about job opportunities or wants to see what's
         available.
     """
-    from fu7ur3pr00f.gatherers.market import JobMarketGatherer
-
     gatherer = JobMarketGatherer()
     data = run_async_call(gatherer.gather, role=query, location=location, limit=limit)
 
@@ -143,8 +146,6 @@ def get_tech_trends(topic: str = "") -> str:
     Use this to understand what technologies are trending and what companies are hiring
         for.
     """
-    from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
-
     gatherer = TechTrendsGatherer()
     data = run_async_call(gatherer.gather, topic=topic)
 
@@ -191,8 +192,6 @@ def get_salary_insights(role: str, location: str = "remote") -> str:
 
     Use this when the user asks about salary expectations or compensation.
     """
-    from fu7ur3pr00f.gatherers.market import JobMarketGatherer
-
     gatherer = JobMarketGatherer()
     data = run_async_call(
         gatherer.gather,
@@ -297,8 +296,6 @@ def gather_market_data(source: str = "all") -> str:
     result_parts = [f"Market intelligence gathering (source={source}):"]
 
     if source in ("all", "trends"):
-        from fu7ur3pr00f.gatherers.market import TechTrendsGatherer
-
         gatherer = TechTrendsGatherer()
         data = run_async_call(gatherer.gather_with_cache, refresh=True)
         stories = data.get("trending_stories", [])
@@ -312,8 +309,6 @@ def gather_market_data(source: str = "all") -> str:
             result_parts.append(f"  HN job postings: {len(hn_jobs)} extracted")
 
     if source in ("all", "jobs"):
-        from fu7ur3pr00f.gatherers.market import JobMarketGatherer
-
         gatherer = JobMarketGatherer()
         data = run_async_call(
             gatherer.gather_with_cache,
@@ -330,8 +325,6 @@ def gather_market_data(source: str = "all") -> str:
         result_parts.append(f"  Remote positions: {remote}")
 
     if source in ("all", "content"):
-        from fu7ur3pr00f.gatherers.market import ContentTrendsGatherer
-
         gatherer = ContentTrendsGatherer()
         data = run_async_call(gatherer.gather_with_cache, refresh=True, focus="all")
         articles = data.get("devto_articles", [])

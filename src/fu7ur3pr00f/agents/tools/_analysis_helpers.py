@@ -12,7 +12,9 @@ from collections.abc import Callable
 from langchain_core.messages import HumanMessage
 
 from fu7ur3pr00f.agents.tools._async import run_async_call
+from fu7ur3pr00f.gatherers.market.tech_trends_gatherer import TechTrendsGatherer
 from fu7ur3pr00f.llm.model_selection import get_model
+from fu7ur3pr00f.utils.services import get_knowledge_service, get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +57,6 @@ def invoke_with_context(
     Raises:
         Exception: Propagates any LLM or service errors for caller to handle
     """
-    from fu7ur3pr00f.utils.services import get_knowledge_service, get_profile
-
     profile = get_profile()
     knowledge_service = get_knowledge_service()
 
@@ -105,8 +105,6 @@ def fetch_tech_list() -> str:
     Returns:
         Comma-separated string of top 8 technologies
     """
-    from fu7ur3pr00f.gatherers.market.tech_trends_gatherer import TechTrendsGatherer
-
     gatherer = TechTrendsGatherer()
     market_data = run_async_call(gatherer.gather_with_cache)
     trends = market_data.get("hiring_trends", {})

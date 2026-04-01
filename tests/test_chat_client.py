@@ -21,12 +21,12 @@ class TestGatherCommand:
                 return_value=mock_service,
             ),
             patch(
-                "fu7ur3pr00f.agents.tools.gathering._auto_populate_profile",
+                "fu7ur3pr00f.chat.client._auto_populate_profile",
                 return_value="Auto-populated profile: name=Juan",
             ) as auto_populate,
-            patch("fu7ur3pr00f.utils.services.reload_profile") as reload_profile,
+            patch("fu7ur3pr00f.chat.client.reload_profile") as reload_profile,
             patch(
-                "fu7ur3pr00f.agents.middleware.invalidate_prompt_cache"
+                "fu7ur3pr00f.chat.client.invalidate_prompt_cache"
             ) as invalidate_prompt_cache,
         ):
             result = _cmd_gather({}, "")

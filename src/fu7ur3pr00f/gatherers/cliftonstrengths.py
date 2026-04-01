@@ -25,7 +25,9 @@ from fu7ur3pr00f.constants import (
     CLIFTON_TOP_10_MAX_RANK,
 )
 
+from ..config import settings
 from ..memory.chunker import Section
+from ..utils.security import validate_file_size
 from .cliftonstrengths_parsers import (
     ActionPlanningParser,
     DiscoveryDevelopmentParser,
@@ -149,7 +151,6 @@ class CliftonStrengthsGatherer:
         Returns:
             List of Section(name, content) tuples
         """
-        from ..config import settings
 
         input_dir = input_dir or (settings.data_dir / "raw")
 
@@ -189,7 +190,6 @@ class CliftonStrengthsGatherer:
 
         Security: Validates file size and PDF magic number before processing.
         """
-        from ..utils.security import validate_file_size
 
         # Check file size
         try:
@@ -509,8 +509,10 @@ class CliftonStrengthsGatherer:
         text = re.sub(r"\d+\s*$", "", text)
         return text.strip()
 
-    def _build_sections(  # noqa: C901 - Builds 10+ labeled sections from assessment data
-        self, data: CliftonStrengthsData
+    def _build_sections(  # noqa: C901
+        # Builds 10+ labeled sections from assessment data
+        self,
+        data: CliftonStrengthsData,
     ) -> list[Section]:
         """Build labeled sections from parsed CliftonStrengths data."""
         sections: list[Section] = []
@@ -583,8 +585,8 @@ class CliftonStrengthsGatherer:
             for insight in all_strengths:
                 if insight.unique_insights:
                     lines.append(
-                        f"### {insight.rank}. {insight.name}"
-                        " -- What Makes You Stand Out"
+                        f"### {insight.rank}. {insight.name} "
+                        "-- What Makes You Stand Out"
                     )
                     for paragraph in insight.unique_insights:
                         lines.append(paragraph)

@@ -18,6 +18,20 @@ from ..utils.security import (
     validate_file_size,
 )
 
+try:
+    import markdown
+    import nh3
+    from weasyprint import HTML
+    from weasyprint.urls import default_url_fetcher
+
+    _PDF_SUPPORT = True
+except ImportError:
+    markdown = None  # type: ignore[assignment]
+    nh3 = None  # type: ignore[assignment]
+    HTML = None  # type: ignore[assignment]
+    default_url_fetcher = None  # type: ignore[assignment]
+    _PDF_SUPPORT = False
+
 logger = logging.getLogger(__name__)
 
 # Security limits
@@ -87,11 +101,18 @@ def _render_pdf(markdown_path: Path) -> Path:
     # Security: Validate file size (also checks existence)
     validate_file_size(markdown_path, _MAX_MD_SIZE, "Markdown file")
 
-    try:
-        import markdown
-        import nh3
-        from weasyprint import HTML
+    if not _PDF_SUPPORT:
+        console.print(
+            "  [yellow]PDF generation skipped: dependencies not installed[/yellow]"
+        )
+        return markdown_path
 
+    assert markdown is not None
+    assert nh3 is not None
+    assert HTML is not None
+    assert default_url_fetcher is not None
+
+    try:
         md_content = markdown_path.read_text()
 
         html_content = markdown.markdown(
@@ -250,9 +271,9 @@ def _render_pdf(markdown_path: Path) -> Path:
 
         def _deny_url_fetcher(url, timeout=10, ssl_context=None):
             """Block all external resource fetches from LLM-generated HTML."""
-            from weasyprint.urls import default_url_fetcher
 
             if url.startswith("data:"):
+                assert default_url_fetcher is not None
                 return default_url_fetcher(url, timeout, ssl_context)
             raise ValueError(f"External resource fetch blocked: {url}")
 

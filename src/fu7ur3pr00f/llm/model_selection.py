@@ -10,6 +10,7 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
+from langchain.chat_models import init_chat_model
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from fu7ur3pr00f.config import settings
@@ -125,7 +126,6 @@ class ModelSelectionManager:
         self, config: ModelConfig, temperature: float | None = None
     ) -> BaseChatModel:
         """Create a LangChain chat model from config using init_chat_model."""
-        from langchain.chat_models import init_chat_model
 
         model_provider = _PROVIDER_MAP.get(config.provider)
         if not model_provider:

@@ -18,7 +18,9 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
+from fu7ur3pr00f.agents.blackboard.findings_schema import SpecialistFindingsModel
 from fu7ur3pr00f.agents.specialists._tool_executor import ToolExecutor
+from fu7ur3pr00f.agents.tools.knowledge import search_career_knowledge
 from fu7ur3pr00f.constants import (
     CAREER_CONTEXT_MAX_CHARS,
     MAX_TOOL_ROUNDS,
@@ -149,7 +151,10 @@ class BaseAgent(ABC):
             model_with_tools = model.bind_tools(self.tools)
         except Exception as e:
             logger.error("%s: failed to bind tools: %s", self.name, e)
-            return {"reasoning": f"Setup error: {e}", "confidence": 0.0}
+            return SpecialistFinding(
+                reasoning=f"Setup error: {e}",
+                confidence=0.0,
+            )
 
         tool_call_count = 0
         for round_num in range(MAX_TOOL_ROUNDS):
@@ -209,8 +214,6 @@ class BaseAgent(ABC):
 
         # Auto-search knowledge base for user identity
         try:
-            from fu7ur3pr00f.agents.tools.knowledge import search_career_knowledge
-
             # Search for identity info - StructuredTool must be invoked with args
             identity_result = search_career_knowledge.invoke(
                 {"query": "my name who am I profile"},
@@ -277,8 +280,6 @@ class BaseAgent(ABC):
         full_prompt += f"\n\nUser Profile:\n{profile_context}"
 
         # Append specialist guidance — fill placeholders with actual values
-        from fu7ur3pr00f.prompts import load_prompt
-
         guidance = (
             load_prompt("specialist_guidance")
             .replace("{specialist_name}", self.name)
@@ -327,11 +328,6 @@ class BaseAgent(ABC):
         """
         from langchain_core.messages import AIMessage, HumanMessage
 
-        from fu7ur3pr00f.agents.blackboard.findings_schema import (
-            SpecialistFindingsModel,
-        )
-        from fu7ur3pr00f.llm.model_selection import get_model
-
         messages = agent_result.get("messages", [])
         if not messages:
             logger.info(
@@ -356,8 +352,10 @@ class BaseAgent(ABC):
                 :CAREER_CONTEXT_MAX_CHARS
             ]
             logger.warning(
-                "%s._extract_findings: no AI text found, "
-                "fell back to last msg type=%s, text=%r",
+                (
+                    "%s._extract_findings: no AI text found, "
+                    "fell back to last msg type=%s, text=%r"
+                ),
                 self.name,
                 type(last_msg).__name__,
                 agent_text[:200],
@@ -387,8 +385,7 @@ class BaseAgent(ABC):
 
         except Exception as e:
             logger.info(
-                "%s._extract_findings structured extraction "
-                "failed: %s — agent_text=%r",
+                "%s._extract_findings structured extraction failed: %s — agent_text=%r",
                 self.name,
                 e,
                 agent_text[:500],

@@ -11,8 +11,11 @@ import shutil
 import subprocess  # nosec B404 — required for pdftotext CLI
 from pathlib import Path
 
+from langchain_core.messages import HumanMessage
+
+from fu7ur3pr00f.llm.model_selection import get_model
+
 from ..memory.chunker import Section
-from ..services.exceptions import NoDataError, ServiceError
 from ..utils.security import (
     anonymize_career_data,
     sanitize_for_prompt,
@@ -61,6 +64,8 @@ class CVGatherer:
             NoDataError: if the file is empty or yields no extractable text.
             ValueError: if the file exceeds maximum size limit.
         """
+        from ..services.exceptions import NoDataError
+
         path = Path(file_path)
 
         # Security: Validate file size (also checks existence)
@@ -105,6 +110,8 @@ class CVGatherer:
 
     def _extract_text_pdf_uncached(self, path: Path) -> str:
         """Run pdftotext -layout and return stdout (uncached)."""
+        from ..services.exceptions import ServiceError
+
         pdftotext_path = shutil.which("pdftotext")
         if not pdftotext_path:
             raise ServiceError(
@@ -142,6 +149,8 @@ class CVGatherer:
         Raises:
             NoDataError: if the file is empty after stripping whitespace.
         """
+        from ..services.exceptions import NoDataError
+
         content = path.read_text(encoding="utf-8")
         if not content.strip():
             raise NoDataError(f"File {path.name!r} is empty — no content to import.")
@@ -157,9 +166,6 @@ class CVGatherer:
         Security: Anonymizes PII and sanitizes content before sending to LLM
         to prevent prompt injection attacks.
         """
-        from langchain_core.messages import HumanMessage
-
-        from fu7ur3pr00f.llm.model_selection import get_model
 
         # Security: Anonymize PII before sending to external LLM
         anonymized_text = anonymize_career_data(

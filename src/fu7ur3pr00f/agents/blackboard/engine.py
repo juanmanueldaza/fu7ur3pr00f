@@ -10,7 +10,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from fu7ur3pr00f.agents.blackboard.blackboard import SpecialistFinding
+from fu7ur3pr00f.agents.blackboard.session import make_initial_session
 from fu7ur3pr00f.memory.checkpointer import get_checkpointer
+from fu7ur3pr00f.memory.profile import load_profile
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,6 @@ class ConversationEngine:
 
     def __init__(self) -> None:
         """Initialize the engine with checkpointer-backed graph."""
-        # Import here to avoid circular dependency at module load
         from fu7ur3pr00f.agents.blackboard.conversation_graph import (
             build_conversation_graph,
         )
@@ -64,7 +66,9 @@ class ConversationEngine:
         thread_id: str = "main",
         user_profile: dict[str, Any] | None = None,
         on_specialist_start: Callable[[str], None] | None = None,
-        on_specialist_complete: Callable[[str, dict], None] | None = None,
+        on_specialist_complete: (
+            Callable[[str, SpecialistFinding], None] | None
+        ) = None,
         on_tool_start: Callable[[str, str, dict], None] | None = None,
         on_tool_result: Callable[[str, str, str], None] | None = None,
         confirm_fn: Callable[[str, str], bool] | None = None,
@@ -85,11 +89,10 @@ class ConversationEngine:
             TurnResult with synthesis, specialists, elapsed time, suggestions
         """
         if user_profile is None:
-            from fu7ur3pr00f.memory.profile import load_profile
-
             profile = load_profile()
             user_profile = {
                 "name": profile.name,
+                "location": profile.location,
                 "current_role": profile.current_role,
                 "years_experience": profile.years_experience,
                 "technical_skills": profile.technical_skills or [],
@@ -113,8 +116,6 @@ class ConversationEngine:
         start = time.monotonic()
 
         # Load existing session or start fresh
-        from fu7ur3pr00f.agents.blackboard.session import make_initial_session
-
         snap = graph.get_state(config)  # type: ignore[arg-type]
         if snap and snap.values:
             session_state = dict(snap.values)  # type: ignore

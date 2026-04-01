@@ -9,6 +9,7 @@ import logging
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.config import reload_settings, settings, write_user_setting
+from fu7ur3pr00f.container import Container
 
 logger = logging.getLogger(__name__)
 
@@ -252,11 +253,9 @@ def update_setting(key: str, value: str) -> str:
     result = f"Updated {key} = {value}"
 
     if key in _RESTART_KEYS:
-        from fu7ur3pr00f.agents.specialists.orchestrator import reset_orchestrator
-        from fu7ur3pr00f.llm.model_selection import reset_model_selection_manager
-
-        reset_model_selection_manager()
-        reset_orchestrator()
+        container = Container.get()
+        container.reset_model_selection_manager()
+        container.reset_orchestrator()
         result += ". New model will be used on the next message."
 
     logger.info("Setting updated via agent tool: %s=%s", key, value)

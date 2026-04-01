@@ -15,7 +15,6 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.theme import Theme
 
-from fu7ur3pr00f.agents.tools import get_tool_categories
 from fu7ur3pr00f.constants import (
     COLOR_ACCENT,
     COLOR_ERROR,
@@ -24,6 +23,14 @@ from fu7ur3pr00f.constants import (
     COLOR_WARNING,
 )
 from fu7ur3pr00f.memory.profile import UserProfile
+
+
+def _get_tool_to_category() -> dict[str, str]:
+    """Lazy loader for tool categories mapping to break circular import."""
+    from fu7ur3pr00f.agents.tools import get_tool_categories
+
+    return get_tool_categories()
+
 
 # ── Nautical theme (inspired by daza.ar) ─────────────────────────────────
 
@@ -57,11 +64,16 @@ _TOOL_CATEGORIES: dict[str, tuple[str, str]] = {
     "settings": ("\u2699", "#94a3b8"),  # ⚙  slate
 }
 
-_TOOL_TO_CATEGORY: dict[str, str] = get_tool_categories()
+_TOOL_TO_CATEGORY: dict[str, str] | None = None
 
 
 def _tool_style(tool_name: str) -> tuple[str, str]:
     """Get icon and color for a tool name."""
+    global _TOOL_TO_CATEGORY
+    if _TOOL_TO_CATEGORY is None:
+        from fu7ur3pr00f.agents.tools import get_tool_categories
+
+        _TOOL_TO_CATEGORY = get_tool_categories()
     cat = _TOOL_TO_CATEGORY.get(tool_name, "")
     return _TOOL_CATEGORIES.get(cat, ("\u2022", "dim"))  # default: bullet, dim
 
@@ -86,7 +98,7 @@ def display_model_info(model_name: str) -> None:
 def display_tool_start(tool_name: str, args: dict) -> None:
     """Display a styled tool invocation with full arguments."""
     _icon, color = _tool_style(tool_name)
-    cat = _TOOL_TO_CATEGORY.get(tool_name, "tool")
+    cat = (_TOOL_TO_CATEGORY or {}).get(tool_name, "tool")
 
     # Header line: badge + tool name
     header = Text.assemble(
@@ -424,7 +436,10 @@ def display_blackboard_result(
             console.print(
                 Panel(
                     Markdown(narrative),
-                    title=f"[bold {COLOR_WARNING}]INTEGRATED ANALYSIS[/bold {COLOR_WARNING}]",
+                    title=(
+                        f"[bold {COLOR_WARNING}]"
+                        f"INTEGRATED ANALYSIS[/bold {COLOR_WARNING}]"
+                    ),
                     subtitle=(f"[italic]{contributors} · {elapsed:.1f}s[/italic]"),
                     subtitle_align="right",
                     border_style=f"{COLOR_WARNING}",
@@ -463,7 +478,10 @@ def display_blackboard_result(
     console.print(
         Panel(
             Markdown(body),
-            title=f"[bold {COLOR_WARNING}]INTEGRATED CAREER ANALYSIS[/bold {COLOR_WARNING}]",
+            title=(
+                f"[bold {COLOR_WARNING}]"
+                f"INTEGRATED CAREER ANALYSIS[/bold {COLOR_WARNING}]"
+            ),
             subtitle=subtitle_text,
             subtitle_align="right",
             border_style=f"{COLOR_WARNING}",

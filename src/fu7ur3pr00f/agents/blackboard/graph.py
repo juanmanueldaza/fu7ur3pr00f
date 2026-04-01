@@ -15,11 +15,14 @@ import logging
 import time
 from typing import Any
 
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.config import get_stream_writer
 from langgraph.errors import GraphInterrupt as _GraphInterrupt
 from langgraph.graph import StateGraph
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
+from fu7ur3pr00f.llm.model_selection import get_model
 from fu7ur3pr00f.prompts import load_prompt
 from fu7ur3pr00f.utils.security import sanitize_error, sanitize_for_prompt
 
@@ -36,8 +39,6 @@ def _make_specialist_node(specialist: Any):
 
         # Get stream writer for real-time progress (optional, safe if None)
         try:
-            from langgraph.config import get_stream_writer
-
             stream_writer = get_stream_writer()
         except (ImportError, RuntimeError):
             logger.debug(
@@ -162,10 +163,6 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     - 1 specialist: pass through its reasoning directly (no extra LLM call)
     - 2+ specialists: call synthesis model to produce an integrated narrative
     """
-    from langchain_core.messages import HumanMessage, SystemMessage
-
-    from fu7ur3pr00f.llm.model_selection import get_model
-
     findings = state.get("findings", {})
     query = state.get("query", "")
     specialists_ran = list(findings.keys())
@@ -268,7 +265,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
 
     except Exception as e:
         logger.error(
-            "Synthesis LLM call failed: %s — " "findings_text=%r",
+            "Synthesis LLM call failed: %s — findings_text=%r",
             e,
             findings_text[:500],
             exc_info=True,
@@ -276,7 +273,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         # Fall back to concatenated reasoning
         synthesis["narrative"] = (
             "\n\n".join(
-                f"**{name.upper()}:** " f"{sanitize_for_prompt(f.get('reasoning', ''))}"
+                f"**{name.upper()}:** {sanitize_for_prompt(f.get('reasoning', ''))}"
                 for name, f in findings.items()
                 if f.get("reasoning")
             )

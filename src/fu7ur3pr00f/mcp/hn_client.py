@@ -4,6 +4,7 @@ Uses the Hacker News Algolia API (no authentication required).
 Provides access to "Who is Hiring?" threads and tech trend analysis.
 """
 
+import html
 import json
 import re
 from collections import Counter
@@ -13,6 +14,7 @@ from fu7ur3pr00f.constants import HN_API_BASE, HN_BASE_URL
 
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient
+from .salary_parser import parse_salary
 
 # Security limits
 _MAX_QUERY_LENGTH = 200  # Maximum search query length
@@ -350,7 +352,8 @@ class HackerNewsMCPClient(HTTPMCPClient):
             }
 
             response = await client.get(
-                f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
+                f"{self.BASE_URL}/search",
+                params=params,  # type: ignore[arg-type]
             )
             if response.status_code != 200:
                 continue
@@ -468,7 +471,8 @@ class HackerNewsMCPClient(HTTPMCPClient):
             }
 
             response = await client.get(
-                f"{self.BASE_URL}/search", params=params  # type: ignore[arg-type]
+                f"{self.BASE_URL}/search",
+                params=params,  # type: ignore[arg-type]
             )
             if response.status_code != 200:
                 continue
@@ -514,11 +518,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         Extracts: company, location, remote status, salary, tech stack.
         """
-        import html
 
         # Decode HTML entities
         text = html.unescape(text)
-
         # Remove HTML tags but preserve structure
         clean_text = re.sub(r"<[^>]+>", " ", text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
@@ -557,7 +559,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "tech_stack": tech_stack,
             "text_preview": clean_text[:500],
             "full_text": clean_text,
-            "hn_url": (f"{HN_BASE_URL}/" f"item?id={comment.get('objectID', '')}"),
+            "hn_url": (f"{HN_BASE_URL}/item?id={comment.get('objectID', '')}"),
             "author": comment.get("author", ""),
             "created_at": comment.get("created_at", ""),
             "site": "hn_hiring",
@@ -637,8 +639,6 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
     def _extract_salary(self, text: str) -> dict[str, Any]:
         """Extract salary information from text."""
-        from .salary_parser import parse_salary
-
         parsed = parse_salary(text)
         if parsed is None:
             return {"min": None, "max": None, "raw": None}

@@ -8,6 +8,18 @@ from typing import Literal
 
 from ..config import settings
 from .base import MCPClient
+from .devto_client import DevToMCPClient
+from .financial_client import FinancialMCPClient
+from .github_client import GitHubMCPClient
+from .himalayas_client import HimalayasMCPClient
+from .hn_client import HackerNewsMCPClient
+from .jobicy_client import JobicyMCPClient
+from .jobspy_client import JobSpyMCPClient
+from .remoteok_client import RemoteOKMCPClient
+from .remotive_client import RemotiveMCPClient
+from .stackoverflow_client import StackOverflowMCPClient
+from .tavily_client import TavilyMCPClient
+from .weworkremotely_client import WeWorkRemotelyMCPClient
 
 # All MCP server types
 MCPServerType = Literal[
@@ -62,21 +74,8 @@ class MCPClientFactory:
 
     @classmethod
     def _get_clients(cls) -> dict[str, type[MCPClient]]:
-        """Lazy-load client classes to avoid circular imports."""
+        """Get client classes (imports are at module level)."""
         if cls._clients is None:
-            from .devto_client import DevToMCPClient
-            from .financial_client import FinancialMCPClient
-            from .github_client import GitHubMCPClient
-            from .himalayas_client import HimalayasMCPClient
-            from .hn_client import HackerNewsMCPClient
-            from .jobicy_client import JobicyMCPClient
-            from .jobspy_client import JobSpyMCPClient
-            from .remoteok_client import RemoteOKMCPClient
-            from .remotive_client import RemotiveMCPClient
-            from .stackoverflow_client import StackOverflowMCPClient
-            from .tavily_client import TavilyMCPClient
-            from .weworkremotely_client import WeWorkRemotelyMCPClient
-
             cls._clients = {
                 # Career data sources
                 "github": GitHubMCPClient,

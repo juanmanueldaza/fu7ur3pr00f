@@ -8,15 +8,78 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
 
+from fu7ur3pr00f.agents.blackboard.blackboard import SpecialistFinding
+from fu7ur3pr00f.agents.blackboard.session import (
+    format_cumulative_context,
+    summarize_turn,
+)
+from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
+from fu7ur3pr00f.llm.model_selection import get_model
+from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.prompts import load_prompt
+
 logger = logging.getLogger(__name__)
+
+
+def _direct_profile_answer(query: str, user_profile: dict[str, Any]) -> str | None:
+    """Answer simple profile fact questions without invoking the inner graph."""
+    lowered = query.lower()
+    name = str(user_profile.get("name", "")).strip()
+    role = str(
+        user_profile.get("current_role") or user_profile.get("role") or ""
+    ).strip()
+    location = str(user_profile.get("location", "")).strip()
+    years_experience = user_profile.get("years_experience", 0)
+    technical_skills = user_profile.get("technical_skills", []) or []
+
+    if "who am i" in lowered:
+        parts = []
+        if name:
+            parts.append(f"Your name is {name}.")
+        if role:
+            parts.append(f"Your current role is {role}.")
+        if location:
+            parts.append(f"You are based in {location}.")
+        if technical_skills:
+            skills = ", ".join(str(skill) for skill in technical_skills[:5])
+            parts.append(f"Your main technical skills include {skills}.")
+        return " ".join(parts) if parts else None
+
+    if ("what" in lowered or "what's" in lowered) and "my name" in lowered and name:
+        return f"Your name is {name}."
+
+    if (
+        any(term in lowered for term in ("current role", "job title", "my title"))
+        and role
+    ):
+        return f"Your current role is {role}."
+
+    if (
+        any(term in lowered for term in ("where am i based", "my location"))
+        and location
+    ):
+        return f"You are based in {location}."
+
+    if "what skills do i have" in lowered and technical_skills:
+        skills = ", ".join(str(skill) for skill in technical_skills[:10])
+        return f"Your technical skills include {skills}."
+
+    if "how many skills" in lowered and technical_skills:
+        return f"You have {len(technical_skills)} technical skills recorded."
+
+    if "how many years" in lowered and years_experience:
+        return f"You have {years_experience} years of experience recorded."
+
+    return None
 
 
 def build_conversation_graph(  # noqa: C901
     checkpointer: Any = None,
     on_specialist_start: Callable[[str], None] | None = None,
-    on_specialist_complete: Callable[[str, dict], None] | None = None,
+    on_specialist_complete: Callable[[str, SpecialistFinding], None] | None = None,
     on_tool_start: Callable[[str, str, dict], None] | None = None,
     on_tool_result: Callable[[str, str, str], None] | None = None,
     confirm_fn: Callable[[str, str], bool] | None = None,
@@ -34,13 +97,6 @@ def build_conversation_graph(  # noqa: C901
         on_tool_result: Callback when a tool returns a result
         confirm_fn: Human-in-the-loop confirmation callback for tool interrupts
     """
-    # Import here to avoid circular dependency
-    from fu7ur3pr00f.agents.blackboard.session import (
-        format_cumulative_context,
-        summarize_turn,
-    )
-    from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
-    from fu7ur3pr00f.agents.specialists.orchestrator import get_orchestrator
 
     graph = StateGraph(dict)  # type: ignore[type-var]
 
@@ -64,6 +120,8 @@ def build_conversation_graph(  # noqa: C901
 
     def route_turn_node(state: dict[str, Any]) -> dict[str, Any]:
         """Route the current query to appropriate specialists."""
+        from fu7ur3pr00f.agents.specialists.orchestrator import get_orchestrator
+
         query = state.get("current_query", "")
         turn_type = state.get("turn_type", "new_query")
         turns = state.get("turns", [])
@@ -92,6 +150,8 @@ def build_conversation_graph(  # noqa: C901
 
     def execute_inner_node(state: dict[str, Any]) -> dict[str, Any]:
         """Execute the inner blackboard graph for this turn."""
+        from fu7ur3pr00f.agents.specialists.orchestrator import get_orchestrator
+
         query = state.get("current_query", "")
         user_profile = state.get("user_profile", {})
         routed = state.get("routed_specialists", ["coach"])
@@ -106,12 +166,28 @@ def build_conversation_graph(  # noqa: C901
             if context:
                 constraints.append(context)
 
+        if turn_type == "factual":
+            direct_answer = _direct_profile_answer(query, user_profile)
+            if direct_answer:
+                blackboard = {
+                    "query": query,
+                    "findings": {
+                        "coach": {
+                            "reasoning": direct_answer,
+                            "confidence": 1.0,
+                        }
+                    },
+                    "synthesis": {"narrative": direct_answer},
+                    "errors": [],
+                }
+                return {**state, "current_blackboard": blackboard}
+
         # Get executor and run inner graph, passing through all callbacks
         orchestrator = get_orchestrator()
         executor = orchestrator.get_executor(routed)
 
         logger.info(
-            "execute_inner: query=%r, routed=%s, " "turn_type=%s, constraints=%d",
+            "execute_inner: query=%r, routed=%s, turn_type=%s, constraints=%d",
             query[:80],
             routed,
             turn_type,
@@ -119,19 +195,24 @@ def build_conversation_graph(  # noqa: C901
         )
 
         try:
-            blackboard = executor.execute(
-                query=query,
-                user_profile=user_profile,
-                constraints=constraints,
-                on_specialist_start=on_specialist_start,
-                on_specialist_complete=on_specialist_complete,  # type: ignore[arg-type]
-                on_tool_start=on_tool_start,
-                on_tool_result=on_tool_result,
-                confirm_fn=confirm_fn,
+            blackboard = dict(
+                executor.execute(
+                    query=query,
+                    user_profile=user_profile,
+                    constraints=constraints,
+                    on_specialist_start=on_specialist_start,
+                    on_specialist_complete=(
+                        on_specialist_complete
+                    ),  # type: ignore[arg-type]
+                    on_tool_start=on_tool_start,
+                    on_tool_result=on_tool_result,
+                    confirm_fn=confirm_fn,
+                )
             )
+            findings = blackboard.get("findings", {})
             logger.info(
-                "Inner blackboard completed: " "findings=%s",
-                list(blackboard.get("findings", {}).keys()),
+                "Inner blackboard completed: findings=%s",
+                list(findings) if isinstance(findings, dict) else [],
             )
         except Exception as e:
             logger.error(
@@ -223,12 +304,6 @@ def build_conversation_graph(  # noqa: C901
 
         # Use LLM to generate contextual suggestions
         try:
-            from langchain_core.messages import HumanMessage
-
-            from fu7ur3pr00f.llm.model_selection import get_model
-            from fu7ur3pr00f.memory.profile import load_profile
-            from fu7ur3pr00f.prompts import load_prompt
-
             prompt_template = load_prompt("suggest_next")
             findings_text = _format_findings_for_prompt(findings)
             profile = load_profile()

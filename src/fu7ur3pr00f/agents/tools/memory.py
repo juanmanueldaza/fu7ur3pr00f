@@ -6,6 +6,9 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from fu7ur3pr00f.memory.episodic import get_episodic_store, remember_application
+from fu7ur3pr00f.memory.episodic import remember_decision as create_decision
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,8 +28,6 @@ def _store_to_episodic(
         Success message or error string
     """
     try:
-        from fu7ur3pr00f.memory.episodic import get_episodic_store
-
         get_episodic_store().remember(action_fn())
     except Exception as e:
         logger.exception("Error storing %s to ChromaDB", error_noun)
@@ -52,8 +53,6 @@ def remember_decision(
     remembered across sessions, such as rejecting a job offer, choosing a
     technology stack, or setting a career direction.
     """
-    from fu7ur3pr00f.memory.episodic import remember_decision as create_decision
-
     return _store_to_episodic(
         lambda: create_decision(decision, context, outcome),
         (
@@ -81,8 +80,6 @@ def remember_job_application(
 
     Use this to track job applications across sessions.
     """
-    from fu7ur3pr00f.memory.episodic import remember_application
-
     return _store_to_episodic(
         lambda: remember_application(company, role, status, notes),
         f"Recorded application to {company} for {role} (status: {status}).",
@@ -105,8 +102,6 @@ def recall_memories(
     that are relevant to the current discussion.
     """
     try:
-        from fu7ur3pr00f.memory.episodic import get_episodic_store
-
         store = get_episodic_store()
         memories = store.recall(query, limit=limit)
 
@@ -135,8 +130,6 @@ def get_memory_stats() -> str:
     Use this to see an overview of stored memories, including counts
     by type (decisions, applications, conversations, etc.).
     """
-    from fu7ur3pr00f.memory.episodic import get_episodic_store
-
     store = get_episodic_store()
     stats = store.stats()
 

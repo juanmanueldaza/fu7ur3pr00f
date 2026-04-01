@@ -5,6 +5,11 @@ import concurrent.futures
 from collections.abc import Callable
 from typing import Any
 
+# Shared executor for running coroutines from sync contexts when an event
+# loop is already running. A single-threaded pool avoids creating a new
+# executor on every call.
+_sync_loop_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
 
 def run_async(coro: Any) -> Any:
     """Run an async coroutine from a sync context (ToolNode thread pool).
@@ -18,8 +23,7 @@ def run_async(coro: Any) -> Any:
         loop = None
 
     if loop and loop.is_running():
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, coro).result()
+        return _sync_loop_pool.submit(asyncio.run, coro).result()
     return asyncio.run(coro)
 
 

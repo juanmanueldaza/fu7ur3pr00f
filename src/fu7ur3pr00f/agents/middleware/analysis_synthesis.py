@@ -17,9 +17,18 @@ from langchain.agents.middleware.types import (
     ModelRequest,
     ModelResponse,
 )
-from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 
 from fu7ur3pr00f.constants import ANALYSIS_MARKER as _ANALYSIS_MARKER
+from fu7ur3pr00f.llm.model_selection import get_model
+from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -111,12 +120,6 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         last_human_idx: int,
     ) -> ModelResponse:
         """Build a focused synthesis from tool results via a separate LLM call."""
-        from fu7ur3pr00f.llm.model_selection import get_model
-        from fu7ur3pr00f.prompts import load_prompt
-        from fu7ur3pr00f.utils.security import (
-            anonymize_career_data,
-            sanitize_for_prompt,
-        )
 
         # Extract the user's question (last HumanMessage)
         user_question = ""
@@ -161,12 +164,8 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         # Google Gemini requires HumanMessage for synthesis
         # Other providers use SystemMessage for proper behavioral context
         if config.provider == "google":
-            from langchain_core.messages import HumanMessage as HumanMsg
-
-            result = model.invoke([HumanMsg(content=prompt)])
+            result = model.invoke([HumanMessage(content=prompt)])
         else:
-            from langchain_core.messages import SystemMessage
-
             result = model.invoke(
                 [SystemMessage(content=prompt), HumanMessage(content=prompt)]
             )

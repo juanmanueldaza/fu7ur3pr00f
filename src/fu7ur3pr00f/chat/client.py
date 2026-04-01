@@ -20,9 +20,11 @@ from prompt_toolkit import PromptSession  # noqa: E402
 from prompt_toolkit.formatted_text import HTML  # noqa: E402
 from prompt_toolkit.history import FileHistory  # noqa: E402
 from prompt_toolkit.styles import Style as PTStyle  # noqa: E402
-from rich.markdown import Markdown  # noqa: E402
+from pydantic import ValidationError  # noqa: E402
 
 from fu7ur3pr00f.agents.blackboard import get_conversation_engine  # noqa: E402
+from fu7ur3pr00f.agents.blackboard.blackboard import SpecialistFinding  # noqa: E402
+from fu7ur3pr00f.agents.middleware import invalidate_prompt_cache  # noqa: E402
 from fu7ur3pr00f.agents.specialists.blackboard_factory import (  # noqa: E402
     get_agent_config,
 )
@@ -30,6 +32,8 @@ from fu7ur3pr00f.agents.specialists.orchestrator import (  # noqa: E402
     get_orchestrator,
     reset_orchestrator,
 )
+from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile  # noqa: E402
+from fu7ur3pr00f.chat.setup import run_setup  # noqa: E402
 from fu7ur3pr00f.chat.ui import (  # noqa: E402
     console,
     display_blackboard_result,
@@ -52,9 +56,14 @@ from fu7ur3pr00f.constants import (  # noqa: E402
     COLOR_SUCCESS,
     COLOR_WARNING,
 )
-from fu7ur3pr00f.memory.checkpointer import get_data_dir, list_threads  # noqa: E402
+from fu7ur3pr00f.memory.checkpointer import (  # noqa: E402
+    clear_thread_history,
+    get_data_dir,
+    list_threads,
+)
 from fu7ur3pr00f.memory.profile import load_profile  # noqa: E402
 from fu7ur3pr00f.utils.security import sanitize_error  # noqa: E402
+from fu7ur3pr00f.utils.services import reload_profile  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +105,6 @@ def _cmd_goals(chat_state: dict, arg: str) -> bool:
 
 
 def _cmd_clear(chat_state: dict, arg: str) -> bool:
-    from fu7ur3pr00f.memory.checkpointer import clear_thread_history
-
     clear_thread_history(chat_state["thread_id"])
     console.print(f"[{COLOR_INFO}]Conversation history cleared.[/{COLOR_INFO}]")
     return False
@@ -119,7 +126,8 @@ def _cmd_thread(chat_state: dict, arg: str) -> bool:
         chat_state["thread_id"] = arg
         chat_state["config"] = get_agent_config(thread_id=arg)
         console.print(
-            f"[{COLOR_SUCCESS}]Switched to thread: [bold]{arg}[/bold][/{COLOR_SUCCESS}]"
+            f"[{COLOR_SUCCESS}]Switched to thread: "
+            f"[bold]{arg}[/bold][/{COLOR_SUCCESS}]"
         )
     return False
 
@@ -163,10 +171,7 @@ def _cmd_gather(chat_state: dict, arg: str) -> bool:
     logging.getLogger("fu7ur3pr00f.gatherers").setLevel(logging.INFO)
 
     try:
-        from fu7ur3pr00f.agents.middleware import invalidate_prompt_cache
-        from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
         from fu7ur3pr00f.services.gatherer_service import GathererService
-        from fu7ur3pr00f.utils.services import reload_profile
 
         service = GathererService()
         results = service.gather_all(verbose=True)
@@ -304,8 +309,6 @@ def handle_command(command: str, *, chat_state: dict) -> bool:
 
 def _ensure_orchestrator(thread_id: str, first_run: bool = False) -> tuple:
     """Ensure orchestrator is initialized, running setup if needed."""
-    from fu7ur3pr00f.chat.setup import run_setup
-
     if not settings.active_provider:
         run_setup(console, first_run=True)
 
@@ -317,8 +320,6 @@ def _ensure_orchestrator(thread_id: str, first_run: bool = False) -> tuple:
             display_model_info(model_name)
         return orchestrator, config
     except Exception as e:
-        from pydantic import ValidationError
-
         is_val_err = isinstance(e, ValidationError) or isinstance(
             e.__cause__, ValidationError
         )
@@ -377,12 +378,8 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 - command-heavy mai
     def _on_specialist_start(name: str) -> None:
         display_specialist_progress(name, "working")
 
-    def _on_specialist_complete(name: str, finding: dict) -> None:
+    def _on_specialist_complete(name: str, finding: SpecialistFinding) -> None:
         display_specialist_progress(name, "done")
-        reasoning = finding.get("reasoning", "")
-        if reasoning:
-            console.print(Markdown(reasoning))
-            console.print()
 
     def _on_tool_start(specialist: str, tool_name: str, args: dict) -> None:
         tool_start_times[f"{specialist}:{tool_name}"] = time.monotonic()
@@ -416,8 +413,6 @@ def run_chat(thread_id: str = "main") -> None:  # noqa: C901 - command-heavy mai
             # Handle commands
             if user_input.startswith("/"):
                 if user_input.strip().lower() == "/setup":
-                    from fu7ur3pr00f.chat.setup import run_setup
-
                     changed = run_setup(console)
                     if changed:
                         reset_orchestrator()

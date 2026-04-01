@@ -5,8 +5,12 @@ Uses LLM-based classification via the classify_turn prompt.
 """
 
 import logging
+import re
 from typing import Literal
 
+from langchain_core.messages import HumanMessage
+
+from fu7ur3pr00f.llm.model_selection import get_model
 from fu7ur3pr00f.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -15,6 +19,21 @@ TurnType = Literal["factual", "follow_up", "steer", "new_query", "workflow_step"
 _VALID_TYPES: frozenset[str] = frozenset(
     {"factual", "follow_up", "steer", "new_query", "workflow_step"}
 )
+_FACTUAL_QUERY_PATTERNS = (
+    re.compile(r"\bwho am i\b"),
+    re.compile(r"\bwhat(?:'s| is) my (?:name|current role|job title|title|location)\b"),
+    re.compile(r"\bhow many (?:skills|years)\b"),
+    re.compile(r"\bwhat skills do i have\b"),
+    re.compile(r"\bwhere am i based\b"),
+)
+
+
+def _looks_like_factual_query(query: str) -> bool:
+    """Return True for simple standalone profile fact questions."""
+    lowered = query.lower().strip()
+    if not lowered:
+        return False
+    return any(pattern.search(lowered) for pattern in _FACTUAL_QUERY_PATTERNS)
 
 
 def classify(
@@ -32,9 +51,10 @@ def classify(
     Returns:
         Turn type: factual, follow_up, steer, new_query, or workflow_step
     """
-    from langchain_core.messages import HumanMessage
-
-    from fu7ur3pr00f.llm.model_selection import get_model
+    # Standalone factual questions don't need the LLM classifier.
+    if _looks_like_factual_query(query):
+        logger.debug("classify: %r → factual (heuristic)", query[:60])
+        return "factual"
 
     # No history → always a new query, no LLM needed
     if not conversation_history:

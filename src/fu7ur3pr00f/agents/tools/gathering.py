@@ -6,6 +6,12 @@ from pathlib import Path
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
+from fu7ur3pr00f.memory.knowledge import KnowledgeSource, get_knowledge_store
+from fu7ur3pr00f.memory.profile import edit_profile
+from fu7ur3pr00f.services import GathererService
+from fu7ur3pr00f.services.exceptions import NoDataError, ServiceError
+from fu7ur3pr00f.utils.services import get_knowledge_service, get_profile
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +29,10 @@ def _resolve_home_path(raw: str) -> tuple[Path, str | None]:
     if not any(resolved.is_relative_to(root) for root in allowed_roots):
         return (
             resolved,
-            "Access denied: path must be within your home directory, "
-            "repository, or /tmp.",
+            (
+                "Access denied: path must be within your home directory, "
+                "repository, or /tmp."
+            ),
         )
     return resolved, None
 
@@ -39,8 +47,6 @@ def gather_portfolio_data(url: str | None = None) -> str:
     Use this to collect information from the user's personal website or portfolio.
     Data is indexed directly to the knowledge base for semantic search.
     """
-    from fu7ur3pr00f.services import GathererService
-
     service = GathererService()
     service.gather_portfolio(url)
     return "Portfolio data gathered and indexed to knowledge base."
@@ -52,9 +58,6 @@ def _auto_populate_profile() -> str | None:  # noqa: C901 TODO: refactor
     Searches for name, role, and location from LinkedIn data and updates
     the profile. Returns a summary of what was populated, or None.
     """
-    from fu7ur3pr00f.memory.profile import edit_profile
-    from fu7ur3pr00f.utils.services import get_knowledge_service, get_profile
-
     profile = get_profile()
     if profile.name and profile.current_role:
         return None  # Already populated
@@ -155,8 +158,6 @@ def gather_all_career_data() -> str:
     if not approved:
         return "Data gathering cancelled."
 
-    from fu7ur3pr00f.services import GathererService
-
     service = GathererService()
     results = service.gather_all()
 
@@ -193,8 +194,6 @@ def gather_linkedin_data(zip_path: str) -> str:
     to import it. LinkedIn exports can be requested from LinkedIn Settings >
     Data Privacy > Get a copy of your data.
     """
-    from fu7ur3pr00f.services import GathererService
-
     resolved, err = _resolve_home_path(zip_path)
     if err:
         return err
@@ -218,10 +217,6 @@ def gather_cv_data(file_path: str) -> str:
     Use this when the user wants to import their CV or resume.
     The file is parsed into sections and indexed for semantic search.
     """
-    from fu7ur3pr00f.memory.knowledge import KnowledgeSource
-    from fu7ur3pr00f.services import GathererService
-    from fu7ur3pr00f.services.exceptions import NoDataError, ServiceError
-
     resolved, err = _resolve_home_path(file_path)
     if err:
         return err
@@ -232,8 +227,6 @@ def gather_cv_data(file_path: str) -> str:
         return f"Unsupported format {suffix!r}. Only .pdf, .md, and .txt are supported."
 
     # Check if CV data already exists
-    from fu7ur3pr00f.memory.knowledge import get_knowledge_store
-
     store = get_knowledge_store()
     existing_cv = store.get_all_content(KnowledgeSource.CV) if store else ""
     has_existing_cv = bool(existing_cv)
@@ -278,8 +271,6 @@ def gather_cv_data(file_path: str) -> str:
     try:
         # Clear existing CV data if user chose to clear first
         if approved == "clear_first":
-            from fu7ur3pr00f.memory.knowledge import get_knowledge_store
-
             store = get_knowledge_store()
             if store:
                 store.clear_source(KnowledgeSource.CV)
@@ -309,8 +300,6 @@ def gather_assessment_data(input_dir: str = "") -> str:
     to import their strengths data. Looks for PDF files with names containing
     keywords like "cliftonstrengths", "gallup", "top_5", etc.
     """
-    from fu7ur3pr00f.services import GathererService
-
     dir_path: Path | None = None
     if input_dir:
         dir_path, err = _resolve_home_path(input_dir)

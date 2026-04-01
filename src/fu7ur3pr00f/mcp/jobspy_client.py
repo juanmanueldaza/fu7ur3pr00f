@@ -12,6 +12,13 @@ from typing import Any
 from .base import MCPClient, MCPToolError, MCPToolResult
 from .job_schema import generate_job_id
 
+try:
+    from jobspy.model import Country
+
+    _JOBSPY_AVAILABLE = True
+except ImportError:
+    _JOBSPY_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,16 +39,8 @@ class JobSpyMCPClient(MCPClient):
 
     async def connect(self) -> None:
         """Check if jobspy is available."""
-        try:
-            # Try to import jobspy (optional dependency)
-            import jobspy  # type: ignore[import-not-found]  # noqa: F401
-
-            self._jobspy_available = True
-            self._connected = True
-        except ImportError:
-            # JobSpy not installed - we'll return helpful error
-            self._jobspy_available = False
-            self._connected = True  # Still "connected" but limited
+        self._jobspy_available = _JOBSPY_AVAILABLE
+        self._connected = True
 
     async def disconnect(self) -> None:
         """No cleanup needed."""
@@ -146,11 +145,9 @@ class JobSpyMCPClient(MCPClient):
         if not location or location.lower() == "remote":
             return "worldwide"
 
-        from jobspy.model import Country  # type: ignore[import-not-found]
-
         # Try direct country match
         try:
-            Country.from_string(location)
+            Country.from_string(location)  # type: ignore[name-defined]
             return location.lower()
         except ValueError:
             pass
@@ -193,9 +190,7 @@ class JobSpyMCPClient(MCPClient):
         # Exclude Glassdoor for unsupported countries (avoids noisy errors)
         if "glassdoor" in sites:
             try:
-                from jobspy.model import Country  # type: ignore[import-not-found]
-
-                c = Country.from_string(country)
+                c = Country.from_string(country)  # type: ignore[name-defined]
                 c.glassdoor_domain_value  # raises if unsupported
             except Exception:
                 sites = [s for s in sites if s != "glassdoor"]

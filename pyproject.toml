@@ -20,6 +20,8 @@ classifiers = [
 dependencies = [
     # Core
     "typer>=0.15",
+    # click<8.3 required: cli.py patches make_metavar() for Typer 0.24 compat.
+    # Remove upper bound once Typer supports Click 8.3+ natively.
     "click>=8.1,<8.3",
     "pydantic-settings>=2",
     "pyyaml>=6",

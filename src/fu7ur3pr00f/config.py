@@ -1,4 +1,12 @@
-"""Configuration management using pydantic-settings."""
+"""Configuration management using pydantic-settings.
+
+Architecture:
+- ``LLMProviderMixin``  — provider keys, model selection, temperatures
+- ``IntegrationMixin``  — MCP servers, market data, caching
+- ``KnowledgeMixin``    — RAG / knowledge base settings
+- ``PathManager``       — directory path computation and creation
+- ``Settings``          — composes all mixins; single env-loaded instance
+"""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -13,251 +21,15 @@ from .utils.security import secure_mkdir
 _USER_ENV_PATH = Path.home() / ".fu7ur3pr00f" / ".env"
 
 
-class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+# ── Path management (extracted from Settings for SRP) ────────────────────────
 
-    model_config = SettingsConfigDict(
-        env_file=(".env", str(_USER_ENV_PATH)),
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
 
-    # LLM Provider (auto-detected from available keys if empty)
-    llm_provider: str = (
-        ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
-    )
+class PathManager:
+    """Manages application directory paths under ~/.fu7ur3pr00f/.
 
-    # FutureProof Proxy (default for new users — zero-config with starter tokens)
-    fu7ur3pr00f_proxy_url: str = "https://llm.fu7ur3pr00f.dev"
-    fu7ur3pr00f_proxy_key: str = Field(default="", repr=False)
+    Separated from Settings so path logic doesn't bloat the config class.
+    """
 
-    # OpenAI
-    openai_api_key: str = Field(default="", repr=False)
-
-    # Anthropic
-    anthropic_api_key: str = Field(default="", repr=False)
-
-    # Google Gemini
-    google_api_key: str = Field(default="", repr=False)
-
-    # Azure OpenAI / AI Foundry
-    azure_openai_api_key: str = Field(default="", repr=False)  # https://ai.azure.com/
-    azure_openai_endpoint: str = ""  # e.g. https://your-resource.openai.azure.com
-    azure_openai_api_version: str = "2024-12-01-preview"
-
-    @field_validator("azure_openai_endpoint")
-    @classmethod
-    def _clean_azure_endpoint(cls, v: str) -> str:
-        """Strip AI Foundry project path and validate URL format."""
-        if not v:
-            return v
-        idx = v.find("/api/projects/")
-        if idx != -1:
-            v = v[:idx]
-        v = v.rstrip("/")
-        if not v.startswith(("https://", "http://")):
-            raise ValueError(
-                "Endpoint must be a URL starting with https:// "
-                "(e.g. https://myresource.openai.azure.com). "
-                "Run /setup to fix."
-            )
-        return v
-
-    azure_embedding_deployment: str = "text-embedding-3-small"
-
-    # Azure purpose-specific deployments (predefined, overridable via env)
-    azure_agent_deployment: str = "gpt-5-mini"
-    azure_analysis_deployment: str = "gpt-4.1"
-    azure_summary_deployment: str = "gpt-4o-mini"
-    azure_synthesis_deployment: str = "o4-mini"
-
-    # Ollama (local models — set explicitly via /setup to enable)
-    ollama_base_url: str = ""
-
-    # Purpose-specific models (provider-agnostic, optional)
-    agent_model: str = ""  # e.g. "gpt-5-mini", "claude-sonnet-4-20250514"
-    analysis_model: str = ""  # e.g. "gpt-4.1", "claude-sonnet-4-20250514"
-    summary_model: str = ""  # e.g. "gpt-4o-mini", "claude-haiku-4-5-20251001"
-    synthesis_model: str = ""  # e.g. "o4-mini"
-    embedding_model: str = ""  # e.g. "text-embedding-3-small", "nomic-embed-text"
-
-    # User profiles
-    portfolio_url: str = "https://daza.ar"
-
-    # LLM Configuration
-    llm_temperature: float = 0.3
-    cv_temperature: float = 0.2  # Lower for more consistent CV output
-
-    # MCP (Model Context Protocol) Configuration
-    # GitHub MCP Server
-    github_personal_access_token: str = Field(default="", repr=False)
-    github_mcp_token: str = Field(default="", repr=False)
-    github_mcp_command: str = "github-mcp-server"  # Native binary
-
-    # Market Intelligence MCP Configuration
-    # Tavily Search (1000 free queries/month, no credit card)
-    # Get your key at: https://tavily.com/
-    tavily_api_key: str = Field(default="", repr=False)
-
-    # JobSpy (no auth required, MIT licensed)
-    jobspy_enabled: bool = True
-
-    # Hacker News (no auth required, uses Algolia API)
-    hn_mcp_enabled: bool = True
-
-    # Market data caching (hours)
-    market_cache_hours: int = 24  # Tech trends
-    job_cache_hours: int = 12  # Jobs change faster
-    content_cache_hours: int = 12  # Dev.to/SO content trends
-    forex_cache_hours: int = 4  # Exchange rates (updated daily)
-
-    # Values filter (ethical opportunity scoring in multi-agent responses)
-    values_filter_enabled: bool = False
-
-    # Knowledge Base Configuration (RAG)
-    knowledge_auto_index: bool = True  # Auto-index after gather
-    knowledge_chunk_max_tokens: int = 500  # Max tokens per chunk
-    knowledge_chunk_min_tokens: int = 50  # Min tokens per chunk (merge if smaller)
-
-    @property
-    def github_mcp_token_resolved(self) -> str:
-        """Get GitHub MCP token from various sources."""
-        # Check explicit MCP token setting first
-        if self.github_mcp_token:
-            return self.github_mcp_token
-        # Fall back to standard GitHub token
-        if self.github_personal_access_token:
-            return self.github_personal_access_token
-        return ""
-
-    @property
-    def has_github_mcp(self) -> bool:
-        """Check if GitHub MCP is configured."""
-        return bool(self.github_mcp_token_resolved)
-
-    @property
-    def has_proxy(self) -> bool:
-        """Check if FutureProof proxy is configured."""
-        return bool(self.fu7ur3pr00f_proxy_key)
-
-    @property
-    def has_openai(self) -> bool:
-        """Check if OpenAI is configured (key must start with sk-)."""
-        return bool(self.openai_api_key and self.openai_api_key.startswith("sk-"))
-
-    @property
-    def has_anthropic(self) -> bool:
-        """Check if Anthropic is configured."""
-        return bool(self.anthropic_api_key)
-
-    @property
-    def has_google(self) -> bool:
-        """Check if Google Gemini is configured."""
-        return bool(self.google_api_key)
-
-    @property
-    def has_azure(self) -> bool:
-        """Check if Azure OpenAI is configured."""
-        return bool(self.azure_openai_api_key and self.azure_openai_endpoint)
-
-    @property
-    def has_ollama(self) -> bool:
-        """Check if Ollama is configured."""
-        return bool(self.ollama_base_url)
-
-    @property
-    def has_tavily_mcp(self) -> bool:
-        """Check if Tavily MCP is configured."""
-        return bool(self.tavily_api_key)
-
-    def is_integration_configured(self, integration_id: str) -> bool:
-        """Check if an integration has its required keys configured."""
-        checks = {
-            "github": self.has_github_mcp,
-            "tavily": self.has_tavily_mcp,
-        }
-        return checks.get(integration_id, False)
-
-    def is_provider_configured(self, provider: str) -> bool:
-        """Check if an LLM provider is configured."""
-        provider_checks = {
-            "fu7ur3pr00f": self.has_proxy,
-            "openai": self.has_openai,
-            "anthropic": self.has_anthropic,
-            "google": self.has_google,
-            "azure": self.has_azure,
-            "ollama": self.has_ollama,
-        }
-        return provider_checks.get(provider, False)
-
-    @property
-    def active_provider(self) -> str:
-        """Determine the active LLM provider.
-
-        Priority: explicit setting > proxy > Azure > OpenAI >
-        Anthropic > Google > Ollama.
-        """
-        if self.llm_provider:
-            return self.llm_provider
-        if self.has_proxy:
-            return "fu7ur3pr00f"
-        if self.has_azure:
-            return "azure"
-        if self.has_openai:
-            return "openai"
-        if self.has_anthropic:
-            return "anthropic"
-        if self.has_google:
-            return "google"
-        if self.has_ollama:
-            return "ollama"
-        return ""
-
-    def factory_reset(self) -> int:
-        """Delete generated data and config, returning the number of items cleared.
-
-        Preserves data/raw/ (LinkedIn ZIPs, PDFs).
-        """
-        import shutil
-
-        # Data directory under home (~/.fu7ur3pr00f/)
-        home_dir = self.data_dir.parent
-
-        targets = [
-            ("Conversations & checkpoints", home_dir / "memory.db"),
-            ("User profile", home_dir / "profile.yaml"),
-            ("Knowledge base & episodic memory", home_dir / "episodic"),
-            ("Log file", home_dir / "fu7ur3pr00f.log"),
-            ("Generated CVs", self.output_dir),
-            ("Processed data", self.processed_dir),
-            ("Market cache", self.market_cache_dir),
-        ]
-
-        deleted = 0
-        for _label, path in targets:
-            if not path.exists():
-                continue
-            if path.is_dir():
-                if path.name in ("output", "processed"):
-                    # For output and processed, keep the directory but clear contents
-                    # (except .gitkeep)
-                    for item in path.iterdir():
-                        if item.name == ".gitkeep":
-                            continue
-                        if item.is_dir():
-                            shutil.rmtree(item, ignore_errors=True)
-                        else:
-                            item.unlink()
-                else:
-                    shutil.rmtree(path, ignore_errors=True)
-            else:
-                path.unlink()
-            deleted += 1
-
-        self.ensure_directories()
-        return deleted
-
-    # Paths (user-level, under ~/.fu7ur3pr00f/)
     @property
     def data_dir(self) -> Path:
         """Get the data directory (~/.fu7ur3pr00f/data/)."""
@@ -293,6 +65,280 @@ class Settings(BaseSettings):
             self.market_cache_dir,
         ]:
             secure_mkdir(dir_path)
+
+    def factory_reset(self) -> int:
+        """Delete generated data and config, returning the number of items cleared.
+
+        Preserves data/raw/ (LinkedIn ZIPs, PDFs).
+        """
+        import shutil
+
+        home_dir = self.data_dir.parent
+
+        targets = [
+            ("Conversations & checkpoints", home_dir / "memory.db"),
+            ("User profile", home_dir / "profile.yaml"),
+            ("Knowledge base & episodic memory", home_dir / "episodic"),
+            ("Log file", home_dir / "fu7ur3pr00f.log"),
+            ("Generated CVs", self.output_dir),
+            ("Processed data", self.processed_dir),
+            ("Market cache", self.market_cache_dir),
+        ]
+
+        deleted = 0
+        for _label, path in targets:
+            if not path.exists():
+                continue
+            if path.is_dir():
+                if path.name in ("output", "processed"):
+                    for item in path.iterdir():
+                        if item.name == ".gitkeep":
+                            continue
+                        if item.is_dir():
+                            shutil.rmtree(item, ignore_errors=True)
+                        else:
+                            item.unlink()
+                else:
+                    shutil.rmtree(path, ignore_errors=True)
+            else:
+                path.unlink()
+            deleted += 1
+
+        self.ensure_directories()
+        return deleted
+
+
+# ── Mixin: LLM provider keys, models, temperatures ───────────────────────────
+
+
+class LLMProviderMixin(BaseSettings):
+    """LLM provider configuration — keys, models, temperatures."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    # Provider selection (auto-detected from available keys if empty)
+    llm_provider: str = (
+        ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
+    )
+
+    # FutureProof Proxy (zero-config with starter tokens)
+    fu7ur3pr00f_proxy_url: str = "https://llm.fu7ur3pr00f.dev"
+    fu7ur3pr00f_proxy_key: str = Field(default="", repr=False)
+
+    # OpenAI
+    openai_api_key: str = Field(default="", repr=False)
+
+    # Anthropic
+    anthropic_api_key: str = Field(default="", repr=False)
+
+    # Google Gemini
+    google_api_key: str = Field(default="", repr=False)
+
+    # Azure OpenAI / AI Foundry
+    azure_openai_api_key: str = Field(default="", repr=False)
+    azure_openai_endpoint: str = ""
+    azure_openai_api_version: str = "2024-12-01-preview"
+    azure_embedding_deployment: str = "text-embedding-3-small"
+    azure_agent_deployment: str = "gpt-5-mini"
+    azure_analysis_deployment: str = "gpt-4.1"
+    azure_summary_deployment: str = "gpt-4o-mini"
+    azure_synthesis_deployment: str = "o4-mini"
+
+    @field_validator("azure_openai_endpoint")
+    @classmethod
+    def _clean_azure_endpoint(cls, v: str) -> str:
+        """Strip AI Foundry project path and validate URL format."""
+        if not v:
+            return v
+        idx = v.find("/api/projects/")
+        if idx != -1:
+            v = v[:idx]
+        v = v.rstrip("/")
+        if not v.startswith(("https://", "http://")):
+            raise ValueError(
+                "Endpoint must be a URL starting with https:// "
+                "(e.g. https://myresource.openai.azure.com). "
+                "Run /setup to fix."
+            )
+        return v
+
+    # Ollama (local models)
+    ollama_base_url: str = ""
+
+    # Purpose-specific models (provider-agnostic, optional)
+    agent_model: str = ""
+    analysis_model: str = ""
+    summary_model: str = ""
+    synthesis_model: str = ""
+    embedding_model: str = ""
+
+    # Temperatures
+    llm_temperature: float = 0.3
+    cv_temperature: float = 0.2
+
+    # ── Provider detection properties ─────────────────────────────────────
+
+    @property
+    def has_proxy(self) -> bool:
+        """Check if FutureProof proxy is configured."""
+        return bool(self.fu7ur3pr00f_proxy_key)
+
+    @property
+    def has_openai(self) -> bool:
+        """Check if OpenAI is configured (key must start with sk-)."""
+        return bool(self.openai_api_key and self.openai_api_key.startswith("sk-"))
+
+    @property
+    def has_anthropic(self) -> bool:
+        """Check if Anthropic is configured."""
+        return bool(self.anthropic_api_key)
+
+    @property
+    def has_google(self) -> bool:
+        """Check if Google Gemini is configured."""
+        return bool(self.google_api_key)
+
+    @property
+    def has_azure(self) -> bool:
+        """Check if Azure OpenAI is configured."""
+        return bool(self.azure_openai_api_key and self.azure_openai_endpoint)
+
+    @property
+    def has_ollama(self) -> bool:
+        """Check if Ollama is configured."""
+        return bool(self.ollama_base_url)
+
+    @property
+    def active_provider(self) -> str:
+        """Determine the active LLM provider.
+
+        Priority: explicit setting > proxy > Azure > OpenAI >
+        Anthropic > Google > Ollama.
+        """
+        if self.llm_provider:
+            return self.llm_provider
+        if self.has_proxy:
+            return "fu7ur3pr00f"
+        if self.has_azure:
+            return "azure"
+        if self.has_openai:
+            return "openai"
+        if self.has_anthropic:
+            return "anthropic"
+        if self.has_google:
+            return "google"
+        if self.has_ollama:
+            return "ollama"
+        return ""
+
+    def is_provider_configured(self, provider: str) -> bool:
+        """Check if an LLM provider is configured."""
+        provider_checks = {
+            "fu7ur3pr00f": self.has_proxy,
+            "openai": self.has_openai,
+            "anthropic": self.has_anthropic,
+            "google": self.has_google,
+            "azure": self.has_azure,
+            "ollama": self.has_ollama,
+        }
+        return provider_checks.get(provider, False)
+
+
+# ── Mixin: Integrations (MCP, market, caching) ──────────────────────────────
+
+
+class IntegrationMixin(BaseSettings):
+    """Integration configuration — MCP servers, market data, caching."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    # GitHub MCP Server
+    github_personal_access_token: str = Field(default="", repr=False)
+    github_mcp_token: str = Field(default="", repr=False)
+    github_mcp_command: str = "github-mcp-server"
+
+    # Market Intelligence MCP
+    tavily_api_key: str = Field(default="", repr=False)
+
+    # JobSpy (no auth required, MIT licensed)
+    jobspy_enabled: bool = True
+
+    # Hacker News (no auth required, uses Algolia API)
+    hn_mcp_enabled: bool = True
+
+    # Market data caching (hours)
+    market_cache_hours: int = 24
+    job_cache_hours: int = 12
+    content_cache_hours: int = 12
+    forex_cache_hours: int = 4
+
+    # Values filter (ethical opportunity scoring)
+    values_filter_enabled: bool = False
+
+    # ── Integration properties ────────────────────────────────────────────
+
+    @property
+    def github_mcp_token_resolved(self) -> str:
+        """Get GitHub MCP token from various sources."""
+        if self.github_mcp_token:
+            return self.github_mcp_token
+        if self.github_personal_access_token:
+            return self.github_personal_access_token
+        return ""
+
+    @property
+    def has_github_mcp(self) -> bool:
+        """Check if GitHub MCP is configured."""
+        return bool(self.github_mcp_token_resolved)
+
+    @property
+    def has_tavily_mcp(self) -> bool:
+        """Check if Tavily MCP is configured."""
+        return bool(self.tavily_api_key)
+
+    def is_integration_configured(self, integration_id: str) -> bool:
+        """Check if an integration has its required keys configured."""
+        checks = {
+            "github": self.has_github_mcp,
+            "tavily": self.has_tavily_mcp,
+        }
+        return checks.get(integration_id, False)
+
+
+# ── Mixin: Knowledge base (RAG) ──────────────────────────────────────────────
+
+
+class KnowledgeMixin(BaseSettings):
+    """Knowledge base / RAG configuration."""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    knowledge_auto_index: bool = True
+    knowledge_chunk_max_tokens: int = 500
+    knowledge_chunk_min_tokens: int = 50
+
+
+# ── Main Settings class (composes all mixins + PathManager) ──────────────────
+
+
+class Settings(LLMProviderMixin, IntegrationMixin, KnowledgeMixin, PathManager):
+    """Application settings loaded from environment variables.
+
+    Composes:
+    - ``LLMProviderMixin`` — provider keys, models, temperatures
+    - ``IntegrationMixin`` — MCP servers, market data, caching
+    - ``KnowledgeMixin``   — RAG / knowledge base settings
+    - ``PathManager``      — directory path computation and creation
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=(".env", str(_USER_ENV_PATH)),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # User profiles
+    portfolio_url: str = "https://daza.ar"
 
 
 # Global settings instance

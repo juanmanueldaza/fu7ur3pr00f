@@ -44,6 +44,13 @@ sudo apt update && sudo apt install fu7ur3pr00f
 git clone https://github.com/juanmanueldaza/fu7ur3pr00f.git
 cd fu7ur3pr00f
 pip install -e .
+pip install -r requirements-dev.txt
+
+# Run locally
+fu7ur3pr00f
+
+# Run with debug logs
+fu7ur3pr00f --debug
 ```
 
 ## Configuration

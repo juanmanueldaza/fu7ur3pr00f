@@ -15,13 +15,16 @@ from collections.abc import Callable
 from typing import Any
 
 from langgraph.errors import GraphInterrupt as _GraphInterrupt
+from langgraph.types import Command
 
 from fu7ur3pr00f.agents.blackboard.blackboard import (
     CareerBlackboard,
     SpecialistFinding,
     make_initial_blackboard,
 )
+from fu7ur3pr00f.agents.blackboard.graph import build_blackboard_graph
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
+from fu7ur3pr00f.memory.checkpointer import clear_thread_history, get_checkpointer
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +78,6 @@ class BlackboardExecutor:
         Returns:
             Final blackboard state with all findings
         """
-        from fu7ur3pr00f.agents.blackboard.graph import build_blackboard_graph
-        from fu7ur3pr00f.memory.checkpointer import (
-            clear_thread_history,
-            get_checkpointer,
-        )
-
         # Initialize blackboard
         initial = make_initial_blackboard(
             query=query,
@@ -90,8 +87,10 @@ class BlackboardExecutor:
         )
 
         logger.info(
-            "Starting blackboard execution: query=%r, "
-            "specialists=%s, max_iterations=%d",
+            (
+                "Starting blackboard execution: "
+                "query=%r, specialists=%s, max_iterations=%d"
+            ),
             query[:80],
             list(self.specialists.keys()),
             self.scheduler.max_iterations,
@@ -162,8 +161,6 @@ class BlackboardExecutor:
                 )
                 details = val.get("details", "") if isinstance(val, dict) else ""
                 approved = confirm_fn(question, details)
-                from langgraph.types import Command
-
                 stream_input = Command(resume=approved)
 
             snap = graph.get_state(config)
@@ -187,7 +184,7 @@ class BlackboardExecutor:
         )
         for spec_name, finding in findings.items():
             logger.debug(
-                "  [%s] confidence=%.2f, " "reasoning=%r",
+                "  [%s] confidence=%.2f, reasoning=%r",
                 spec_name,
                 finding.get("confidence", 0),
                 finding.get("reasoning", "")[:200],

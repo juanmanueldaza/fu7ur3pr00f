@@ -17,7 +17,17 @@ import threading
 import time
 
 from langchain.agents.middleware import dynamic_prompt
+from langchain.agents.middleware import dynamic_prompt as dp_decorator
 from langchain.agents.middleware.types import ModelRequest
+
+from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
+from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
+from fu7ur3pr00f.utils.services import (
+    get_knowledge_service,
+    get_profile,
+    reload_profile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +69,6 @@ def build_dynamic_prompt(request: ModelRequest) -> str:
 
 def _build_prompt_uncached() -> str:
     """Generate the full system prompt (no caching)."""
-    from fu7ur3pr00f.prompts import load_prompt
-    from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
-    from fu7ur3pr00f.utils.services import (
-        get_knowledge_service,
-        get_profile,
-        reload_profile,
-    )
 
     # Single stats call — reused for auto-populate and data section
     service = get_knowledge_service()
@@ -78,8 +81,6 @@ def _build_prompt_uncached() -> str:
     if summary == "No profile information available.":
         if stats.get("total_chunks", 0) > 0:
             with contextlib.suppress(Exception):
-                from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
-
                 _auto_populate_profile()
                 # Reload profile after auto-populate to get updated data
                 profile = reload_profile()
@@ -162,7 +163,6 @@ def make_specialist_prompt(specialist_addendum: str):
     Returns:
         A @dynamic_prompt middleware function for use in create_agent()
     """
-    from langchain.agents.middleware import dynamic_prompt as dp_decorator
 
     @dp_decorator
     def _specialist_prompt(request: ModelRequest) -> str:  # noqa: ARG001

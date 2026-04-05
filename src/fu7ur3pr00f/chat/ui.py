@@ -1,4 +1,4 @@
-"""Rich-based terminal UI components for FutureProof chat.
+"""Rich-based terminal UI components for fu7ur3pr00f chat.
 
 Provides beautiful terminal output using the Rich library:
 - Markdown rendering for agent responses

@@ -1,6 +1,6 @@
-# FutureProof — Project Context & Guidelines
+# fu7ur3pr00f — Project Context & Guidelines
 
-FutureProof (`fu7ur3pr00f`) is a career intelligence system that gathers professional data, searches job boards, analyzes career alignment, and generates ATS-optimized CVs through a conversational AI interface.
+fu7ur3pr00f is a career intelligence system that gathers professional data, searches job boards, analyzes career alignment, and generates ATS-optimized CVs through a conversational AI interface.
 
 ## 🏗️ Architecture Overview
 

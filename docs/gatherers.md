@@ -1,6 +1,6 @@
 # Data Gathering Guide
 
-How to import your career data into FutureProof. All data is indexed to ChromaDB for RAG search and analysis.
+How to import your career data into fu7ur3pr00f. All data is indexed to ChromaDB for RAG search and analysis.
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ fu7ur3pr00f
 
 ### File Format
 
-The ZIP contains multiple CSV files. FutureProof parses:
+The ZIP contains multiple CSV files. fu7ur3pr00f parses:
 - `Profile.csv`
 - `Positions.csv`
 - `Education.csv`
@@ -134,7 +134,7 @@ brew install poppler
 
 ### What Gets Imported
 
-FutureProof detects these sections automatically:
+fu7ur3pr00f detects these sections automatically:
 
 - Profile / Summary / Objective
 - Experience / Work History

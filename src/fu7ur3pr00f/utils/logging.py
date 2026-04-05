@@ -1,4 +1,4 @@
-"""Centralized logging configuration for FutureProof."""
+"""Centralized logging configuration for fu7ur3pr00f."""
 
 import logging
 import sys

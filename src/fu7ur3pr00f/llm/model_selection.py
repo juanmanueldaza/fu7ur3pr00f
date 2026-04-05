@@ -42,10 +42,10 @@ _PROVIDER_MAP: dict[str, str] = {
 
 _PROVIDER_CHAINS: dict[str, list[ModelConfig]] = {
     "fu7ur3pr00f": [
-        ModelConfig("fu7ur3pr00f", "gpt-4.1", "FutureProof GPT-4.1"),
-        ModelConfig("fu7ur3pr00f", "gpt-5-mini", "FutureProof GPT-5 Mini"),
-        ModelConfig("fu7ur3pr00f", "gpt-4o", "FutureProof GPT-4o"),
-        ModelConfig("fu7ur3pr00f", "gpt-4o-mini", "FutureProof GPT-4o Mini"),
+        ModelConfig("fu7ur3pr00f", "gpt-4.1", "fu7ur3pr00f GPT-4.1"),
+        ModelConfig("fu7ur3pr00f", "gpt-5-mini", "fu7ur3pr00f GPT-5 Mini"),
+        ModelConfig("fu7ur3pr00f", "gpt-4o", "fu7ur3pr00f GPT-4o"),
+        ModelConfig("fu7ur3pr00f", "gpt-4o-mini", "fu7ur3pr00f GPT-4o Mini"),
     ],
     "openai": [
         ModelConfig("openai", "gpt-4.1", "OpenAI GPT-4.1"),

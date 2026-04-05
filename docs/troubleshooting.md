@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions for FutureProof.
+Common issues and solutions for fu7ur3pr00f.
 
 ---
 

@@ -1,6 +1,6 @@
 """Embedding functions for ChromaDB vector stores.
 
-Supports multiple providers: Azure OpenAI, OpenAI, FutureProof proxy,
+Supports multiple providers: Azure OpenAI, OpenAI, fu7ur3pr00f proxy,
 Ollama (local), and ChromaDB's default sentence-transformers fallback.
 
 Usage:
@@ -152,7 +152,9 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
         if self._client is None:
             import httpx
 
-            self._client = httpx.Client(base_url=self._base_url, timeout=HTTP_TIMEOUT_LONG)
+            self._client = httpx.Client(
+                base_url=self._base_url, timeout=HTTP_TIMEOUT_LONG
+            )
             logger.debug("Ollama embedding client initialized")
         return self._client
 

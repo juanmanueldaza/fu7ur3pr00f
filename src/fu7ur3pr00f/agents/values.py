@@ -1,6 +1,6 @@
-"""FutureProof values enforcement for agent responses.
+"""fu7ur3pr00f values enforcement for agent responses.
 
-This module ensures all agent responses align with FutureProof's core values:
+This module ensures all agent responses align with fu7ur3pr00f's core values:
 - Free software freedom
 - Open source collaboration
 - Developer sovereignty
@@ -229,7 +229,7 @@ def check_opportunity_alignment(
     Args:
         company_name: Company name
         job_description: Job description text
-        user_values: User's prioritized values (default: FutureProof defaults)
+        user_values: User's prioritized values (default: fu7ur3pr00f defaults)
 
     Returns:
         Dict with alignment score, breakdown, and recommendation

@@ -1,4 +1,4 @@
-"""Interactive setup wizard for FutureProof configuration.
+"""Interactive setup wizard for fu7ur3pr00f configuration.
 
 Handles sensitive settings (API keys, tokens) through direct terminal
 input -- never through the LLM agent. Used for:
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 _PROVIDERS: dict[str, dict] = {
     "fu7ur3pr00f": {
-        "name": "FutureProof Proxy",
+        "name": "fu7ur3pr00f Proxy",
         "description": "Zero-config, free starter tokens (not available yet)",
         "keys": [
             ("FUTUREPROOF_PROXY_KEY", "API key (from fu7ur3pr00f.dev/signup)", True),
@@ -365,7 +365,7 @@ def run_setup(  # noqa: C901 - Menu-driven wizard with multiple provider/integra
         console.print(
             Panel(
                 Text.assemble(
-                    ("Welcome to FutureProof!\n\n", f"bold {COLOR_WARNING}"),
+                    ("Welcome to fu7ur3pr00f!\n\n", f"bold {COLOR_WARNING}"),
                     ("An LLM provider is required to start. ", f"{COLOR_ACCENT}"),
                     ("Let's set one up.\n", f"{COLOR_ACCENT}"),
                     ("Your keys are stored locally at ", f"{COLOR_INFO}"),

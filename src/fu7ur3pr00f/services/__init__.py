@@ -1,4 +1,4 @@
-"""Service layer for FutureProof business logic."""
+"""Service layer for fu7ur3pr00f business logic."""
 
 from .gatherer_service import GathererService
 

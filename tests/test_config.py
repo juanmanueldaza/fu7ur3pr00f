@@ -96,7 +96,7 @@ class TestProviderDetection:
         assert s.active_provider == "google"
 
     def test_proxy_is_default_when_configured(self) -> None:
-        """FutureProof proxy wins when both proxy and BYOK keys are set."""
+        """fu7ur3pr00f proxy wins when both proxy and BYOK keys are set."""
         s = make_settings(
             fu7ur3pr00f_proxy_key="fp-test",
             openai_api_key="sk-test",

@@ -1,4 +1,4 @@
-# FutureProof E2E Test Prompt
+# fu7ur3pr00f E2E Test Prompt
 
 Paste the prompt below into `fu7ur3pr00f` to exercise all 41 agent tools.
 

@@ -59,7 +59,7 @@ class HTTPMCPClient(MCPClient):
     BASE_URL: str = ""
     DEFAULT_TIMEOUT: float = 30.0
     DEFAULT_HEADERS: dict[str, str] = {
-        "User-Agent": "FutureProof Career Intelligence/1.0",
+        "User-Agent": "fu7ur3pr00f Career Intelligence/1.0",
         "Accept": "application/json",
     }
 

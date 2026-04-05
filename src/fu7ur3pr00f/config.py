@@ -121,7 +121,7 @@ class LLMProviderMixin(BaseSettings):
         ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
     )
 
-    # FutureProof Proxy (zero-config with starter tokens)
+    # fu7ur3pr00f Proxy (zero-config with starter tokens)
     fu7ur3pr00f_proxy_url: str = "https://llm.fu7ur3pr00f.dev"
     fu7ur3pr00f_proxy_key: str = Field(default="", repr=False)
 
@@ -180,7 +180,7 @@ class LLMProviderMixin(BaseSettings):
 
     @property
     def has_proxy(self) -> bool:
-        """Check if FutureProof proxy is configured."""
+        """Check if fu7ur3pr00f proxy is configured."""
         return bool(self.fu7ur3pr00f_proxy_key)
 
     @property

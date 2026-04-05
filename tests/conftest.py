@@ -1,4 +1,4 @@
-"""Shared test fixtures for FutureProof."""
+"""Shared test fixtures for fu7ur3pr00f."""
 
 from pathlib import Path
 from unittest.mock import MagicMock

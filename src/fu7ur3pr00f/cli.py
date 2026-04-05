@@ -1,4 +1,4 @@
-"""FutureProof CLI - Career Intelligence System."""
+"""fu7ur3pr00f CLI - Career Intelligence System."""
 
 import inspect
 import logging
@@ -46,7 +46,7 @@ app = typer.Typer(
 def version_callback(value: bool) -> None:
     """Show version and exit."""
     if value:
-        console.print(f"[bold blue]FutureProof[/bold blue] v{__version__}")
+        console.print(f"[bold blue]fu7ur3pr00f[/bold blue] v{__version__}")
         raise typer.Exit()
 
 
@@ -78,7 +78,7 @@ def main(
     thread: str = _THREAD_OPTION,
     debug: bool = _DEBUG_OPTION,
 ) -> None:
-    """FutureProof - Know thyself through your data."""
+    """fu7ur3pr00f - Know thyself through your data."""
     settings.ensure_directories()
 
     # Initialize logging — file handler always active, console only shows warnings

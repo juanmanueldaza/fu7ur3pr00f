@@ -19,7 +19,7 @@ Or target a specific role:
 
 ## Output Formats
 
-FutureProof generates two formats:
+fu7ur3pr00f generates two formats:
 
 | Format | Extension | Use Case |
 |--------|-----------|----------|
@@ -215,7 +215,7 @@ brew install pango cairo gdk-pixbuf
 
 Applicant Tracking Systems scan and parse CVs before humans see them.
 
-### How FutureProof Optimizes
+### How fu7ur3pr00f Optimizes
 
 | Feature | Benefit |
 |---------|---------|

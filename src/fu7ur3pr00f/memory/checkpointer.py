@@ -29,7 +29,7 @@ _INTERNAL_THREAD_PREFIX = "bb_"
 
 
 def get_data_dir() -> Path:
-    """Get or create the FutureProof data directory."""
+    """Get or create the fu7ur3pr00f data directory."""
     from fu7ur3pr00f.utils.security import secure_mkdir
 
     data_dir = Path.home() / ".fu7ur3pr00f"

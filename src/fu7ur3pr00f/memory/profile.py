@@ -1,4 +1,4 @@
-"""User profile management for FutureProof.
+"""User profile management for fu7ur3pr00f.
 
 Provides YAML-based storage for user identity, goals, and preferences.
 The profile is human-readable and editable, stored at ~/.fu7ur3pr00f/profile.yaml.

@@ -126,7 +126,7 @@ def _validate_setting_value(key: str, value: str) -> str | None:
 
 @tool
 def get_current_config() -> str:
-    """Get current FutureProof configuration settings.
+    """Get current fu7ur3pr00f configuration settings.
 
     Shows active LLM provider, model routing, feature flags, cache durations,
     and integration status. API keys are redacted for security.
@@ -212,7 +212,7 @@ def get_current_config() -> str:
 
 @tool
 def update_setting(key: str, value: str) -> str:
-    """Update a FutureProof configuration setting.
+    """Update a fu7ur3pr00f configuration setting.
 
     Args:
         key: Setting name (e.g. 'agent_model', 'llm_temperature')

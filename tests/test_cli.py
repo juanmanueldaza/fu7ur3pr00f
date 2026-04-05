@@ -1,4 +1,4 @@
-"""CLI smoke tests for FutureProof."""
+"""CLI smoke tests for fu7ur3pr00f."""
 
 import re
 
@@ -27,7 +27,7 @@ class TestCLIBasics:
         """Test --version flag shows version."""
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "FutureProof" in _strip_ansi(result.output)
+        assert "fu7ur3pr00f" in _strip_ansi(result.output)
 
     def test_thread_option_in_help(self) -> None:
         """Test --thread option appears in help."""

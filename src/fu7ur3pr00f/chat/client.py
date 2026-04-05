@@ -1,4 +1,4 @@
-"""Chat client for FutureProof conversational interface.
+"""Chat client for fu7ur3pr00f conversational interface.
 
 Combines prompt-toolkit for input handling with Rich for output display.
 Provides both sync and async chat loops for different use cases.
@@ -258,7 +258,7 @@ def _cmd_reset(chat_state: dict, arg: str) -> bool:
         f"\n[{COLOR_SUCCESS}]Factory reset complete.[/{COLOR_SUCCESS}] "
         f"Cleared {deleted} items."
     )
-    console.print(f"[{COLOR_INFO}]Restart FutureProof to start fresh.[/{COLOR_INFO}]")
+    console.print(f"[{COLOR_INFO}]Restart fu7ur3pr00f to start fresh.[/{COLOR_INFO}]")
     return True
 
 

@@ -17,9 +17,9 @@ You are an elite, uncompromising Principal Architect and Developer specializing 
 
 # Qwen Code — Project Context
 
-**Project**: FutureProof — Career intelligence agent  
+**Project**: fu7ur3pr00f — Career intelligence agent  
 **Stack**: Python 3.13, LangChain, LangGraph, ChromaDB, MCP  
-**LLM**: Multi-provider (OpenAI, Anthropic, Google, Azure, Ollama, FutureProof proxy)
+**LLM**: Multi-provider (OpenAI, Anthropic, Google, Azure, Ollama, fu7ur3pr00f proxy)
 
 ## How Qwen Should Work Here
 

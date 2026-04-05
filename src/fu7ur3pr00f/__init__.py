@@ -1,4 +1,4 @@
-"""FutureProof - Career Intelligence System."""
+"""fu7ur3pr00f - Career Intelligence System."""
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version  # noqa: I001

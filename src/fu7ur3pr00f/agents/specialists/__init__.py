@@ -1,4 +1,4 @@
-"""Specialist agents for multi-agent FutureProof architecture.
+"""Specialist agents for multi-agent fu7ur3pr00f architecture.
 
 Each specialist has a focused system prompt and calls the LLM directly.
 The OrchestratorAgent routes queries by keyword matching.

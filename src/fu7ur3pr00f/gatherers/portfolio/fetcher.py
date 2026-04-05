@@ -80,7 +80,7 @@ class PortfolioFetcher:
     """
 
     DEFAULT_TIMEOUT = 30.0
-    USER_AGENT = "FutureProof/1.0 (Career Intelligence System)"
+    USER_AGENT = "fu7ur3pr00f/1.0 (Career Intelligence System)"
 
     def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
         """Initialize fetcher with timeout configuration.

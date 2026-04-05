@@ -1,1 +1,1 @@
-"""Test suite for FutureProof."""
+"""Test suite for fu7ur3pr00f."""

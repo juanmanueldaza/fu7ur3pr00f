@@ -1,6 +1,6 @@
 # Vagrant Development & Testing
 
-Quick reference for using Vagrant with FutureProof. Vagrant provides:
+Quick reference for using Vagrant with fu7ur3pr00f. Vagrant provides:
 - **Dev VM** for development with synced code and data
 - **Test VMs** for validating apt installation from the published GitHub Pages repository
 

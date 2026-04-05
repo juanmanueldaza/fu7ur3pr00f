@@ -132,7 +132,7 @@ One sentence explaining the score, citing specific evidence.
 - **Cross-reference check**: If GitHub repos contradict a claimed gap, declare it FALSE and name the repo
 
 ### Action Plan (ranked by Income + Sovereignty)
-1. [Specific action] — closes [specific gap] by [concrete step]. **Income**: [€/$ range or % impact], **Sovereignty**: [0-100/100]. Example: "Add README + demo to FutureProof repo" not "improve documentation".
+1. [Specific action] — closes [specific gap] by [concrete step]. **Income**: [€/$ range or % impact], **Sovereignty**: [0-100/100]. Example: "Add README + demo to fu7ur3pr00f repo" not "improve documentation".
 2. [Specific action] — leverages [specific strength]. **Income**: [range], **Sovereignty**: [score].
 3. [Specific action] — addresses [specific weakness]. **Income**: [range], **Sovereignty**: [score].
 (3-5 items max. Each must reference a finding above by name. Consider both employment and non-employment income paths.)

@@ -6,6 +6,8 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dist_dir="${DIST_DIR:-${root_dir}/dist/deb}"
 
+mkdir -p "${dist_dir}"
+
 # Security: Use mktemp for secure temp directories
 work_dir="$(mktemp -d "${dist_dir}/work.XXXXXX")"
 pkg_dir="$(mktemp -d "${dist_dir}/pkg.XXXXXX")"

@@ -9,7 +9,7 @@ The system uses a sophisticated multi-agent orchestration pattern based on **Lan
 -   **Conversational Engine**: Managed by `ConversationEngine` using a persistent LangGraph workflow. It classifies turns (factual, follow-up, new query) and routes them accordingly.
 -   **Blackboard Pattern**: Queries are routed to specialized agents (Specialists) who contribute findings to a shared blackboard. A final synthesis step compiles these findings into a coherent response.
 -   **Memory & RAG**: Uses **ChromaDB** for vector-based knowledge (RAG) and episodic memory. Conversation history is persisted via a thread-based checkpointer.
--   **MCP Integration**: Integrates with 12+ **Model Context Protocol (MCP)** clients for real-time data from GitHub, LinkedIn, job boards (JobSpy, Himalayas, etc.), and search engines (Tavily).
+-   **MCP Integration**: Integrates with 12 **Model Context Protocol (MCP)** clients for real-time data from GitHub, LinkedIn, job boards (JobSpy, Himalayas, etc.), and search engines (Tavily).
 -   **Data Gatherers**: Modular gatherers for LinkedIn ZIP exports, CliftonStrengths PDFs, CVs (PDF/MD/TXT), and portfolios, indexing directly into ChromaDB.
 -   **Offline Fallbacks**: Routing falls back to deterministic keyword scoring, and CV parsing falls back to local heading extraction when LLM calls are unavailable.
 

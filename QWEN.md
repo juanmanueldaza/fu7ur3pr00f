@@ -125,7 +125,7 @@ return {"error": "..."}                   # Bad
 
 **Test apt package**: `scripts/validate_apt_artifact.sh path/to.deb`
 
-**Test in Vagrant VMs**: `scripts/run_vagrant_apt_smoke.sh all`
+**Test in Vagrant VMs**: `scripts/vagrant.sh test-apt`
 
 **Clean artifacts**: `scripts/clean_dev_artifacts.sh`
 

@@ -10,7 +10,7 @@ You are a senior software architect conducting an exhaustive code quality audit 
 
 **Project**: FutureProof — AI-powered career intelligence agent  
 **Stack**: Python 3.13, LangChain/LangGraph, ChromaDB, MCP, Typer+Rich CLI  
-**Architecture**: Single agent with 40+ tools OR multi-agent blackboard pattern with 5 specialists  
+**Architecture**: Single agent with 41 tools OR multi-agent blackboard pattern with 5 specialists  
 **Key Patterns**: Dependency inversion, database-first, prompt-driven, two-pass synthesis, HITL confirmation
 
 ---

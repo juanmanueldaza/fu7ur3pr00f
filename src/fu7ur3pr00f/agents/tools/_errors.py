@@ -16,18 +16,13 @@ Usage:
 
 import logging
 from collections.abc import Callable
-from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
 
-
-def handle_tool_error(
-    action_fn: Callable[[], T],
-    error_noun: str,
-    fallback: T | None = None,
-) -> T | str:
+def handle_tool_error[
+    T
+](action_fn: Callable[[], T], error_noun: str, fallback: T | None = None,) -> T | str:
     """Execute tool action with standardized error handling.
 
     Catches exceptions, logs them, and returns user-friendly error message.
@@ -53,17 +48,18 @@ def handle_tool_error(
         logger.exception("Error during %s", error_noun)
         if fallback is not None:
             return fallback
-        return (
-            f"Could not {error_noun}: {type(e).__name__}. "
-            f"Check logs for details."
-        )
+        return f"Could not {error_noun}: {type(e).__name__}. Check logs for details."
 
 
-def handle_async_tool_error(
+def handle_async_tool_error[
+    T
+](
     action_fn: Callable[[], T],
     error_noun: str,
     fallback: T | None = None,
-) -> Callable[[], T | str]:
+) -> Callable[
+    [], T | str
+]:
     """Execute async tool action with standardized error handling.
 
     Wrapper for async functions — returns coroutine that handles errors.
@@ -92,8 +88,7 @@ def handle_async_tool_error(
             if fallback is not None:
                 return fallback
             return (
-                f"Could not {error_noun}: {type(e).__name__}. "
-                f"Check logs for details."
+                f"Could not {error_noun}: {type(e).__name__}. Check logs for details."
             )
 
     return _wrapper()  # type: ignore[return-value]

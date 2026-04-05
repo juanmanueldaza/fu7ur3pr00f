@@ -384,6 +384,6 @@ brew install poppler
 
 ## See Also
 
-- [Configuration](configuration.md) — Setting up `.env`
-- [Tools Reference](tools.md) — Gathering tools details
+- [Configuration](../README.md#configuration) — Setting up `.env`
+- [Tools Reference](../src/fu7ur3pr00f/agents/tools/gathering.py) — Gathering tools details
 - [Troubleshooting](troubleshooting.md) — Common issues

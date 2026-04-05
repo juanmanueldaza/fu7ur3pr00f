@@ -371,7 +371,7 @@ Based on the architecture, pay extra attention to:
 
 1. **Specialist Consistency**: All 5 specialists should follow identical patterns
 2. **MCP Client Uniformity**: 12 clients should have minimal duplication
-3. **Tool Registration**: 40+ tools should use consistent patterns
+3. **Tool Registration**: 41 tools should use consistent patterns
 4. **Memory Abstraction**: Knowledge vs. episodic stores should share appropriately
 5. **Middleware Composition**: Check if middleware chain is composable or coupled
 6. **Prompt Consistency**: 31 prompt files should follow templates

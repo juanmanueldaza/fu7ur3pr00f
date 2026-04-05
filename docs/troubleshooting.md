@@ -396,10 +396,10 @@ tail -f ~/.fu7ur3pr00f/logs/fu7ur3pr00f.log
 
 ### Check Documentation
 
-- [Architecture](architecture.md) — System design
-- [Configuration](configuration.md) — Settings reference
-- [Tools](tools.md) — Tool documentation
-- [Scripts](scripts.md) — Utility scripts
+- [Architecture](../README.md#architecture) — System design
+- [Configuration](../README.md#configuration) — Settings reference
+- [Tools](../README.md#tools) — Tool documentation
+- [Scripts](../README.md#scripts) — Utility scripts
 
 ### Search Existing Issues
 
@@ -441,6 +441,6 @@ uname -a
 
 ## See Also
 
-- [Configuration](configuration.md) — Settings reference
+- [Configuration](../README.md#configuration) — Settings reference
 - [Data Gathering](gatherers.md) — Import guide
 - [CV Generation](cv_generation.md) — CV guide

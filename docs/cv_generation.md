@@ -344,5 +344,5 @@ git commit -m "Update CV for Staff Engineer applications"
 ## See Also
 
 - [Data Gathering](gatherers.md) — Import your career data
-- [Tools Reference](tools.md) — CV generation tools
+- [Tools Reference](../src/fu7ur3pr00f/agents/tools/generation.py) — CV generation tools
 - [Troubleshooting](troubleshooting.md) — Common issues

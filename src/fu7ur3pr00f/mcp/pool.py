@@ -73,6 +73,7 @@ def get_error_type(result: str | dict) -> str:
 
     return MCPErrorType.UNKNOWN_ERROR
 
+
 _lock = threading.Lock()
 _clients: dict[str, MCPClient] = {}
 _client_locks: dict[str, asyncio.Lock] = {}
@@ -155,7 +156,8 @@ def call_tool(
     with _lock:
         loop = _get_loop()
     future = asyncio.run_coroutine_threadsafe(
-        _call(server_type, tool_name, args), loop,
+        _call(server_type, tool_name, args),
+        loop,
     )
     return future.result(timeout=timeout)
 
@@ -180,7 +182,8 @@ def shutdown() -> None:
     """Disconnect all pooled clients. Safe to call at exit."""
     if _loop is not None and _loop.is_running():
         fut = asyncio.run_coroutine_threadsafe(
-            _shutdown_async(), _loop,
+            _shutdown_async(),
+            _loop,
         )
         try:
             fut.result(timeout=10)

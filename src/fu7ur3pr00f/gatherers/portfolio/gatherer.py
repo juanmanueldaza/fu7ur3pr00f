@@ -51,13 +51,16 @@ class PortfolioGatherer:
 
         logger.info("Gathering portfolio from %s", target_url)
 
-        with (self._fetcher or PortfolioFetcher()) as fetcher:
+        with self._fetcher or PortfolioFetcher() as fetcher:
             html_result = fetcher.fetch(target_url)
             logger.debug("Fetched %d bytes", len(html_result.content))
 
             content = self._html_extractor.extract(html_result.content, target_url)
-            logger.debug("Extracted %d paragraphs, %d sections",
-                         len(content.paragraphs), len(content.sections))
+            logger.debug(
+                "Extracted %d paragraphs, %d sections",
+                len(content.paragraphs),
+                len(content.sections),
+            )
 
             if content.json_ld:
                 logger.debug("Found %d JSON-LD blocks", len(content.json_ld))

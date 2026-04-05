@@ -18,6 +18,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from ._singleton import create_singleton
 from .chromadb_store import ChromaDBStore
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,9 @@ class EpisodicMemory:
             "memory_type": self.memory_type.value,
             "context": self.context,
             "timestamp": self.timestamp.isoformat(),
-            **{k: str(v) for k, v in self.metadata.items()},  # ChromaDB needs string values
+            **{
+                k: str(v) for k, v in self.metadata.items()
+            },  # ChromaDB needs string values
         }
 
     @classmethod
@@ -64,7 +67,9 @@ class EpisodicMemory:
             memory_type=MemoryType(metadata.get("memory_type", "decision")),
             content=document,
             context=metadata.get("context", ""),
-            timestamp=datetime.fromisoformat(metadata.get("timestamp", datetime.now().isoformat())),
+            timestamp=datetime.fromisoformat(
+                metadata.get("timestamp", datetime.now().isoformat())
+            ),
             metadata={k: v for k, v in metadata.items() if k not in reserved},
         )
 
@@ -99,7 +104,9 @@ class EpisodicStore(ChromaDBStore):
             where = {"memory_type": memory_type.value}
 
         results = self._query(query, limit=limit, where=where)
-        return [EpisodicMemory.from_chromadb(id, doc, meta) for id, doc, meta in results]
+        return [
+            EpisodicMemory.from_chromadb(id, doc, meta) for id, doc, meta in results
+        ]
 
     def stats(self) -> dict[str, Any]:
         """Get statistics about the episodic store."""
@@ -179,18 +186,5 @@ def remember_application(
 # Module-level store instance
 # =============================================================================
 
-_store: EpisodicStore | None = None
 _store_lock = threading.Lock()
-
-
-def get_episodic_store() -> EpisodicStore:
-    """Get the global episodic store instance."""
-    global _store
-    if _store is not None:
-        return _store
-
-    with _store_lock:
-        if _store is not None:
-            return _store
-        _store = EpisodicStore()
-        return _store
+get_episodic_store = create_singleton(lambda: EpisodicStore(), _store_lock)

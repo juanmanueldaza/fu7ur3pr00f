@@ -8,10 +8,11 @@ import logging
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.config import settings
+from fu7ur3pr00f.constants import GITHUB_API_BASE, HTTP_TIMEOUT
 from fu7ur3pr00f.mcp.pool import MCPErrorType, call_mcp, get_error_type
+from fu7ur3pr00f.memory.profile import edit_profile
 
 logger = logging.getLogger(__name__)
-_GITHUB_API_BASE = "https://api.github.com"
 
 
 def _github_http_headers() -> tuple[dict[str, str] | None, str]:
@@ -37,14 +38,14 @@ def _github_http(tool_name: str, args: dict) -> str:
         return error
 
     try:
-        with httpx.Client(timeout=20) as client:
+        with httpx.Client(timeout=HTTP_TIMEOUT) as client:
             if tool_name == "search_repositories":
                 params = {
                     "q": args.get("query", ""),
                     "per_page": args.get("perPage", 10),
                 }
                 response = client.get(
-                    f"{_GITHUB_API_BASE}/search/repositories",
+                    f"{GITHUB_API_BASE}/search/repositories",
                     headers=headers,
                     params=params,
                 )
@@ -57,7 +58,7 @@ def _github_http(tool_name: str, args: dict) -> str:
                 path = (args.get("path") or "").lstrip("/")
                 if not owner or not repo:
                     return "GitHub API error: owner and repo are required."
-                url = f"{_GITHUB_API_BASE}/repos/{owner}/{repo}/contents"
+                url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/contents"
                 if path:
                     url = f"{url}/{path}"
                 response = client.get(url, headers=headers)
@@ -78,11 +79,11 @@ def _github_http(tool_name: str, args: dict) -> str:
                 return response.text
 
             if tool_name == "get_me":
-                response = client.get(f"{_GITHUB_API_BASE}/user", headers=headers)
+                response = client.get(f"{GITHUB_API_BASE}/user", headers=headers)
                 response.raise_for_status()
                 return response.text
 
-            return f"GitHub API error: unsupported tool '{tool_name}'."
+            return f"GitHub API error: unsupported tool {tool_name!r}."
     except httpx.HTTPStatusError as exc:
         return f"GitHub API error: {exc.response.status_code} {exc.response.text}"
     except Exception as exc:
@@ -91,7 +92,6 @@ def _github_http(tool_name: str, args: dict) -> str:
 
 def _save_github_username(username: str) -> None:
     """Save GitHub username to profile if not already set."""
-    from fu7ur3pr00f.memory.profile import edit_profile
 
     def _set(profile):  # type: ignore[no-untyped-def]
         if not profile.github_username:
@@ -104,7 +104,10 @@ def _save_github_username(username: str) -> None:
 def _github(tool_name: str, args: dict) -> str:
     """Call GitHub MCP via pool, return content or error."""
     result = call_mcp("github", tool_name, args)
-    if isinstance(result, (str, dict)) and get_error_type(result) == MCPErrorType.CONNECTION_ERROR:
+    if (
+        isinstance(result, (str, dict))
+        and get_error_type(result) == MCPErrorType.CONNECTION_ERROR
+    ):
         logger.info("GitHub MCP unavailable, falling back to REST API: %s", result)
         return _github_http(tool_name, args)
     return result if isinstance(result, str) else str(result)
@@ -112,7 +115,8 @@ def _github(tool_name: str, args: dict) -> str:
 
 @tool
 def search_github_repos(
-    query: str, per_page: int = 10,
+    query: str,
+    per_page: int = 10,
 ) -> str:
     """Search GitHub repositories by name, description, or topic.
 
@@ -135,7 +139,9 @@ def search_github_repos(
 
 @tool
 def get_github_repo(
-    owner: str, repo: str, path: str = "",
+    owner: str,
+    repo: str,
+    path: str = "",
 ) -> str:
     """Get contents of a GitHub repository or file/directory.
 
@@ -201,7 +207,4 @@ def get_github_profile(include_repos: bool = False) -> str:
     if repos_content.startswith("GitHub"):
         return profile_content  # Repos failed, return profile
 
-    return (
-        profile_content
-        + f"\n\n## Recent Repositories\n{repos_content}"
-    )
+    return profile_content + f"\n\n## Recent Repositories\n{repos_content}"

@@ -1,6 +1,6 @@
 """Tests for data loading utilities."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fu7ur3pr00f.utils.data_loader import (
     combine_career_data,
@@ -9,7 +9,7 @@ from fu7ur3pr00f.utils.data_loader import (
     load_career_data_for_cv,
 )
 
-_PATCH_TARGET = "fu7ur3pr00f.services.knowledge_service.KnowledgeService"
+_PATCH_TARGET = "fu7ur3pr00f.utils.data_loader.get_knowledge_service"
 
 
 class TestLoadCareerData:
@@ -17,8 +17,9 @@ class TestLoadCareerData:
 
     def test_returns_empty_dict_when_no_data(self) -> None:
         """Test returns empty dict when knowledge base is empty."""
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_all_content.return_value = {}
+        mock_service = MagicMock()
+        mock_service.get_all_content.return_value = {}
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data()
             assert result == {}
 
@@ -28,17 +29,19 @@ class TestLoadCareerData:
             "linkedin_data": "# LinkedIn\nSoftware Engineer",
             "portfolio_data": "# Portfolio\nDeveloper",
         }
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_all_content.return_value = expected
+        mock_service = MagicMock()
+        mock_service.get_all_content.return_value = expected
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data()
             assert result == expected
 
     def test_only_includes_sources_with_content(self) -> None:
         """Test only includes sources that have indexed content."""
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_all_content.return_value = {
-                "portfolio_data": "# Portfolio\nContent"
-            }
+        mock_service = MagicMock()
+        mock_service.get_all_content.return_value = {
+            "portfolio_data": "# Portfolio\nContent"
+        }
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data()
             assert "portfolio_data" in result
             assert "linkedin_data" not in result
@@ -49,8 +52,9 @@ class TestLoadCareerDataForAnalysis:
 
     def test_returns_empty_dict_when_no_data(self) -> None:
         """Test returns empty dict when knowledge base is empty."""
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_filtered_content.return_value = {}
+        mock_service = MagicMock()
+        mock_service.get_filtered_content.return_value = {}
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data_for_analysis()
             assert result == {}
 
@@ -60,8 +64,9 @@ class TestLoadCareerDataForAnalysis:
             "linkedin_data": "Experience content only",
             "portfolio_data": "Portfolio content",
         }
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_filtered_content.return_value = expected
+        mock_service = MagicMock()
+        mock_service.get_filtered_content.return_value = expected
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data_for_analysis()
             assert result == expected
 
@@ -71,28 +76,31 @@ class TestLoadCareerDataForCV:
 
     def test_returns_empty_string_when_no_data(self) -> None:
         """Test returns empty string when no data exists."""
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_filtered_content.return_value = {}
+        mock_service = MagicMock()
+        mock_service.get_filtered_content.return_value = {}
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data_for_cv()
             assert result == ""
 
     def test_includes_section_headers(self) -> None:
         """Test includes section headers for each source."""
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_filtered_content.return_value = {
-                "linkedin_data": "LinkedIn content",
-                "portfolio_data": "Portfolio content",
-            }
+        mock_service = MagicMock()
+        mock_service.get_filtered_content.return_value = {
+            "linkedin_data": "LinkedIn content",
+            "portfolio_data": "Portfolio content",
+        }
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data_for_cv()
             assert "### LinkedIn" in result
             assert "### Portfolio" in result
 
     def test_returns_string_not_dict(self) -> None:
         """Test returns combined string, not dict."""
-        with patch(_PATCH_TARGET) as mock_cls:
-            mock_cls.return_value.get_filtered_content.return_value = {
-                "portfolio_data": "Portfolio content",
-            }
+        mock_service = MagicMock()
+        mock_service.get_filtered_content.return_value = {
+            "portfolio_data": "Portfolio content",
+        }
+        with patch(_PATCH_TARGET, return_value=mock_service):
             result = load_career_data_for_cv()
             assert isinstance(result, str)
 
@@ -100,14 +108,18 @@ class TestLoadCareerDataForCV:
 class TestCombineCareerData:
     """Test combine_career_data function."""
 
-    def test_combines_all_data_sources(self, sample_career_data: dict[str, str]) -> None:
+    def test_combines_all_data_sources(
+        self, sample_career_data: dict[str, str]
+    ) -> None:
         """Test combines all provided data sources."""
         result = combine_career_data(sample_career_data)
 
         assert "LinkedIn" in result
         assert "Portfolio" in result
 
-    def test_uses_custom_header_prefix(self, sample_career_data: dict[str, str]) -> None:
+    def test_uses_custom_header_prefix(
+        self, sample_career_data: dict[str, str]
+    ) -> None:
         """Test uses custom header prefix."""
         result = combine_career_data(sample_career_data, header_prefix="###")
 

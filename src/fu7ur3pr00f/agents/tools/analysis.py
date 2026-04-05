@@ -4,7 +4,9 @@ import logging
 
 from langchain_core.tools import tool
 
-from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.agents.tools._analysis_helpers import invoke_with_context
+from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.utils.services import get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -14,38 +16,37 @@ def analyze_skill_gaps(target_role: str) -> str:
     """Analyze the gap between current skills and a target role's requirements.
 
     Args:
-        target_role: The job role to analyze gaps for (e.g., "ML Engineer", "Staff Developer")
+        target_role: The job role to analyze gaps for
+            (e.g., "ML Engineer", "Staff Developer")
 
-    Use this when the user asks about skill gaps, career transitions, or what they need to learn.
-    This uses AI to compare the user's skills against typical role requirements.
+    Use this when the user asks about skill gaps, career
+    transitions, or what they need to learn.
     """
     try:
-        from fu7ur3pr00f.services import AnalysisService
-
-        service = AnalysisService()
-        result = service.analyze(action="analyze_gaps", target=target_role)
-
-        if result.success:
-            return f"Skill gap analysis for '{target_role}':\n\n{result.content}"
-        else:
-            return f"Could not complete gap analysis: {result.error}"
+        result = invoke_with_context(
+            search_query=f"skills experience {target_role}",
+            prompt=load_prompt("tool_analyze_skill_gaps").replace(
+                "{target_role}", target_role
+            ),
+            search_limit=10,
+        )
+        return f"Skill gap analysis for {target_role!r}:\n\n{result}"
 
     except Exception as e:
         logger.exception("Skill gap analysis failed for '%s'", target_role)
-        # Fallback to profile-based analysis
-        profile = load_profile()
+        profile = get_profile()
         current_skills = profile.technical_skills + profile.soft_skills
 
         if not current_skills:
             return (
-                f"Cannot analyze gaps for '{target_role}' - no skills recorded. "
+                f"Cannot analyze gaps for {target_role!r} — no skills recorded. "
                 "Please tell me about your technical and soft skills first."
             )
 
         return (
-            f"Skill gap analysis for '{target_role}':\n\n"
+            f"Skill gap analysis for {target_role!r}:\n\n"
             f"Your current skills: {', '.join(current_skills)}\n\n"
-            f"Note: Full AI-powered gap analysis requires gathered career data. "
+            f"Note: Full analysis requires gathered career data. "
             f"Error: {type(e).__name__}. Check logs for details."
         )
 
@@ -54,17 +55,17 @@ def analyze_skill_gaps(target_role: str) -> str:
 def analyze_career_alignment() -> str:
     """Analyze how well the user's current trajectory aligns with their goals.
 
-    Use this for a comprehensive career analysis including goals, skills, and market fit.
+    Use this for a comprehensive career analysis including
+    goals, skills, and market fit.
     """
     try:
-        from fu7ur3pr00f.services import AnalysisService
+        result = invoke_with_context(
+            search_query="career goals trajectory alignment",
+            prompt=load_prompt("tool_analyze_career_alignment"),
+            search_limit=15,
+        )
+        return f"Career alignment analysis:\n\n{result}"
 
-        service = AnalysisService()
-        result = service.analyze(action="analyze_full")
-
-        if result.success:
-            return f"Career alignment analysis:\n\n{result.content}"
-        return f"Could not complete analysis: {result.error}"
     except Exception as e:
         logger.exception("Career alignment analysis failed")
         return (
@@ -83,14 +84,16 @@ def get_career_advice(target: str) -> str:
     Use this when the user asks for advice on career decisions or paths.
     """
     try:
-        from fu7ur3pr00f.services import AnalysisService
+        result = invoke_with_context(
+            search_query=target,
+            prompt=load_prompt("tool_get_career_advice").replace("{target}", target),
+            search_limit=10,
+        )
+        return f"Career advice for {target!r}:\n\n{result}"
 
-        service = AnalysisService()
-        advice = service.get_advice(target)
-        return f"Career advice for '{target}':\n\n{advice}"
     except Exception as e:
         logger.exception("Career advice failed for '%s'", target)
         return (
-            f"Career advice for '{target}' encountered an error"
+            f"Career advice for {target!r} encountered an error"
             f" ({type(e).__name__}). Check logs for details."
         )

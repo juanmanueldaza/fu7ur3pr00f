@@ -22,6 +22,9 @@ _CGNAT_RANGE = ip_network("100.64.0.0/10")
 _dns_lock = threading.Lock()
 
 _MAX_REDIRECTS = 5
+_MAX_URL_LENGTH = 2048  # Maximum URL length
+_MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10MB max response size
+_DNS_TIMEOUT = 5.0  # DNS resolution timeout in seconds
 
 
 @contextlib.contextmanager
@@ -119,8 +122,14 @@ class PortfolioFetcher:
             or None for literal-IP URLs (no pinning needed).
 
         Raises:
-            ValueError: If URL is unsafe (private IP, bad scheme, etc.)
+            ValueError: If URL is unsafe (private IP, bad scheme, too long, etc.)
         """
+        # Security: Check URL length
+        if len(url) > _MAX_URL_LENGTH:
+            raise ValueError(
+                f"URL exceeds maximum length of {_MAX_URL_LENGTH} characters"
+            )
+
         parsed = urlparse(url)
 
         if parsed.scheme not in ("http", "https"):
@@ -140,13 +149,27 @@ class PortfolioFetcher:
                 raise
             # Not a literal IP — resolve DNS below
 
-        # Resolve hostname and check ALL addresses (IPv4 + IPv6)
+        # Resolve hostname with timeout and check ALL addresses (IPv4 + IPv6)
+        socket_module = socket
         try:
-            addrinfo = socket.getaddrinfo(
-                hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM,
-            )
-        except socket.gaierror:
-            raise ValueError(f"DNS resolution failed for {hostname}")
+            # Set default timeout for getaddrinfo
+            old_timeout = socket_module.getdefaulttimeout()
+            socket_module.setdefaulttimeout(_DNS_TIMEOUT)
+            try:
+                addrinfo = socket_module.getaddrinfo(
+                    hostname,
+                    None,
+                    socket_module.AF_UNSPEC,
+                    socket_module.SOCK_STREAM,
+                )
+            finally:
+                socket_module.setdefaulttimeout(old_timeout)
+        except socket_module.gaierror as exc:
+            raise ValueError(f"DNS resolution failed for {hostname}") from exc
+        except TimeoutError as exc:
+            raise ValueError(
+                f"DNS resolution timeout for {hostname} (>{_DNS_TIMEOUT}s)"
+            ) from exc
 
         for _family, _type, _proto, _canonname, sockaddr in addrinfo:
             addr = str(sockaddr[0])
@@ -158,7 +181,9 @@ class PortfolioFetcher:
 
         return addrinfo
 
-    def _get_with_pinning(self, url: str, addrinfo: list[tuple] | None) -> httpx.Response:
+    def _get_with_pinning(
+        self, url: str, addrinfo: list[tuple] | None
+    ) -> httpx.Response:
         """Send GET request with optional DNS pinning."""
         assert self._client is not None
         if addrinfo:
@@ -205,6 +230,13 @@ class PortfolioFetcher:
                 continue
 
             response.raise_for_status()
+
+            # Security: Check response size
+            if len(response.content) > _MAX_RESPONSE_SIZE:
+                raise ValueError(
+                    "Response exceeds maximum size of "
+                    f"{_MAX_RESPONSE_SIZE // 1024 // 1024}MB"
+                )
 
             logger.debug("Fetched %d bytes from %s", len(response.text), url)
             return FetchResult(url=url, content=response.text)

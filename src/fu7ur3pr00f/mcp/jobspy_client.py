@@ -4,11 +4,22 @@ Uses JobSpy to aggregate jobs from LinkedIn, Indeed, Glassdoor, ZipRecruiter.
 MIT licensed, no authentication required.
 """
 
+import asyncio
 import json
+import logging
 from typing import Any
 
 from .base import MCPClient, MCPToolError, MCPToolResult
 from .job_schema import generate_job_id
+
+try:
+    from jobspy.model import Country
+
+    _JOBSPY_AVAILABLE = True
+except ImportError:
+    _JOBSPY_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class JobSpyMCPClient(MCPClient):
@@ -28,16 +39,8 @@ class JobSpyMCPClient(MCPClient):
 
     async def connect(self) -> None:
         """Check if jobspy is available."""
-        try:
-            # Try to import jobspy (optional dependency)
-            import jobspy  # type: ignore[import-not-found]  # noqa: F401
-
-            self._jobspy_available = True
-            self._connected = True
-        except ImportError:
-            # JobSpy not installed - we'll return helpful error
-            self._jobspy_available = False
-            self._connected = True  # Still "connected" but limited
+        self._jobspy_available = _JOBSPY_AVAILABLE
+        self._connected = True
 
     async def disconnect(self) -> None:
         """No cleanup needed."""
@@ -54,21 +57,16 @@ class JobSpyMCPClient(MCPClient):
             "search_jobs_multi_site",
         ]
 
-    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> MCPToolResult:
+    async def call_tool(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
         """Call a job search tool."""
         if not self.is_connected():
             raise MCPToolError("Client not connected")
 
         if not self._jobspy_available:
-            return MCPToolResult(
-                content=json.dumps(
-                    {
-                        "error": "JobSpy not installed. Install with: pip install python-jobspy",
-                        "fallback": "Use Brave Search for job data instead",
-                    }
-                ),
-                tool_name=tool_name,
-                is_error=True,
+            raise MCPToolError(
+                "JobSpy not installed. Install with: pip install python-jobspy"
             )
 
         try:
@@ -147,11 +145,9 @@ class JobSpyMCPClient(MCPClient):
         if not location or location.lower() == "remote":
             return "worldwide"
 
-        from jobspy.model import Country  # type: ignore[import-not-found]
-
         # Try direct country match
         try:
-            Country.from_string(location)
+            Country.from_string(location)  # type: ignore[name-defined]
             return location.lower()
         except ValueError:
             pass
@@ -162,6 +158,16 @@ class JobSpyMCPClient(MCPClient):
             return cls._CITY_TO_COUNTRY[loc_lower]
 
         return "worldwide"
+
+    async def _run_scrape(self, search_params: dict[str, Any]):
+        """Run JobSpy's synchronous scraper in a worker thread."""
+        from jobspy import scrape_jobs  # type: ignore[import-not-found]
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: scrape_jobs(**search_params),
+        )
 
     async def _search_jobs(
         self,
@@ -175,19 +181,16 @@ class JobSpyMCPClient(MCPClient):
         if not self._jobspy_available:
             raise MCPToolError("JobSpy not available")
 
-        from jobspy import scrape_jobs  # type: ignore[import-not-found]
-
         sites = site_names or ["linkedin", "indeed"]
 
-        # Resolve country for Indeed/Glassdoor/Google (they use country-specific domains)
+        # Resolve country for Indeed/Glassdoor/Google (they use country-specific
+        # domains)
         country = self._resolve_country(location)
 
         # Exclude Glassdoor for unsupported countries (avoids noisy errors)
         if "glassdoor" in sites:
             try:
-                from jobspy.model import Country  # type: ignore[import-not-found]
-
-                c = Country.from_string(country)
+                c = Country.from_string(country)  # type: ignore[name-defined]
                 c.glassdoor_domain_value  # raises if unsupported
             except Exception:
                 sites = [s for s in sites if s != "glassdoor"]
@@ -207,14 +210,25 @@ class JobSpyMCPClient(MCPClient):
             search_params["is_remote"] = True
 
         try:
-            # Run the synchronous scrape_jobs in a thread
-            import asyncio
-
-            loop = asyncio.get_event_loop()
-            jobs_df = await loop.run_in_executor(
-                None,
-                lambda: scrape_jobs(**search_params),
-            )
+            try:
+                jobs_df = await self._run_scrape(search_params)
+            except Exception as e:
+                if "linkedin" in sites and len(sites) > 1:
+                    logger.warning(
+                        (
+                            "JobSpy search failed with linkedin included; "
+                            "retrying without linkedin: %s"
+                        ),
+                        e,
+                    )
+                    retry_params = {
+                        **search_params,
+                        "site_name": [s for s in sites if s != "linkedin"],
+                    }
+                    jobs_df = await self._run_scrape(retry_params)
+                    sites = retry_params["site_name"]
+                else:
+                    raise
 
             # Convert DataFrame to list of dicts
             if jobs_df is not None and not jobs_df.empty:

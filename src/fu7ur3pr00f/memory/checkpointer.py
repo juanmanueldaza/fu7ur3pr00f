@@ -25,6 +25,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 # Cached singleton to avoid creating new connections on every call
 _checkpointer: SqliteSaver | None = None
 _cp_lock = threading.Lock()
+_INTERNAL_THREAD_PREFIX = "bb_"
 
 
 def get_data_dir() -> Path:
@@ -90,6 +91,11 @@ def clear_thread_history(thread_id: str) -> None:
         conn.close()
 
 
+def is_internal_thread(thread_id: str) -> bool:
+    """Return True when a thread ID belongs to internal blackboard state."""
+    return thread_id.startswith(_INTERNAL_THREAD_PREFIX)
+
+
 def list_threads() -> list[str]:
     """List all conversation thread IDs.
 
@@ -109,7 +115,11 @@ def list_threads() -> list[str]:
             "SELECT DISTINCT thread_id FROM checkpoints "
             "UNION SELECT DISTINCT thread_id FROM writes"
         )
-        return [row[0] for row in cursor.fetchall()]
+        return [
+            row[0]
+            for row in cursor.fetchall()
+            if row[0] and not is_internal_thread(row[0])
+        ]
     except sqlite3.OperationalError:
         # Table doesn't exist yet
         return []

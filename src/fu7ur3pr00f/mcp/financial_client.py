@@ -5,10 +5,15 @@ Uses two free APIs (no authentication required):
   https://www.exchangerate-api.com/docs/free
 - World Bank: Purchasing Power Parity (PPP) conversion factors
   https://api.worldbank.org/v2/
+
+Prefers pycountry for ISO country code resolution, but keeps working without it.
 """
 
 import time
+from importlib import import_module
 from typing import Any
+
+from fu7ur3pr00f.constants import FOREX_API_BASE, PPP_API_BASE
 
 from ..config import settings
 from .base import MCPToolResult
@@ -20,107 +25,82 @@ _ppp_cache: dict[str, tuple[float, float, str]] = {}  # code -> (ts, ratio, year
 
 _PPP_CACHE_TTL = 24 * 3600  # 24 hours (annual data)
 
-# Country name -> ISO 3166-1 alpha-3 for World Bank API
-_COUNTRY_CODES: dict[str, str] = {
+_COUNTRY_CODE_FALLBACKS = {
+    "ar": "ARG",
+    "arg": "ARG",
     "argentina": "ARG",
-    "australia": "AUS",
-    "austria": "AUT",
-    "belgium": "BEL",
-    "brazil": "BRA",
-    "canada": "CAN",
-    "chile": "CHL",
-    "china": "CHN",
-    "colombia": "COL",
-    "czech republic": "CZE",
-    "denmark": "DNK",
-    "finland": "FIN",
-    "france": "FRA",
-    "germany": "DEU",
-    "hungary": "HUN",
-    "india": "IND",
-    "indonesia": "IDN",
-    "ireland": "IRL",
-    "israel": "ISR",
-    "italy": "ITA",
-    "japan": "JPN",
-    "mexico": "MEX",
-    "netherlands": "NLD",
-    "norway": "NOR",
-    "peru": "PER",
-    "poland": "POL",
-    "portugal": "PRT",
-    "romania": "ROU",
-    "south korea": "KOR",
+    "es": "ESP",
+    "esp": "ESP",
     "spain": "ESP",
-    "sweden": "SWE",
-    "switzerland": "CHE",
-    "united kingdom": "GBR",
-    "united states": "USA",
-    "uruguay": "URY",
-    # Short forms
     "us": "USA",
     "usa": "USA",
+    "united states": "USA",
+    "united states of america": "USA",
     "uk": "GBR",
+    "gb": "GBR",
+    "gbr": "GBR",
+    "united kingdom": "GBR",
 }
 
-# ISO alpha-2 -> alpha-3
-_ALPHA2_TO_ALPHA3: dict[str, str] = {
-    "AR": "ARG",
-    "AU": "AUS",
-    "AT": "AUT",
-    "BE": "BEL",
-    "BR": "BRA",
-    "CA": "CAN",
-    "CL": "CHL",
-    "CN": "CHN",
-    "CO": "COL",
-    "CZ": "CZE",
-    "DK": "DNK",
-    "FI": "FIN",
-    "FR": "FRA",
-    "DE": "DEU",
-    "HU": "HUN",
-    "IN": "IND",
-    "ID": "IDN",
-    "IE": "IRL",
-    "IL": "ISR",
-    "IT": "ITA",
-    "JP": "JPN",
-    "MX": "MEX",
-    "NL": "NLD",
-    "NO": "NOR",
-    "PE": "PER",
-    "PL": "POL",
-    "PT": "PRT",
-    "RO": "ROU",
-    "KR": "KOR",
-    "ES": "ESP",
-    "SE": "SWE",
-    "CH": "CHE",
-    "GB": "GBR",
-    "US": "USA",
-    "UY": "URY",
-}
+
+def _load_pycountry() -> Any:
+    """Load pycountry lazily so the dependency remains optional."""
+    try:
+        return import_module("pycountry")
+    except ModuleNotFoundError:
+        return None
+
+
+pycountry = _load_pycountry()
+with_pycountry = pycountry is not None
 
 
 def resolve_country_code(country: str) -> str:
     """Resolve country name or code to ISO 3166-1 alpha-3.
 
+    Uses pycountry library for robust country code resolution when installed.
+    Falls back to a small built-in alias table for common countries.
     Handles full names ("Argentina"), alpha-2 ("AR"), and alpha-3 ("ARG").
+
+    Args:
+        country: Country name or code
+
+    Returns:
+        ISO 3166-1 alpha-3 country code
+
+    Raises:
+        ValueError: If country cannot be resolved
     """
     stripped = country.strip()
-    upper = stripped.upper()
+    lowered = stripped.lower()
 
-    # Already alpha-3
-    if len(upper) == 3 and upper.isalpha():
-        return upper
+    if not stripped:
+        raise ValueError("Country is required")
 
-    # Alpha-2 lookup
-    if len(upper) == 2 and upper.isalpha():
-        return _ALPHA2_TO_ALPHA3.get(upper, upper)
+    if pycountry is not None:
+        # Try alpha-3 first (3 letters)
+        if len(stripped) == 3 and stripped.isalpha():
+            country_obj = pycountry.countries.get(alpha_3=stripped.upper())
+            if country_obj:
+                return country_obj.alpha_3
 
-    # Full name lookup (case-insensitive)
-    return _COUNTRY_CODES.get(stripped.lower(), upper[:3])
+        # Try alpha-2 (2 letters)
+        if len(stripped) == 2 and stripped.isalpha():
+            country_obj = pycountry.countries.get(alpha_2=stripped.upper())
+            if country_obj:
+                return country_obj.alpha_3
+
+        # Try by name (case-insensitive)
+        country_obj = pycountry.countries.search_fuzzy(stripped)
+        if country_obj:
+            return country_obj[0].alpha_3
+
+    fallback = _COUNTRY_CODE_FALLBACKS.get(lowered)
+    if fallback:
+        return fallback
+
+    suffix = "" if with_pycountry else " (install pycountry for broader matching)"
+    raise ValueError(f"Cannot resolve country: {country!r}{suffix}")
 
 
 class FinancialMCPClient(HTTPMCPClient):
@@ -132,35 +112,27 @@ class FinancialMCPClient(HTTPMCPClient):
     """
 
     DEFAULT_TIMEOUT = 45.0  # World Bank API can be slow
-
-    FOREX_URL = "https://open.er-api.com/v6/latest"
-    PPP_URL = "https://api.worldbank.org/v2/country"
+    BASE_URL = FOREX_API_BASE
+    PPP_URL = PPP_API_BASE
     PPP_INDICATOR = "PA.NUS.PPPC.RF"
 
     async def list_tools(self) -> list[str]:
         """List available tools."""
         return ["convert_currency", "get_ppp_factor"]
 
-    async def _tool_convert_currency(
-        self, args: dict[str, Any]
-    ) -> MCPToolResult:
+    async def _tool_convert_currency(self, args: dict[str, Any]) -> MCPToolResult:
         """Convert between currencies using real-time rates."""
         amount = float(args.get("amount", 1))
         from_cur = args.get("from_currency", "USD").upper()
         to_cur = args.get("to_currency", "USD").upper()
 
-        client = self._ensure_client()
         now = time.time()
-
-        # Check cache
         cached = _forex_cache.get(from_cur)
+
         if cached and (now - cached[0]) < settings.forex_cache_hours * 3600:
             data = cached[1]
         else:
-            response = await client.get(f"{self.FOREX_URL}/{from_cur}")
-            response.raise_for_status()
-            data = response.json()
-
+            _, data = await self._api_request(f"/{from_cur}")
             if data.get("result") != "success":
                 return self._format_response(
                     {"error": f"Exchange rate API error: {data.get('result')}"},
@@ -172,73 +144,68 @@ class FinancialMCPClient(HTTPMCPClient):
         rates = data.get("rates", {})
         if to_cur not in rates:
             return self._format_response(
-                {"error": f"Currency '{to_cur}' not supported"},
+                {"error": f"Currency {to_cur!r} not supported"},
                 data,
                 "convert_currency",
             )
 
         rate = rates[to_cur]
-        converted = amount * rate
-
         output = {
             "from": from_cur,
             "to": to_cur,
             "amount": amount,
-            "converted": round(converted, 2),
+            "converted": round(amount * rate, 2),
             "rate": rate,
             "date": data.get("time_last_update_utc", ""),
         }
         return self._format_response(output, data, "convert_currency")
 
-    async def _tool_get_ppp_factor(
-        self, args: dict[str, Any]
-    ) -> MCPToolResult:
+    async def _tool_get_ppp_factor(self, args: dict[str, Any]) -> MCPToolResult:
         """Get PPP conversion factor for a country."""
         country = args.get("country", "")
         code = resolve_country_code(country)
-
         now = time.time()
+        ppp_ratio: float | None = None
+        year: str | None = None
 
-        # Check cache
         cached = _ppp_cache.get(code)
         if cached and (now - cached[0]) < _PPP_CACHE_TTL:
             ppp_ratio, year = cached[1], cached[2]
-            output = {
-                "country": country,
-                "country_code": code,
-                "ppp_ratio": ppp_ratio,
-                "year": year,
-                "interpretation": (
-                    f"Price level is {ppp_ratio * 100:.1f}% of the US"
-                ),
-            }
-            return self._format_response(output, {}, "get_ppp_factor")
+            return self._format_ppp_output(country, code, ppp_ratio, year, {})
 
-        client = self._ensure_client()
-        url = f"{self.PPP_URL}/{code}/indicator/{self.PPP_INDICATOR}"
-        response = await client.get(
-            url, params={"format": "json", "per_page": 5}
+        # Use PPP_URL for World Bank API (different from BASE_URL)
+        _, data = await self._api_request(
+            f"/{code}/indicator/{self.PPP_INDICATOR}",
+            params={"format": "json", "per_page": 5},
+            base_url=self.PPP_URL,
         )
-        response.raise_for_status()
-        data = response.json()
 
-        # World Bank returns [metadata, data_array]
         entries = data[1] if len(data) > 1 and data[1] else []
-
-        # Find most recent non-null value
-        ppp_ratio = None
-        year = None
-        for entry in entries:
-            if entry.get("value") is not None:
-                ppp_ratio = entry["value"]
-                year = entry.get("date", "")
-                break
+        ppp_ratio, year = self._find_latest_ppp(entries)
 
         if ppp_ratio is not None:
             _ppp_cache[code] = (now, ppp_ratio, year or "")
 
+        return self._format_ppp_output(country, code, ppp_ratio, year, data)
+
+    def _find_latest_ppp(self, entries: list) -> tuple[float | None, str | None]:
+        """Find most recent non-null PPP value."""
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("value") is not None:
+                return float(entry["value"]), str(entry.get("date", ""))
+        return None, None
+
+    def _format_ppp_output(
+        self,
+        country: str,
+        code: str,
+        ppp_ratio: float | None,
+        year: str | None,
+        raw_data: Any,
+    ) -> MCPToolResult:
+        """Format PPP output consistently."""
         if ppp_ratio is None:
-            output = {
+            output: dict[str, Any] = {
                 "country": country,
                 "country_code": code,
                 "ppp_ratio": None,
@@ -251,9 +218,6 @@ class FinancialMCPClient(HTTPMCPClient):
                 "country_code": code,
                 "ppp_ratio": ppp_ratio,
                 "year": year,
-                "interpretation": (
-                    f"Price level is {ppp_ratio * 100:.1f}% of the US"
-                ),
+                "interpretation": f"Price level is {ppp_ratio * 100:.1f}% of the US",
             }
-
-        return self._format_response(output, data, "get_ppp_factor")
+        return self._format_response(output, raw_data, "get_ppp_factor")

@@ -337,15 +337,26 @@ class TestConnections:
         assert "Company: Accenture" in result.content
         assert "Position: Senior Developer" in result.content
         assert "Connected: 15 Jan 2023" in result.content
-        assert "Email: maria@accenture.com" in result.content
+        # Email is anonymized for PII protection
+        assert "Email: [EMAIL]" in result.content
         assert "URL: https://linkedin.com/in/mariagarcia" in result.content
         assert "**John Smith**" in result.content
         assert "Company: Google" in result.content
 
     def test_parse_connections_summary_included(self):
         rows = [
-            {"First Name": "A", "Last Name": "B", "Company": "Google", "Position": "SWE"},
-            {"First Name": "C", "Last Name": "D", "Company": "Google", "Position": "PM"},
+            {
+                "First Name": "A",
+                "Last Name": "B",
+                "Company": "Google",
+                "Position": "SWE",
+            },
+            {
+                "First Name": "C",
+                "Last Name": "D",
+                "Company": "Google",
+                "Position": "PM",
+            },
             {"First Name": "E", "Last Name": "F", "Company": "Meta", "Position": "SWE"},
         ]
         result = _parse_connections(rows)
@@ -367,11 +378,18 @@ class TestConnections:
         result = _parse_connections(rows)
         assert result is not None
         assert "###" not in result.content
-        assert "**Alice Wong** | Company: Accenture | Position: Manager" in result.content
+        assert (
+            "**Alice Wong** | Company: Accenture | Position: Manager" in result.content
+        )
 
     def test_parse_connections_partial_fields(self):
         rows = [
-            {"First Name": "Alice", "Last Name": "Wong", "Company": "Accenture", "Position": ""},
+            {
+                "First Name": "Alice",
+                "Last Name": "Wong",
+                "Company": "Accenture",
+                "Position": "",
+            },
         ]
         result = _parse_connections(rows)
         assert result is not None
@@ -382,7 +400,12 @@ class TestConnections:
 
     def test_parse_connections_skips_nameless(self):
         rows = [
-            {"First Name": "", "Last Name": "", "Company": "Unknown", "Position": "Role"},
+            {
+                "First Name": "",
+                "Last Name": "",
+                "Company": "Unknown",
+                "Position": "Role",
+            },
         ]
         result = _parse_connections(rows)
         assert result is not None
@@ -483,7 +506,10 @@ class TestMessages:
                 "CONVERSATION TITLE": "Recruiter",
                 "FROM": "Recruiter",
                 "DATE": "2024-01-01",
-                "CONTENT": '<p class="spinmail">Hi Juan,</p><p><strong>Great profile!</strong></p>',
+                "CONTENT": (
+                    '<p class="spinmail">Hi Juan,</p>'
+                    "<p><strong>Great profile!</strong></p>"
+                ),
             },
         ]
         result = _parse_messages(rows)

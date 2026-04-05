@@ -15,16 +15,55 @@ Usage:
 
 import logging
 import threading
+from abc import abstractmethod
 from typing import Any
 
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 
 from fu7ur3pr00f.config import settings
+from fu7ur3pr00f.constants import HTTP_TIMEOUT_LONG, MAX_EMBEDDING_CACHE_SIZE
 
 logger = logging.getLogger(__name__)
 
 
-class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
+class _TruncatingEmbeddingFunction(EmbeddingFunction[Documents]):
+    """Base class for OpenAI-family embedding functions with truncation."""
+
+    MAX_CHARS = 15000
+
+    def _truncate(self, texts: list[str]) -> list[str]:
+        """Truncate texts that exceed the model's context limit."""
+        return [t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts]
+
+    @property
+    @abstractmethod
+    def client(self) -> Any:
+        """The embedding client. Subclasses must override."""
+        raise NotImplementedError
+
+    @property
+    def _model_name(self) -> str:
+        """The model name to use for embeddings. Subclasses must override."""
+        raise NotImplementedError
+
+    def __call__(self, input: Documents) -> Embeddings:
+        """Generate embeddings for a list of documents."""
+        if not input:
+            return []
+
+        try:
+            docs: list[str] = list(input) if isinstance(input, list) else [input]
+            response = self.client.embeddings.create(
+                input=self._truncate(docs),
+                model=self._model_name,
+            )
+            return [item.embedding for item in response.data]
+        except Exception as e:
+            logger.error("%s embedding failed: %s", type(self).__name__, e)
+            raise
+
+
+class AzureOpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
     """ChromaDB embedding function using Azure OpenAI."""
 
     def __init__(
@@ -58,33 +97,12 @@ class AzureOpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
             logger.debug("Azure OpenAI embedding client initialized")
         return self._client
 
-    # text-embedding-3-small/large max context is 8192 tokens (~2 chars/token)
-    MAX_CHARS = 15000
-
-    def _truncate(self, texts: list[str]) -> list[str]:
-        """Truncate texts that exceed the model's context limit."""
-        return [
-            t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts
-        ]
-
-    def __call__(self, input: Documents) -> Embeddings:
-        """Generate embeddings for a list of documents."""
-        if not input:
-            return []
-
-        try:
-            docs: list[str] = list(input) if isinstance(input, list) else [input]
-            response = self.client.embeddings.create(
-                input=self._truncate(docs),
-                model=self._deployment,
-            )
-            return [item.embedding for item in response.data]
-        except Exception as e:
-            logger.error("Azure OpenAI embedding failed: %s", e)
-            raise
+    @property
+    def _model_name(self) -> str:
+        return self._deployment
 
 
-class OpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
+class OpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
     """ChromaDB embedding function using OpenAI or OpenAI-compatible API."""
 
     def __init__(
@@ -111,28 +129,9 @@ class OpenAIEmbeddingFunction(EmbeddingFunction[Documents]):
             logger.debug("OpenAI embedding client initialized")
         return self._client
 
-    MAX_CHARS = 15000
-
-    def _truncate(self, texts: list[str]) -> list[str]:
-        return [
-            t[: self.MAX_CHARS] if len(t) > self.MAX_CHARS else t for t in texts
-        ]
-
-    def __call__(self, input: Documents) -> Embeddings:
-        """Generate embeddings for a list of documents."""
-        if not input:
-            return []
-
-        try:
-            docs: list[str] = list(input) if isinstance(input, list) else [input]
-            response = self.client.embeddings.create(
-                input=self._truncate(docs),
-                model=self._model,
-            )
-            return [item.embedding for item in response.data]
-        except Exception as e:
-            logger.error("OpenAI embedding failed: %s", e)
-            raise
+    @property
+    def _model_name(self) -> str:
+        return self._model
 
 
 class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
@@ -153,9 +152,7 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
         if self._client is None:
             import httpx
 
-            self._client = httpx.Client(
-                base_url=self._base_url, timeout=60.0
-            )
+            self._client = httpx.Client(base_url=self._base_url, timeout=HTTP_TIMEOUT_LONG)
             logger.debug("Ollama embedding client initialized")
         return self._client
 
@@ -187,7 +184,7 @@ class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
     def __init__(
         self,
         base_function: EmbeddingFunction[Documents],
-        max_cache_size: int = 1000,
+        max_cache_size: int = MAX_EMBEDDING_CACHE_SIZE,
     ) -> None:
         self._base = base_function
         self._cache: dict[str, Any] = {}  # Can be list[float] or numpy array
@@ -217,8 +214,8 @@ class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
 
             # Update results and cache
             for idx, doc, emb in zip(
-                uncached_indices, uncached_docs, new_embeddings
-            ):
+                uncached_indices, uncached_docs, new_embeddings, strict=True
+            ):  # noqa: E501
                 results[idx] = emb
 
                 # Add to cache (evict oldest if full)
@@ -267,9 +264,7 @@ def get_embedding_function() -> EmbeddingFunction[Documents]:
                 else settings.openai_api_key
             )
             base_url = (
-                settings.fu7ur3pr00f_proxy_url
-                if provider == "fu7ur3pr00f"
-                else None
+                settings.fu7ur3pr00f_proxy_url if provider == "fu7ur3pr00f" else None
             )
             logger.info("Using %s embeddings", provider)
             base = OpenAIEmbeddingFunction(

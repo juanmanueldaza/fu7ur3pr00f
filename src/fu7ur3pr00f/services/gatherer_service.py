@@ -9,8 +9,18 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from fu7ur3pr00f.utils.services import get_knowledge_service
+
+from ..chat.ui import display_gather_result
 from ..config import settings
+from ..gatherers import (
+    CliftonStrengthsGatherer,
+    CVGatherer,
+    LinkedInGatherer,
+    PortfolioGatherer,
+)
 from ..memory.chunker import Section
+from ..memory.knowledge import KnowledgeSource
 
 if TYPE_CHECKING:
     from .knowledge_service import KnowledgeService
@@ -42,20 +52,12 @@ class GathererService:
             return self._gatherers[name]
 
         if name == "portfolio":
-            from ..gatherers import PortfolioGatherer
-
             return PortfolioGatherer()
         if name == "linkedin":
-            from ..gatherers import LinkedInGatherer
-
             return LinkedInGatherer()
         if name == "assessment":
-            from ..gatherers import CliftonStrengthsGatherer
-
             return CliftonStrengthsGatherer()
         if name == "cv":
-            from ..gatherers import CVGatherer
-
             return CVGatherer()
 
         raise ValueError(f"Unknown gatherer: {name}")
@@ -63,9 +65,7 @@ class GathererService:
     def _get_knowledge_service(self) -> "KnowledgeService":
         """Get or create the knowledge service."""
         if self._knowledge_service is None:
-            from .knowledge_service import KnowledgeService
-
-            self._knowledge_service = KnowledgeService()
+            self._knowledge_service = get_knowledge_service()
         return self._knowledge_service
 
     def _index_sections(
@@ -79,8 +79,6 @@ class GathererService:
             return
 
         try:
-            from ..memory.knowledge import KnowledgeSource
-
             source_map = {
                 "portfolio": KnowledgeSource.PORTFOLIO,
                 "linkedin": KnowledgeSource.LINKEDIN,
@@ -121,20 +119,18 @@ class GathererService:
                 elapsed = time.monotonic() - t0
                 logger.info("%s gathered in %.1fs", name, elapsed)
                 if verbose:
-                    from ..chat.ui import display_gather_result
-
                     display_gather_result(name, elapsed)
                 return True
             except Exception as e:
                 elapsed = time.monotonic() - t0
                 logger.warning("%s gather failed in %.1fs: %s", name, elapsed, e)
                 if verbose:
-                    from ..chat.ui import display_gather_result
-
                     display_gather_result(name, elapsed, success=False)
                 return False
 
-        results["portfolio"] = _timed_gather("portfolio", self.gather_portfolio, verbose=verbose)
+        results["portfolio"] = _timed_gather(
+            "portfolio", self.gather_portfolio, verbose=verbose
+        )
 
         # Auto-detect LinkedIn ZIP in data/raw/
         raw_dir = settings.raw_dir
@@ -173,7 +169,9 @@ class GathererService:
         return results
 
     def gather_portfolio(
-        self, url: str | None = None, verbose: bool = False,
+        self,
+        url: str | None = None,
+        verbose: bool = False,
     ) -> list[Section]:
         """Gather data from portfolio website."""
         gatherer = self._get_gatherer("portfolio")
@@ -182,7 +180,9 @@ class GathererService:
         return sections
 
     def gather_linkedin(
-        self, zip_path: Path, verbose: bool = False,
+        self,
+        zip_path: Path,
+        verbose: bool = False,
     ) -> list[Section]:
         """Gather data from LinkedIn export."""
         gatherer = self._get_gatherer("linkedin")
@@ -191,7 +191,9 @@ class GathererService:
         return sections
 
     def gather_assessment(
-        self, input_dir: Path | None = None, verbose: bool = False,
+        self,
+        input_dir: Path | None = None,
+        verbose: bool = False,
     ) -> list[Section]:
         """Gather CliftonStrengths assessment data from PDFs."""
         gatherer = self._get_gatherer("assessment")

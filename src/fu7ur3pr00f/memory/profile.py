@@ -7,6 +7,7 @@ This is the "semantic memory" layer - persistent facts about the user that
 should be available across all conversations.
 """
 
+import contextlib
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -45,6 +46,7 @@ class UserProfile:
     email: str = ""
     location: str = ""
     github_username: str = ""
+    gitlab_username: str = ""
 
     # Professional summary
     current_role: str = ""
@@ -61,7 +63,9 @@ class UserProfile:
     goals: list[CareerGoal] = field(default_factory=list)
     target_roles: list[str] = field(default_factory=list)
     target_companies: list[str] = field(default_factory=list)
-    deal_breakers: list[str] = field(default_factory=list)  # e.g., "no relocation", "remote only"
+    deal_breakers: list[str] = field(
+        default_factory=list
+    )  # e.g., "no relocation", "remote only"
 
     # Preferences
     preferred_work_style: str = ""  # remote, hybrid, onsite
@@ -78,6 +82,7 @@ class UserProfile:
                 "email": self.email,
                 "location": self.location,
                 "github_username": self.github_username,
+                "gitlab_username": self.gitlab_username,
             },
             "professional": {
                 "current_role": self.current_role,
@@ -143,6 +148,7 @@ class UserProfile:
             email=identity.get("email", ""),
             location=identity.get("location", ""),
             github_username=identity.get("github_username", ""),
+            gitlab_username=identity.get("gitlab_username", ""),
             current_role=professional.get("current_role", ""),
             years_experience=professional.get("years_experience", 0),
             industries=professional.get("industries", []),
@@ -167,6 +173,8 @@ class UserProfile:
             parts.append(f"Name: {self.name}")
         if self.github_username:
             parts.append(f"GitHub: {self.github_username}")
+        if self.gitlab_username:
+            parts.append(f"GitLab: {self.gitlab_username}")
         if self.current_role:
             parts.append(f"Current Role: {self.current_role}")
         if self.years_experience:
@@ -204,7 +212,7 @@ def load_profile() -> UserProfile:
         return UserProfile()
 
     try:
-        with open(path) as f:
+        with path.open(encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return UserProfile.from_dict(data)
     except (yaml.YAMLError, OSError) as e:
@@ -254,4 +262,8 @@ def edit_profile(modifier: Callable[["UserProfile"], None]) -> "UserProfile":
         profile = load_profile()
         modifier(profile)
         save_profile(profile)
+        with contextlib.suppress(Exception):
+            from fu7ur3pr00f.utils.services import get_profile
+
+            get_profile.cache_clear()
         return profile

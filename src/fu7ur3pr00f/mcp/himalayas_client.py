@@ -7,6 +7,8 @@ https://himalayas.app/ - 100K+ remote job listings with salary information.
 from datetime import UTC, datetime
 from typing import Any
 
+from fu7ur3pr00f.constants import HIMALAYAS_API_BASE
+
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient
 
@@ -18,7 +20,7 @@ class HimalayasMCPClient(HTTPMCPClient):
     Returns remote job listings with salary data from himalayas.app.
     """
 
-    BASE_URL = "https://himalayas.app/jobs/api"
+    BASE_URL = HIMALAYAS_API_BASE
 
     async def list_tools(self) -> list[str]:
         """List available tools."""
@@ -96,12 +98,15 @@ class HimalayasMCPClient(HTTPMCPClient):
                     "title": job.get("title", ""),
                     "company": job.get("companyName", ""),
                     "company_logo": job.get("companyLogo", ""),
-                    "location": ", ".join(job.get("locationRestrictions", [])) or "Worldwide",
+                    "location": ", ".join(job.get("locationRestrictions", []))
+                    or "Worldwide",
                     "timezone_restrictions": tz_readable,
                     "timezone_raw": tz_raw,
-                    "seniority": ", ".join(job.get("seniority", []))
-                    if job.get("seniority")
-                    else None,
+                    "seniority": (
+                        ", ".join(job.get("seniority", []))
+                        if job.get("seniority")
+                        else None
+                    ),
                     "categories": job.get("categories", []),
                     "parent_categories": job.get("parentCategories", []),
                     "employment_type": job.get("employmentType", ""),
@@ -109,9 +114,9 @@ class HimalayasMCPClient(HTTPMCPClient):
                     "salary_min": min_sal,
                     "salary_max": max_sal,
                     "currency": currency,
-                    "description": (job.get("excerpt", "") or job.get("description", "") or "")[
-                        :500
-                    ],
+                    "description": (
+                        job.get("excerpt", "") or job.get("description", "") or ""
+                    )[:500],
                     "url": job.get("applicationLink", ""),
                     "date_posted": job.get("pubDate", ""),
                     "expiry_date": expiry_date,

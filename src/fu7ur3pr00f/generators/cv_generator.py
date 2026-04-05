@@ -7,13 +7,53 @@ from pathlib import Path
 from typing import Literal
 
 from ..config import settings
-from ..llm.fallback import get_model_with_fallback
+from ..llm.model_selection import get_model
 from ..prompts import GENERATE_CV_PROMPT
 from ..utils.console import console
 from ..utils.data_loader import load_career_data_for_cv
-from ..utils.security import anonymize_career_data, secure_open
+from ..utils.security import (
+    anonymize_career_data,
+    sanitize_for_prompt,
+    secure_open,
+    validate_file_size,
+)
+
+try:
+    import markdown
+    import nh3
+    from weasyprint import HTML
+    from weasyprint.urls import default_url_fetcher
+
+    _PDF_SUPPORT = True
+except ImportError:
+    markdown = None  # type: ignore[assignment]
+    nh3 = None  # type: ignore[assignment]
+    HTML = None  # type: ignore[assignment]
+    default_url_fetcher = None  # type: ignore[assignment]
+    _PDF_SUPPORT = False
 
 logger = logging.getLogger(__name__)
+
+# Security limits
+_MAX_MD_SIZE = 1024 * 1024  # 1MB max markdown file size
+
+# Language and format instructions (DRY: extracted to constants)
+LANGUAGE_INSTRUCTIONS = {
+    "en": "Generate the CV in English.",
+    "es": "Generate the CV in Spanish (Español). All content should be in Spanish.",
+}
+
+FORMAT_INSTRUCTIONS = {
+    "ats": """Focus on ATS optimization:
+- Use standard section headers
+- Include keywords naturally
+- Simple, clean formatting
+- No tables or columns""",
+    "creative": """Use a more creative format:
+- Compelling narrative in summary
+- Highlight unique achievements
+- Show personality while remaining professional""",
+}
 
 
 def _clean_llm_output(text: str) -> str:
@@ -25,6 +65,8 @@ def _clean_llm_output(text: str) -> str:
 
     # Strip wrapping code fences (```markdown ... ```)
     if stripped.startswith("```"):
+        if "\n" not in stripped:
+            return stripped  # No newline, can't strip code fence
         first_newline = stripped.index("\n")
         stripped = stripped[first_newline + 1 :]
         if stripped.rstrip().endswith("```"):
@@ -52,16 +94,63 @@ def _render_pdf(markdown_path: Path) -> Path:
 
     Returns:
         Path to the generated PDF, or markdown_path if PDF is unavailable.
-    """
-    try:
-        import markdown
-        from weasyprint import HTML
 
+    Raises:
+        ValueError: If markdown file exceeds maximum size limit.
+    """
+    # Security: Validate file size (also checks existence)
+    validate_file_size(markdown_path, _MAX_MD_SIZE, "Markdown file")
+
+    if not _PDF_SUPPORT:
+        console.print(
+            "  [yellow]PDF generation skipped: dependencies not installed[/yellow]"
+        )
+        return markdown_path
+
+    assert markdown is not None
+    assert nh3 is not None
+    assert HTML is not None
+    assert default_url_fetcher is not None
+
+    try:
         md_content = markdown_path.read_text()
 
         html_content = markdown.markdown(
             md_content,
             extensions=["tables", "fenced_code"],
+        )
+
+        # Sanitize HTML to prevent script injection and malicious content
+        html_content = nh3.clean(
+            html_content,
+            tags={
+                "p",
+                "ul",
+                "ol",
+                "li",
+                "strong",
+                "em",
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "h5",
+                "h6",
+                "table",
+                "thead",
+                "tbody",
+                "tr",
+                "th",
+                "td",
+                "a",
+                "br",
+                "hr",
+                "blockquote",
+                "code",
+                "pre",
+            },
+            attributes={"a": {"href"}},
+            strip_comments=True,
         )
 
         styled_html = f"""
@@ -182,9 +271,9 @@ def _render_pdf(markdown_path: Path) -> Path:
 
         def _deny_url_fetcher(url, timeout=10, ssl_context=None):
             """Block all external resource fetches from LLM-generated HTML."""
-            from weasyprint.urls import default_url_fetcher
 
             if url.startswith("data:"):
+                assert default_url_fetcher is not None
                 return default_url_fetcher(url, timeout, ssl_context)
             raise ValueError(f"External resource fetch blocked: {url}")
 
@@ -206,41 +295,40 @@ def _generate_with_llm(
     career_data: str,
     language: Literal["en", "es"],
     format: Literal["ats", "creative"],
+    target_role: str | None = None,
 ) -> str:
-    """Generate CV content using LLM."""
-    model, _config = get_model_with_fallback(
-        temperature=settings.cv_temperature, purpose="analysis"
-    )
+    """Generate CV content using LLM.
 
-    lang_instruction = {
-        "en": "Generate the CV in English.",
-        "es": "Generate the CV in Spanish (Español). All content should be in Spanish.",
-    }
-
-    format_instruction = {
-        "ats": """Focus on ATS optimization:
-- Use standard section headers
-- Include keywords naturally
-- Simple, clean formatting
-- No tables or columns""",
-        "creative": """Use a more creative format:
-- Compelling narrative in summary
-- Highlight unique achievements
-- Show personality while remaining professional""",
-    }
+    Security: Anonymizes PII and sanitizes content before sending to LLM
+    to prevent prompt injection attacks.
+    """
+    model, _config = get_model(temperature=settings.cv_temperature, purpose="analysis")
 
     # Anonymize PII before sending to external LLM
     # For CV generation, we preserve professional email domains for context
-    safe_career_data = anonymize_career_data(career_data, preserve_professional_emails=True)
+    anonymized_data = anonymize_career_data(
+        career_data, preserve_professional_emails=True
+    )
+
+    # Security: Sanitize to prevent prompt injection
+    safe_career_data = sanitize_for_prompt(anonymized_data)
+
+    # Build target role instruction if provided
+    target_role_instruction = ""
+    if target_role:
+        target_role_instruction = f"""
+
+TARGET ROLE: {target_role}
+Tailor the CV content, summary, and emphasis to align with this specific role."""
 
     prompt = f"""{GENERATE_CV_PROMPT}
 
-{lang_instruction[language]}
+{LANGUAGE_INSTRUCTIONS[language]}
 
-{format_instruction[format]}
+{FORMAT_INSTRUCTIONS[format]}
 
 CAREER DATA:
-{safe_career_data}
+{safe_career_data}{target_role_instruction}
 
 Generate a complete, professional CV in Markdown format."""
 
@@ -257,12 +345,14 @@ Generate a complete, professional CV in Markdown format."""
 def create_cv(
     language: Literal["en", "es"] = "en",
     format: Literal["ats", "creative"] = "ats",
+    target_role: str | None = None,
 ) -> Path:
     """Generate CV in specified language and format.
 
     Args:
         language: Output language (en or es)
         format: CV format (ats or creative)
+        target_role: Optional target role to tailor CV content
 
     Returns:
         Path to generated CV file
@@ -276,10 +366,11 @@ def create_cv(
         console.print("[yellow]No career data found. Run 'gather' first.[/yellow]")
         return Path()
 
-    console.print(f"  Generating {language}/{format} CV...")
+    role_str = f" for {target_role}" if target_role else ""
+    console.print(f"  Generating {language}/{format} CV{role_str}...")
 
     # Generate content and strip code fences if LLM wrapped the output
-    cv_content = _generate_with_llm(career_data, language, format)
+    cv_content = _generate_with_llm(career_data, language, format, target_role)
     cv_content = _clean_llm_output(cv_content)
 
     # Save markdown with secure permissions

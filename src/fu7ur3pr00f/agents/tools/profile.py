@@ -4,7 +4,8 @@ import logging
 
 from langchain_core.tools import tool
 
-from fu7ur3pr00f.memory.profile import CareerGoal, edit_profile, load_profile
+from fu7ur3pr00f.memory.profile import CareerGoal, edit_profile
+from fu7ur3pr00f.utils.services import get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +14,10 @@ logger = logging.getLogger(__name__)
 def get_user_profile() -> str:
     """Get the current user's career profile including skills, goals, and preferences.
 
-    Use this to understand the user's background before giving advice or searching for jobs.
+    Use this to understand the user's background before giving advice or searching for
+        jobs.
     """
-    profile = load_profile()
+    profile = get_profile()
 
     if not profile.name:
         return (
@@ -40,7 +42,7 @@ def update_user_goal(goal_description: str, priority: str = "medium") -> str:
     new_goal = CareerGoal(description=goal_description, priority=priority)
     edit_profile(lambda p: p.goals.append(new_goal))
 
-    return f"Added career goal: '{goal_description}' with {priority} priority."
+    return f"Added career goal: {goal_description!r} with {priority} priority."
 
 
 @tool
@@ -65,8 +67,12 @@ def update_user_skills(skills: list[str], skill_type: str = "technical") -> str:
             p.soft_skills = sorted(existing)
 
     profile = edit_profile(_update)
-    merged = profile.technical_skills if skill_type == "technical" else profile.soft_skills
-    return f"Updated {skill_type} skills. Current {skill_type} skills: {', '.join(merged)}"
+    merged = (
+        profile.technical_skills if skill_type == "technical" else profile.soft_skills
+    )
+    return (
+        f"Updated {skill_type} skills. Current {skill_type} skills: {', '.join(merged)}"
+    )
 
 
 @tool

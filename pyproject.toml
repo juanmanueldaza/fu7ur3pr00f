@@ -20,6 +20,8 @@ classifiers = [
 dependencies = [
     # Core
     "typer>=0.15",
+    # click<8.3 required: cli.py patches make_metavar() for Typer 0.24 compat.
+    # Remove upper bound once Typer supports Click 8.3+ natively.
     "click>=8.1,<8.3",
     "pydantic-settings>=2",
     "pyyaml>=6",
@@ -35,6 +37,7 @@ dependencies = [
     "httpx>=0.28",
     "beautifulsoup4>=4",
     "defusedxml>=0.7",
+    "nh3>=0.2",  # HTML sanitization
     # MCP (Model Context Protocol)
     "mcp>=1.26",
     # Generation
@@ -44,6 +47,8 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=3.0.3",
     "prompt-toolkit>=3.0.52",
     "chromadb>=1.4.1",
+    # Testing
+    "pytest-asyncio>=0.23",
 ]
 
 [project.urls]

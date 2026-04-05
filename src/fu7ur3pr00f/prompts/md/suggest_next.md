@@ -1,0 +1,27 @@
+Based on the analysis findings below, suggest 1-3 concrete next steps or follow-up questions the user might want to explore.
+
+**Query**: {query}
+
+**Findings from all specialists**:
+{findings_text}
+
+**Gaps identified**: {gaps}
+
+**Action items suggested**: {action_items}
+
+**Open questions**: {open_questions}
+
+**Profile status**: {profile_status}
+
+Generate suggestions that:
+- Build naturally on the findings
+- Are actionable (e.g., "search for remote Staff Engineer roles in Berlin", not vague aspirations)
+- Feel conversational and proactive (as if a JARVIS assistant would say them)
+- Are 1-3 bullet points, each under 15 words
+- **Sovereignty-Aligned**: Prioritize actions that build public, portable career capital (OSS, blogs, talks) over company-locked achievements
+- **If no profile data**: First suggestion should be "Run /gather to import your LinkedIn, GitHub, and portfolio"
+
+Format:
+- [suggestion 1]
+- [suggestion 2]
+- [suggestion 3] (optional)

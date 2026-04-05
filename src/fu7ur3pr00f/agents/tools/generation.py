@@ -5,7 +5,8 @@ from typing import Literal
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
-from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.generators import create_cv
+from fu7ur3pr00f.utils.services import get_profile
 
 
 @tool
@@ -17,18 +18,16 @@ def generate_cv(
     """Generate a CV/resume for the user.
 
     Args:
-        target_role: Optional role context for the confirmation prompt
+        target_role: Optional role to tailor the CV for
         language: Output language - 'en' for English, 'es' for Spanish
         format: CV format - 'ats' for ATS-friendly, 'creative' for visual
 
     Use this when the user wants to create or update their CV.
     Returns the path to the generated CV file.
-    Note: target_role is shown in the confirmation but does not yet tailor
-    the CV content. Use the knowledge base and profile to guide CV content.
+    The CV content is tailored to the target role when provided.
     """
-    # TODO: Pass target_role through to GenerationService for CV tailoring
     # Human-in-the-loop: confirm before generating
-    role_note = f" for '{target_role}'" if target_role else ""
+    role_note = f" for {target_role!r}" if target_role else ""
     lang_name = "English" if language == "en" else "Spanish"
     approved = interrupt(
         {
@@ -39,9 +38,7 @@ def generate_cv(
     if not approved:
         return "CV generation cancelled."
 
-    from fu7ur3pr00f.generators import create_cv
-
-    output_path = create_cv(language=language, format=format)
+    output_path = create_cv(language=language, format=format, target_role=target_role)
 
     return (
         f"CV generated successfully{role_note}!\n\n"
@@ -61,7 +58,7 @@ def generate_cv_draft(target_role: str) -> str:
 
     Use this for a quick preview before generating a full CV.
     """
-    profile = load_profile()
+    profile = get_profile()
 
     if not profile.name:
         return (

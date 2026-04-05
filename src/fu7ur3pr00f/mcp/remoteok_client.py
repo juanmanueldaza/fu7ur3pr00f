@@ -6,6 +6,8 @@ https://remoteok.com/ - #1 remote jobs board with 30,000+ listings.
 
 from typing import Any
 
+from fu7ur3pr00f.constants import REMOTEOK_API_BASE
+
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient
 
@@ -17,7 +19,7 @@ class RemoteOKMCPClient(HTTPMCPClient):
     Returns remote job listings from remoteok.com.
     """
 
-    BASE_URL = "https://remoteok.com/api"
+    BASE_URL = REMOTEOK_API_BASE
 
     async def list_tools(self) -> list[str]:
         """List available tools."""
@@ -61,7 +63,8 @@ class RemoteOKMCPClient(HTTPMCPClient):
             for job in jobs_raw:
                 job_tags = [t.lower() for t in job.get("tags", [])]
                 if any(
-                    tag in job_tags or tag in job.get("position", "").lower() for tag in tags_lower
+                    tag in job_tags or tag in job.get("position", "").lower()
+                    for tag in tags_lower
                 ):
                     filtered.append(job)
             jobs_raw = filtered

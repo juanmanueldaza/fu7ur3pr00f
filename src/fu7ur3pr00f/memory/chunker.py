@@ -7,6 +7,8 @@ Section labels are passed in directly — no header regex parsing.
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
+from fu7ur3pr00f.constants import CHUNK_MAX_TOKENS, CHUNK_MIN_TOKENS
+
 
 class Section(NamedTuple):
     """A named section of content (e.g., name="Experience", content="...")."""
@@ -31,7 +33,9 @@ class MarkdownChunker:
     2. Split sections that exceed max_tokens by paragraphs
     """
 
-    def __init__(self, max_tokens: int = 500, min_tokens: int = 50):
+    def __init__(
+        self, max_tokens: int = CHUNK_MAX_TOKENS, min_tokens: int = CHUNK_MIN_TOKENS
+    ):
         self.max_tokens = max_tokens
         self.min_tokens = min_tokens
 
@@ -76,7 +80,10 @@ class MarkdownChunker:
                 for para in paragraphs:
                     para_tokens = self._estimate_tokens(para)
 
-                    if current_tokens + para_tokens > self.max_tokens and current_content:
+                    if (
+                        current_tokens + para_tokens > self.max_tokens
+                        and current_content
+                    ):
                         result.append(
                             MarkdownChunk(
                                 content="\n\n".join(current_content),

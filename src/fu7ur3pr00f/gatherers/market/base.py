@@ -8,6 +8,7 @@ multiple MCP sources.
 import hashlib
 import json
 import logging
+import tempfile
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -16,6 +17,7 @@ from typing import Any
 
 from ...config import settings
 from ...mcp.factory import MCPClientFactory, MCPServerType
+from ...utils.security import secure_mkdir, secure_open
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,17 @@ class MarketGatherer(ABC):
     def __init__(self) -> None:
         """Initialize gatherer with cache directory."""
         self._cache_dir = settings.market_cache_dir
-        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            secure_mkdir(self._cache_dir)
+        except OSError as exc:
+            fallback_dir = Path(tempfile.gettempdir()) / "fu7ur3pr00f_market_cache"
+            logger.warning(
+                "Market cache dir %s is not writable (%s); using %s instead",
+                self._cache_dir,
+                exc,
+                fallback_dir,
+            )
+            self._cache_dir = secure_mkdir(fallback_dir)
 
     @abstractmethod
     async def gather(self, **kwargs: Any) -> dict[str, Any]:
@@ -71,7 +83,9 @@ class MarketGatherer(ABC):
             Path to cache file
         """
         # Hash the key to avoid filesystem issues with special characters
-        key_hash = hashlib.md5(cache_key.encode(), usedforsecurity=False).hexdigest()[:16]
+        key_hash = hashlib.md5(cache_key.encode(), usedforsecurity=False).hexdigest()[
+            :16
+        ]
         return self._cache_dir / f"{self.__class__.__name__}_{key_hash}.json"
 
     def _is_cache_valid(self, cache_path: Path) -> bool:
@@ -87,7 +101,7 @@ class MarketGatherer(ABC):
             return False
 
         try:
-            with open(cache_path) as f:
+            with cache_path.open(encoding="utf-8") as f:
                 cache_data = json.load(f)
 
             cached_at = datetime.fromisoformat(cache_data.get("cached_at", ""))
@@ -109,7 +123,7 @@ class MarketGatherer(ABC):
             Cached data or None if invalid
         """
         try:
-            with open(cache_path) as f:
+            with cache_path.open(encoding="utf-8") as f:
                 cache_data = json.load(f)
             return cache_data.get("data")
         except (json.JSONDecodeError, OSError):
@@ -128,10 +142,10 @@ class MarketGatherer(ABC):
             "data": data,
         }
         try:
-            with open(cache_path, "w") as f:
+            with secure_open(cache_path, mode="w", file_mode=0o600) as f:
                 json.dump(cache_data, f, indent=2, default=str)
         except OSError as e:
-            logger.warning(f"Failed to write cache: {e}")
+            logger.warning("Failed to write cache: %s", e)
 
     async def gather_with_cache(
         self,
@@ -158,7 +172,7 @@ class MarketGatherer(ABC):
                 return cached_data
 
         # Gather fresh data
-        logger.info(f"Gathering fresh data for {self.__class__.__name__}")
+        logger.info("Gathering fresh data for %s", self.__class__.__name__)
         data = await self.gather(**kwargs)
 
         # Cache the results
@@ -209,11 +223,11 @@ class MarketGatherer(ABC):
         label = source_label or source_name.capitalize()
 
         if not MCPClientFactory.is_available(source_name):
-            logger.debug(f"{label} MCP not available, skipping")
+            logger.debug("%s MCP not available, skipping", label)
             return []
 
         try:
-            logger.info(f"{label}: Gathering data...")
+            logger.info("%s: Gathering data...", label)
             client = MCPClientFactory.create(source_name)
             async with client:
                 result = await client.call_tool(tool_name, tool_args)
@@ -229,14 +243,14 @@ class MarketGatherer(ABC):
                     else:
                         items = parsed if isinstance(parsed, list) else []
 
-                    logger.info(f"{label}: Found {len(items)} items")
+                    logger.info("%s: Found %d items", label, len(items))
                     return items
                 else:
-                    logger.warning(f"{label}: {result.error_message}")
+                    logger.warning("%s: %s", label, result.error_message)
                     results["errors"].append(f"{label}: {result.error_message}")
                     return []
 
         except Exception as e:
-            logger.exception(f"Error gathering from {label}")
+            logger.exception("Error gathering from %s", label)
             results["errors"].append(f"{label} error: {e}")
             return []

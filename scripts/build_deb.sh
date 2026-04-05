@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Security: All temp directories created with mktemp -d and restrictive permissions
+
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dist_dir="${DIST_DIR:-${root_dir}/dist/deb}"
-work_dir="${dist_dir}/work"
-pkg_dir="${dist_dir}/pkg"
+
+# Security: Use mktemp for secure temp directories
+work_dir="$(mktemp -d "${dist_dir}/work.XXXXXX")"
+pkg_dir="$(mktemp -d "${dist_dir}/pkg.XXXXXX")"
+
+# Security: Set restrictive permissions on temp directories
+chmod 700 "${work_dir}" "${pkg_dir}"
+
 arch="amd64"
-trap 'echo "Build failed at line ${LINENO}." >&2' ERR
+trap 'echo "Build failed at line ${LINENO}." >&2; rm -rf "${work_dir}" "${pkg_dir}"; exit 1' ERR
+trap 'rm -rf "${work_dir}" "${pkg_dir}"' EXIT
 
 version="${VERSION:-}"
 if [[ -z "${version}" ]]; then
@@ -23,8 +32,7 @@ fi
 
 mkdir -p "${dist_dir}"
 rm -f "${dist_dir}"/fu7ur3pr00f_*.deb
-rm -rf "${work_dir}" "${pkg_dir}"
-mkdir -p "${work_dir}" "${pkg_dir}"
+# Temp directories already created with mktemp -d, no need to recreate
 
 deb_root="${pkg_dir}/fu7ur3pr00f_${version}_${arch}"
 mkdir -p "${deb_root}/DEBIAN" "${deb_root}/usr/bin" "${deb_root}/opt/fu7ur3pr00f" \
@@ -127,6 +135,23 @@ if [[ ! -f "${wheel_path}" ]]; then
   echo "Wheel not found for version ${version}"
   exit 1
 fi
+
+# Security: Validate wheel file before installation
+# Check wheel is valid ZIP archive with expected structure
+if ! unzip -t "${wheel_path}" >/dev/null 2>&1; then
+  echo "Wheel file is not a valid ZIP archive: ${wheel_path}"
+  exit 1
+fi
+
+# Verify wheel contains expected metadata
+if ! unzip -l "${wheel_path}" | grep -q "METADATA\|PKG-INFO"; then
+  echo "Wheel file missing metadata: ${wheel_path}"
+  exit 1
+fi
+
+# Security: Log wheel hash for audit trail
+wheel_hash="$(sha256sum "${wheel_path}" | cut -d' ' -f1)"
+echo "Wheel SHA256: ${wheel_hash}"
 
 pybs_dir="${work_dir}/python-build-standalone"
 mkdir -p "${pybs_dir}"

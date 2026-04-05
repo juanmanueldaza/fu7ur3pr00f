@@ -41,7 +41,9 @@ class ContentTrendsGatherer(MarketGatherer):
         focus = kwargs.get("focus", "all")
         return f"content_trends_{focus}".lower().replace(" ", "_")
 
-    async def gather(self, **kwargs: Any) -> dict[str, Any]:
+    async def gather(  # noqa: C901 - Multi-source data gathering with error handling
+        self, **kwargs: Any
+    ) -> dict[str, Any]:
         """Gather content trends from developer communities.
 
         Args:
@@ -73,7 +75,9 @@ class ContentTrendsGatherer(MarketGatherer):
             "errors": [],
         }
 
-        logger.info(f"Gathering content trends for focus='{focus}' with {len(topics)} topics")
+        logger.info(
+            f"Gathering content trends for focus={focus!r} with {len(topics)} topics"
+        )
 
         # Gather from Dev.to
         if MCPClientFactory.is_available("devto"):
@@ -99,7 +103,9 @@ class ContentTrendsGatherer(MarketGatherer):
                                     article["searched_topic"] = topic
                                 all_articles.extend(articles)
                         except Exception as e:
-                            logger.warning(f"Error fetching Dev.to articles for {topic}: {e}")
+                            logger.warning(
+                                f"Error fetching Dev.to articles for {topic}: {e}"
+                            )
 
                     # Deduplicate by article ID and sort by reactions
                     seen_ids: set[int] = set()
@@ -110,12 +116,18 @@ class ContentTrendsGatherer(MarketGatherer):
                             seen_ids.add(article_id)
                             unique_articles.append(article)
 
-                    unique_articles.sort(key=lambda x: x.get("reactions_count", 0), reverse=True)
+                    unique_articles.sort(
+                        key=lambda x: x.get("reactions_count", 0), reverse=True
+                    )
                     results["devto_articles"] = unique_articles[:30]
 
                     # Calculate engagement metrics
-                    total_reactions = sum(a.get("reactions_count", 0) for a in unique_articles)
-                    total_comments = sum(a.get("comments_count", 0) for a in unique_articles)
+                    total_reactions = sum(
+                        a.get("reactions_count", 0) for a in unique_articles
+                    )
+                    total_comments = sum(
+                        a.get("comments_count", 0) for a in unique_articles
+                    )
                     results["summary"]["devto_total_articles"] = len(unique_articles)
                     results["summary"]["devto_total_reactions"] = total_reactions
                     results["summary"]["devto_total_comments"] = total_comments
@@ -144,15 +156,17 @@ class ContentTrendsGatherer(MarketGatherer):
                         parsed = self._parse_mcp_content(popularity_result.content)
                         tags_found = parsed.get("tags", [])
                         results["stackoverflow_trends"]["topic_popularity"] = tags_found
-                        results["summary"]["stackoverflow_quota_remaining"] = parsed.get(
-                            "quota_remaining", 0
-                        )
+                        results["summary"][
+                            "stackoverflow_quota_remaining"
+                        ] = parsed.get("quota_remaining", 0)
                         logger.info(
-                            f"Stack Overflow: Retrieved {len(tags_found)} tag popularity metrics"
+                            "Stack Overflow: Retrieved %d " "tag popularity metrics",
+                            len(tags_found),
                         )
                     else:
                         logger.warning(
-                            f"Stack Overflow tag popularity: {popularity_result.error_message}"
+                            "Stack Overflow tag popularity: %s",
+                            popularity_result.error_message,
                         )
 
                     # Get overall trending tags
@@ -166,13 +180,17 @@ class ContentTrendsGatherer(MarketGatherer):
                         parsed = self._parse_mcp_content(trending_result.content)
                         top_tags = parsed.get("tags", [])
                         results["stackoverflow_trends"]["top_tags"] = top_tags
-                        logger.info(f"Stack Overflow: Retrieved top {len(top_tags)} trending tags")
+                        logger.info(
+                            "Stack Overflow: Retrieved top %d " "trending tags",
+                            len(top_tags),
+                        )
                     else:
-                        logger.warning(f"Stack Overflow trending: {trending_result.error_message}")
+                        logger.warning(
+                            f"Stack Overflow trending: {trending_result.error_message}"
+                        )
 
             except Exception as e:
                 logger.exception("Error gathering from Stack Overflow")
                 results["errors"].append(f"Stack Overflow error: {e}")
 
         return results
-

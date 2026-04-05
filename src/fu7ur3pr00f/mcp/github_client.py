@@ -13,7 +13,13 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from ..config import settings
-from .base import MCPClient, MCPConnectionError, MCPToolError, MCPToolResult, extract_mcp_content
+from .base import (
+    MCPClient,
+    MCPConnectionError,
+    MCPToolError,
+    MCPToolResult,
+    extract_mcp_content,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +49,13 @@ class GitHubMCPClient(MCPClient):
         if not token:
             raise MCPConnectionError(
                 "GitHub MCP token not configured. "
-                "Set GITHUB_PERSONAL_ACCESS_TOKEN or GITHUB_MCP_TOKEN environment variable."
+                "Set GITHUB_PERSONAL_ACCESS_TOKEN or "
+                "GITHUB_MCP_TOKEN environment variable."
             )
 
         if not shutil.which(settings.github_mcp_command):
             raise MCPConnectionError(
-                "github-mcp-server not found on PATH. "
-                "Install the native binary."
+                "github-mcp-server not found on PATH. " "Install the native binary."
             )
 
         return StdioServerParameters(
@@ -68,7 +74,10 @@ class GitHubMCPClient(MCPClient):
 
             # Enter stdio_client context
             self._stdio_context = stdio_client(server_params)
-            self._read_stream, self._write_stream = await self._stdio_context.__aenter__()
+            (
+                self._read_stream,
+                self._write_stream,
+            ) = await self._stdio_context.__aenter__()
 
             # Create session
             session = ClientSession(self._read_stream, self._write_stream)
@@ -83,7 +92,9 @@ class GitHubMCPClient(MCPClient):
             raise
         except Exception as e:
             await self.disconnect()
-            raise MCPConnectionError(f"Failed to connect to GitHub MCP server: {e}") from e
+            raise MCPConnectionError(
+                f"Failed to connect to GitHub MCP server: {e}"
+            ) from e
 
     async def disconnect(self) -> None:
         """Disconnect from GitHub MCP server."""
@@ -100,7 +111,9 @@ class GitHubMCPClient(MCPClient):
         self._read_stream = None
         self._write_stream = None
 
-    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> MCPToolResult:
+    async def call_tool(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> MCPToolResult:
         """Call an MCP tool via the session."""
         if self._session is None:
             raise MCPConnectionError("Not connected to GitHub MCP server")
@@ -117,7 +130,7 @@ class GitHubMCPClient(MCPClient):
             )
 
         except Exception as e:
-            raise MCPToolError(f"GitHub MCP tool '{tool_name}' failed: {e}") from e
+            raise MCPToolError(f"GitHub MCP tool {tool_name!r} failed: {e}") from e
 
     async def list_tools(self) -> list[str]:
         """List available MCP tools."""

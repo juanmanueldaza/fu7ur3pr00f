@@ -3,19 +3,25 @@
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
+from fu7ur3pr00f.memory.knowledge import KnowledgeSource
+from fu7ur3pr00f.utils.services import get_knowledge_service as _get
+
+
+def _get_knowledge_service():
+    """Get a KnowledgeService instance."""
+    return _get()
+
 
 def _parse_source(source: str):
     """Parse and validate a KnowledgeSource string.
 
     Returns KnowledgeSource on success, or an error string on invalid source.
     """
-    from fu7ur3pr00f.memory.knowledge import KnowledgeSource
-
     try:
         return KnowledgeSource(source)
     except ValueError:
         valid = ", ".join(s.value for s in KnowledgeSource)
-        return f"Invalid source '{source}'. Valid sources: {valid}"
+        return f"Invalid source {source!r}. Valid sources: {valid}"
 
 
 @tool
@@ -51,21 +57,22 @@ def search_career_knowledge(
     - "Accenture" with section="Connections", include_social=True to find contacts
     - "relocation" with section="Conversation", include_social=True for messages
     """
-    from fu7ur3pr00f.services.knowledge_service import KnowledgeService
-
-    service = KnowledgeService()
+    service = _get_knowledge_service()
     results = service.search(
-        query, limit=limit, sources=sources, section=section,
+        query,
+        limit=limit,
+        sources=sources,
+        section=section,
         include_social=include_social,
     )
 
     if not results:
         return (
-            f"No results found for '{query}'. "
+            f"No results found for {query!r}. "
             "Try a different query or check if career data has been indexed."
         )
 
-    result_parts = [f"Found {len(results)} relevant results for '{query}':"]
+    result_parts = [f"Found {len(results)} relevant results for {query!r}:"]
     result_parts.append("<search_results>")
     for i, result in enumerate(results, 1):
         source = result.get("source", "unknown")
@@ -77,9 +84,7 @@ def search_career_knowledge(
 
     output = "\n".join(result_parts)
     if len(output) > 8000:
-        output = output[:8000] + (
-            f"\n\n... (truncated, {len(output)} chars total)"
-        )
+        output = output[:8000] + (f"\n\n... (truncated, {len(output)} chars total)")
     return output
 
 
@@ -90,9 +95,7 @@ def get_knowledge_stats() -> str:
     Shows what career data is indexed and available for search.
     Use this to see if the knowledge base has been populated.
     """
-    from fu7ur3pr00f.services.knowledge_service import KnowledgeService
-
-    service = KnowledgeService()
+    service = _get_knowledge_service()
     stats = service.get_stats()
 
     total = stats.get("total_chunks", 0)
@@ -119,9 +122,7 @@ def index_career_knowledge(source: str = "") -> str:
 
     All sources are auto-indexed when gathered. Use this to verify indexing status.
     """
-    from fu7ur3pr00f.services.knowledge_service import KnowledgeService
-
-    service = KnowledgeService()
+    service = _get_knowledge_service()
 
     results = service.index_all(verbose=False)
 
@@ -131,8 +132,8 @@ def index_career_knowledge(source: str = "") -> str:
             return ks
         count = results.get(ks.value, 0)
         if count > 0:
-            return f"'{source}' has {count} chunks indexed in the knowledge base."
-        return f"No data indexed for '{source}'. Gather the data first."
+            return f"{source!r} has {count} chunks indexed in the knowledge base."
+        return f"No data indexed for {source!r}. Gather the data first."
     else:
         total = sum(results.values())
         indexed = sum(1 for c in results.values() if c > 0)
@@ -153,7 +154,7 @@ def clear_career_knowledge(source: str = "") -> str:
 
     Use this to remove outdated indexed data before re-indexing.
     """
-    target = f"'{source}'" if source else "all"
+    target = f"{source!r}" if source else "all"
     approved = interrupt(
         {
             "question": f"Clear {target} indexed career data?",
@@ -164,16 +165,14 @@ def clear_career_knowledge(source: str = "") -> str:
     if not approved:
         return "Knowledge base clear cancelled."
 
-    from fu7ur3pr00f.services.knowledge_service import KnowledgeService
-
-    service = KnowledgeService()
+    service = _get_knowledge_service()
 
     if source:
         ks = _parse_source(source)
         if isinstance(ks, str):
             return ks
         deleted = service.clear_source(ks)
-        return f"Cleared {deleted} chunks for '{source}' from the knowledge base."
+        return f"Cleared {deleted} chunks for {source!r} from the knowledge base."
     else:
         total_deleted = service.clear_all()
         return f"Cleared {total_deleted} chunks from the knowledge base."

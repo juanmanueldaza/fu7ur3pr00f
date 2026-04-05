@@ -4,13 +4,21 @@ Uses the Hacker News Algolia API (no authentication required).
 Provides access to "Who is Hiring?" threads and tech trend analysis.
 """
 
+import html
 import json
 import re
 from collections import Counter
 from typing import Any
 
+from fu7ur3pr00f.constants import HN_API_BASE, HN_BASE_URL
+
 from .base import MCPToolResult
 from .http_client import HTTPMCPClient
+from .salary_parser import parse_salary
+
+# Security limits
+_MAX_QUERY_LENGTH = 200  # Maximum search query length
+_MAX_HITS_PER_PAGE = 1000  # Maximum hits to fetch
 
 
 class HackerNewsMCPClient(HTTPMCPClient):
@@ -22,7 +30,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
     Rate limit: 10,000 requests/hour from a single IP.
     """
 
-    BASE_URL = "https://hn.algolia.com/api/v1"
+    BASE_URL = HN_API_BASE
 
     # Tech terms to track in job postings
     TECH_TERMS: dict[str, list[str]] = {
@@ -109,7 +117,6 @@ class HackerNewsMCPClient(HTTPMCPClient):
         ],
     }
 
-
     async def list_tools(self) -> list[str]:
         """List available tools."""
         return [
@@ -121,6 +128,84 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "get_seeking_work_threads",
             "extract_job_postings",
         ]
+
+    @staticmethod
+    def _validate_query(query: str) -> str:
+        """Validate and sanitize search query.
+
+        Args:
+            query: User-provided search query
+
+        Returns:
+            Sanitized query string
+
+        Raises:
+            ValueError: If query is invalid
+        """
+        if not query:
+            return ""
+
+        # Truncate to max length
+        if len(query) > _MAX_QUERY_LENGTH:
+            query = query[:_MAX_QUERY_LENGTH]
+
+        # Remove potentially dangerous characters
+        # Allow alphanumeric, spaces, and common punctuation
+        query = re.sub(r"[^a-zA-Z0-9\s.,\-_+&()]", "", query)
+
+        return query.strip()
+
+    async def _search_api(
+        self,
+        endpoint: str,
+        params: dict[str, Any],
+        response_key: str = "hits",
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Make API request and extract results.
+
+        DRY helper to eliminate repeated API call patterns.
+
+        Args:
+            endpoint: API endpoint (e.g., "/search", "/search_by_date")
+            params: Query parameters
+            response_key: Key to extract results from response
+
+        Returns:
+            Tuple of (items list, full response data)
+        """
+        client = self._ensure_client()
+
+        response = await client.get(
+            f"{self.BASE_URL}{endpoint}",
+            params=params,  # type: ignore[arg-type]
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        return data.get(response_key, []), data
+
+    def _format_story(self, hit: dict[str, Any]) -> dict[str, Any]:
+        """Format a story/item from API response.
+
+        DRY helper for consistent story formatting.
+
+        Args:
+            hit: Raw API response item
+
+        Returns:
+            Formatted story dict
+        """
+        object_id = hit.get("objectID", "")
+        return {
+            "id": object_id,
+            "title": hit.get("title", ""),
+            "url": hit.get("url", ""),
+            "author": hit.get("author", ""),
+            "points": hit.get("points", 0),
+            "num_comments": hit.get("num_comments", 0),
+            "created_at": hit.get("created_at", ""),
+            "hn_url": f"{HN_BASE_URL}/item?id={object_id}",
+        }
 
     # Tool handler methods (called by HTTPMCPClient.call_tool via _get_tool_handler)
 
@@ -140,11 +225,15 @@ class HackerNewsMCPClient(HTTPMCPClient):
         """Get top tech stories from HN."""
         return await self._get_top_stories(args.get("limit", 30))
 
-    async def _tool_get_freelancing_threads(self, args: dict[str, Any]) -> MCPToolResult:
+    async def _tool_get_freelancing_threads(
+        self, args: dict[str, Any]
+    ) -> MCPToolResult:
         """Get recent 'Freelancer? Seeking freelancer?' threads."""
         return await self._get_freelancing_threads(args.get("months", 3))
 
-    async def _tool_get_seeking_work_threads(self, args: dict[str, Any]) -> MCPToolResult:
+    async def _tool_get_seeking_work_threads(
+        self, args: dict[str, Any]
+    ) -> MCPToolResult:
         """Get recent 'Who wants to be hired?' threads."""
         return await self._get_seeking_work_threads(args.get("months", 3))
 
@@ -157,34 +246,18 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
     async def _search_hn(self, query: str) -> MCPToolResult:
         """Search Hacker News for a query."""
-        client = self._ensure_client()
+        # Security: Validate and sanitize query
+        sanitized_query = self._validate_query(query)
 
         params = {
-            "query": query,
+            "query": sanitized_query,
             "tags": "story",
             "hitsPerPage": 50,
         }
 
-        response = await client.get(f"{self.BASE_URL}/search", params=params)
-        response.raise_for_status()
+        hits, data = await self._search_api("/search", params)
 
-        data = response.json()
-        hits = data.get("hits", [])
-
-        results = []
-        for hit in hits:
-            results.append(
-                {
-                    "id": hit.get("objectID", ""),
-                    "title": hit.get("title", ""),
-                    "url": hit.get("url", ""),
-                    "author": hit.get("author", ""),
-                    "points": hit.get("points", 0),
-                    "num_comments": hit.get("num_comments", 0),
-                    "created_at": hit.get("created_at", ""),
-                    "hn_url": f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}",
-                }
-            )
+        results = [self._format_story(hit) for hit in hits]
 
         output = {"results": results, "total": len(results)}
         return self._format_response(output, data, "search_hn")
@@ -211,29 +284,23 @@ class HackerNewsMCPClient(HTTPMCPClient):
             hits_multiplier: Multiplier for hitsPerPage (use >1 to over-fetch)
             include_hn_url: If True, adds hn_url to each thread dict
         """
-        client = self._ensure_client()
-
         params = {
             "query": query,
             "tags": "story,author_whoishiring",
             "hitsPerPage": months * max(hits_multiplier, 1),
         }
 
-        response = await client.get(
-            f"{self.BASE_URL}/search_by_date", params=params,
-        )
-        response.raise_for_status()
+        hits, data = await self._search_api("/search_by_date", params)
 
-        data = response.json()
-        threads = []
-
-        for hit in data.get("hits", []):
+        threads: list[dict[str, Any]] = []
+        for hit in hits:
             title = hit.get("title", "")
             lower_title = title.lower()
             if title_filter not in lower_title:
                 continue
             if exclude_filter and exclude_filter in lower_title:
                 continue
+
             thread: dict[str, Any] = {
                 "title": title,
                 "objectID": hit.get("objectID", ""),
@@ -241,10 +308,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 "num_comments": hit.get("num_comments", 0),
             }
             if include_hn_url:
-                thread["hn_url"] = (
-                    f"https://news.ycombinator.com/item?"
-                    f"id={hit.get('objectID', '')}"
-                )
+                thread["hn_url"] = f"{HN_BASE_URL}/item?id={hit.get('objectID', '')}"
             threads.append(thread)
             if len(threads) >= months:
                 break
@@ -287,7 +351,10 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 "hitsPerPage": 500,
             }
 
-            response = await client.get(f"{self.BASE_URL}/search", params=params)
+            response = await client.get(
+                f"{self.BASE_URL}/search",
+                params=params,  # type: ignore[arg-type]
+            )
             if response.status_code != 200:
                 continue
 
@@ -315,37 +382,21 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
     async def _get_top_stories(self, limit: int = 30) -> MCPToolResult:
         """Get top tech stories from HN."""
-        client = self._ensure_client()
-
         params = {
             "tags": "front_page",
             "hitsPerPage": limit,
         }
 
-        response = await client.get(f"{self.BASE_URL}/search", params=params)
-        response.raise_for_status()
+        hits, data = await self._search_api("/search", params)
 
-        data = response.json()
-        stories = []
-
-        for hit in data.get("hits", []):
-            stories.append(
-                {
-                    "id": hit.get("objectID", ""),
-                    "title": hit.get("title", ""),
-                    "url": hit.get("url", ""),
-                    "author": hit.get("author", ""),
-                    "points": hit.get("points", 0),
-                    "num_comments": hit.get("num_comments", 0),
-                    "created_at": hit.get("created_at", ""),
-                    "hn_url": f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}",
-                }
-            )
+        stories = [self._format_story(hit) for hit in hits]
 
         output = {"stories": stories, "total": len(stories)}
         return self._format_response(output, data, "get_top_stories")
 
-    def _group_by_category(self, tech_counts: Counter[str]) -> dict[str, list[dict[str, Any]]]:
+    def _group_by_category(
+        self, tech_counts: Counter[str]
+    ) -> dict[str, list[dict[str, Any]]]:
         """Group tech mentions by category."""
         categories: dict[str, list[dict[str, Any]]] = {}
 
@@ -384,7 +435,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
             include_hn_url=True,
         )
 
-    async def _extract_job_postings(self, months: int = 1, limit: int = 100) -> MCPToolResult:
+    async def _extract_job_postings(
+        self, months: int = 1, limit: int = 100
+    ) -> MCPToolResult:
         """Extract and parse individual job postings from hiring threads.
 
         This fetches actual comment text from "Who is hiring?" threads and
@@ -417,7 +470,10 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 "hitsPerPage": min(limit * 2, 500),  # Fetch extra, filter later
             }
 
-            response = await client.get(f"{self.BASE_URL}/search", params=params)
+            response = await client.get(
+                f"{self.BASE_URL}/search",
+                params=params,  # type: ignore[arg-type]
+            )
             if response.status_code != 200:
                 continue
 
@@ -455,16 +511,16 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         return self._format_response(output, output, "extract_job_postings")
 
-    def _parse_job_posting(self, text: str, comment: dict[str, Any]) -> dict[str, Any] | None:
+    def _parse_job_posting(
+        self, text: str, comment: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Parse a job posting comment into structured data.
 
         Extracts: company, location, remote status, salary, tech stack.
         """
-        import html
 
         # Decode HTML entities
         text = html.unescape(text)
-
         # Remove HTML tags but preserve structure
         clean_text = re.sub(r"<[^>]+>", " ", text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
@@ -503,7 +559,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
             "tech_stack": tech_stack,
             "text_preview": clean_text[:500],
             "full_text": clean_text,
-            "hn_url": f"https://news.ycombinator.com/item?id={comment.get('objectID', '')}",
+            "hn_url": (f"{HN_BASE_URL}/item?id={comment.get('objectID', '')}"),
             "author": comment.get("author", ""),
             "created_at": comment.get("created_at", ""),
             "site": "hn_hiring",
@@ -525,7 +581,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
                 return potential
 
         # Pattern 3: First line before pipe or dash
-        first_line = clean_text.split("\n")[0] if "\n" in clean_text else clean_text[:100]
+        first_line = (
+            clean_text.split("\n")[0] if "\n" in clean_text else clean_text[:100]
+        )
         pipe_match = re.match(r"^([^|–—\-]+)", first_line)
         if pipe_match:
             potential = pipe_match.group(1).strip()
@@ -581,8 +639,6 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
     def _extract_salary(self, text: str) -> dict[str, Any]:
         """Extract salary information from text."""
-        from .salary_parser import parse_salary
-
         parsed = parse_salary(text)
         if parsed is None:
             return {"min": None, "max": None, "raw": None}
@@ -597,7 +653,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
         text_lower = text.lower()
         found_tech: list[str] = []
 
-        for category, terms in self.TECH_TERMS.items():
+        for _category, terms in self.TECH_TERMS.items():
             for term in terms:
                 if re.search(rf"\b{re.escape(term)}\b", text_lower):
                     found_tech.append(term)
@@ -611,7 +667,9 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         # Regex patterns for job titles (split for readability)
         seniority = r"(senior|sr\.?|staff|principal|lead|junior|jr\.?)"
-        roles = r"(software|backend|frontend|full[- ]?stack|ml|ai|data|devops|sre|platform)"
+        roles = (
+            r"(software|backend|frontend|full[- ]?stack|ml|ai|data|devops|sre|platform)"
+        )
         title_patterns = [
             rf"\b{seniority}\s*{roles}\s*(engineer|developer)?\b",
             rf"\b{roles}\s*(engineer|developer)\b",

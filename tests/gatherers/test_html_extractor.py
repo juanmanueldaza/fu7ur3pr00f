@@ -2,7 +2,10 @@
 
 import pytest
 
-from fu7ur3pr00f.gatherers.portfolio.html_extractor import ExtractedContent, HTMLExtractor
+from fu7ur3pr00f.gatherers.portfolio.html_extractor import (
+    ExtractedContent,
+    HTMLExtractor,
+)
 
 
 class TestHTMLExtractor:
@@ -43,7 +46,9 @@ class TestHTMLExtractor:
         </html>
         """
 
-    def test_returns_extracted_content(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_returns_extracted_content(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test that extract returns ExtractedContent dataclass."""
         result = extractor.extract(sample_html, "https://example.com")
         assert isinstance(result, ExtractedContent)
@@ -58,7 +63,9 @@ class TestHTMLExtractor:
         result = extractor.extract(sample_html, "https://example.com")
         assert result.title == "John Doe - Developer"
 
-    def test_extracts_meta_description(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_extracts_meta_description(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test meta description extraction."""
         result = extractor.extract(sample_html, "https://example.com")
         assert result.meta_description == "Full-stack developer with 5 years experience"
@@ -70,19 +77,25 @@ class TestHTMLExtractor:
         assert result.json_ld[0]["@type"] == "Person"
         assert result.json_ld[0]["name"] == "John Doe"
 
-    def test_extracts_open_graph(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_extracts_open_graph(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test Open Graph meta tag extraction."""
         result = extractor.extract(sample_html, "https://example.com")
         assert result.open_graph["title"] == "John Doe Portfolio"
         assert result.open_graph["description"] == "My portfolio site"
 
-    def test_extracts_other_meta(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_extracts_other_meta(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test other meta tag extraction (author, keywords)."""
         result = extractor.extract(sample_html, "https://example.com")
         assert result.meta_tags["author"] == "John Doe"
         assert result.meta_tags["keywords"] == "developer, python, javascript"
 
-    def test_extracts_headings(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_extracts_headings(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test heading extraction."""
         result = extractor.extract(sample_html, "https://example.com")
         assert len(result.headings) >= 2
@@ -110,19 +123,25 @@ class TestHTMLExtractor:
         anchor_links = [link for link in result.links if link["href"].startswith("#")]
         assert len(anchor_links) == 0
 
-    def test_extracts_sections_by_id(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_extracts_sections_by_id(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test section extraction by id pattern."""
         result = extractor.extract(sample_html, "https://example.com")
         assert "about" in result.sections
         assert "About section content" in result.sections["about"]
 
-    def test_extracts_sections_by_class(self, extractor: HTMLExtractor, sample_html: str) -> None:
+    def test_extracts_sections_by_class(
+        self, extractor: HTMLExtractor, sample_html: str
+    ) -> None:
         """Test section extraction by class pattern."""
         result = extractor.extract(sample_html, "https://example.com")
         assert "projects" in result.sections
         assert "Projects content" in result.sections["projects"]
 
-    def test_handles_missing_elements_gracefully(self, extractor: HTMLExtractor) -> None:
+    def test_handles_missing_elements_gracefully(
+        self, extractor: HTMLExtractor
+    ) -> None:
         """Test handling of minimal HTML without optional elements."""
         minimal_html = "<html><body><p>Hello world</p></body></html>"
         result = extractor.extract(minimal_html, "https://example.com")

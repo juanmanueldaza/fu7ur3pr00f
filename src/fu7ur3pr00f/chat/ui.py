@@ -15,17 +15,34 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.theme import Theme
 
+from fu7ur3pr00f.constants import (
+    COLOR_ACCENT,
+    COLOR_ERROR,
+    COLOR_INFO,
+    COLOR_SUCCESS,
+    COLOR_WARNING,
+)
+from fu7ur3pr00f.memory.profile import UserProfile
+
+
+def _get_tool_to_category() -> dict[str, str]:
+    """Lazy loader for tool categories mapping to break circular import."""
+    from fu7ur3pr00f.agents.tools import get_tool_categories
+
+    return get_tool_categories()
+
+
 # ── Nautical theme (inspired by daza.ar) ─────────────────────────────────
 
 _THEME = Theme(
     {
-        "gold": "bold #ffd700",
-        "sand": "#e0d8c0",
+        "gold": f"bold {COLOR_WARNING}",
+        "sand": f"{COLOR_ACCENT}",
         "parchment": "bold #f5f0e1",
-        "teal": "#415a77",
-        "success": "#10b981",
-        "warning": "#ffd700",
-        "error": "#ff6b6b",
+        "teal": f"{COLOR_INFO}",
+        "success": f"{COLOR_SUCCESS}",
+        "warning": f"{COLOR_WARNING}",
+        "error": f"{COLOR_ERROR}",
     }
 )
 
@@ -36,10 +53,10 @@ console = Console(theme=_THEME)
 _TOOL_CATEGORIES: dict[str, tuple[str, str]] = {
     # category: (icon, color)
     "profile": ("\u2139", "#5bc0be"),  # ℹ  soft teal
-    "gathering": ("\u2b07", "#10b981"),  # ⬇  emerald
-    "github": ("\u2b22", "#e0d8c0"),  # ⬢  sand
+    "gathering": ("\u2b07", f"{COLOR_SUCCESS}"),  # ⬇  emerald
+    "github": ("\u2b22", f"{COLOR_ACCENT}"),  # ⬢  sand
     "gitlab": ("\u2b22", "#c084fc"),  # ⬢  lavender
-    "knowledge": ("\u25c6", "#ffd700"),  # ◆  gold
+    "knowledge": ("\u25c6", f"{COLOR_WARNING}"),  # ◆  gold
     "analysis": ("\u25b2", "#60a5fa"),  # ▲  sky blue
     "generation": ("\u2605", "#fbbf24"),  # ★  amber
     "market": ("\u25cf", "#34d399"),  # ●  mint
@@ -47,63 +64,16 @@ _TOOL_CATEGORIES: dict[str, tuple[str, str]] = {
     "settings": ("\u2699", "#94a3b8"),  # ⚙  slate
 }
 
-_TOOL_TO_CATEGORY: dict[str, str] = {
-    # Profile
-    "get_user_profile": "profile",
-    "update_user_name": "profile",
-    "update_current_role": "profile",
-    "update_user_skills": "profile",
-    "set_target_roles": "profile",
-    "update_user_goal": "profile",
-    "update_salary_info": "profile",
-    # Gathering
-    "gather_portfolio_data": "gathering",
-    "gather_linkedin_data": "gathering",
-    "gather_assessment_data": "gathering",
-    "gather_all_career_data": "gathering",
-    # GitHub
-    "search_github_repos": "github",
-    "get_github_repo": "github",
-    "get_github_profile": "github",
-    # GitLab
-    "search_gitlab_projects": "gitlab",
-    "get_gitlab_project": "gitlab",
-    "get_gitlab_file": "gitlab",
-    # Knowledge
-    "search_career_knowledge": "knowledge",
-    "get_knowledge_stats": "knowledge",
-    "index_career_knowledge": "knowledge",
-    "clear_career_knowledge": "knowledge",
-    # Analysis
-    "analyze_skill_gaps": "analysis",
-    "analyze_career_alignment": "analysis",
-    "get_career_advice": "analysis",
-    # Generation
-    "generate_cv": "generation",
-    "generate_cv_draft": "generation",
-    # Market
-    "search_jobs": "market",
-    "get_tech_trends": "market",
-    "get_salary_insights": "market",
-    "gather_market_data": "market",
-    "analyze_market_fit": "market",
-    "analyze_market_skills": "market",
-    # Financial (maps to market category)
-    "convert_currency": "market",
-    "compare_salary_ppp": "market",
-    # Memory
-    "remember_decision": "memory",
-    "remember_job_application": "memory",
-    "recall_memories": "memory",
-    "get_memory_stats": "memory",
-    # Settings
-    "get_current_config": "settings",
-    "update_setting": "settings",
-}
+_TOOL_TO_CATEGORY: dict[str, str] | None = None
 
 
 def _tool_style(tool_name: str) -> tuple[str, str]:
     """Get icon and color for a tool name."""
+    global _TOOL_TO_CATEGORY
+    if _TOOL_TO_CATEGORY is None:
+        from fu7ur3pr00f.agents.tools import get_tool_categories
+
+        _TOOL_TO_CATEGORY = get_tool_categories()
     cat = _TOOL_TO_CATEGORY.get(tool_name, "")
     return _TOOL_CATEGORIES.get(cat, ("\u2022", "dim"))  # default: bullet, dim
 
@@ -128,7 +98,7 @@ def display_model_info(model_name: str) -> None:
 def display_tool_start(tool_name: str, args: dict) -> None:
     """Display a styled tool invocation with full arguments."""
     _icon, color = _tool_style(tool_name)
-    cat = _TOOL_TO_CATEGORY.get(tool_name, "tool")
+    cat = (_TOOL_TO_CATEGORY or {}).get(tool_name, "tool")
 
     # Header line: badge + tool name
     header = Text.assemble(
@@ -144,10 +114,12 @@ def display_tool_start(tool_name: str, args: dict) -> None:
             val_str = str(v)
             if len(val_str) > 200:
                 val_str = val_str[:200] + "..."
-            console.print(Text(f"       {k}: {val_str}", style="#415a77"))
+            console.print(Text(f"       {k}: {val_str}", style=f"{COLOR_INFO}"))
 
 
-def display_tool_result(tool_name: str, content: str, elapsed: float | None = None) -> None:
+def display_tool_result(
+    tool_name: str, content: str, elapsed: float | None = None
+) -> None:
     """Display tool result in a bordered panel with full content."""
     _icon, color = _tool_style(tool_name)
 
@@ -160,13 +132,19 @@ def display_tool_result(tool_name: str, content: str, elapsed: float | None = No
     display_content = content
     max_len = 2000
     if len(display_content) > max_len:
-        display_content = display_content[:max_len] + f"\n\n... ({len(content)} chars total)"
+        display_content = (
+            display_content[:max_len] + f"\n\n... ({len(content)} chars total)"
+        )
 
     console.print(
         Panel(
-            Text(display_content, style="#415a77"),
+            Text(display_content, style=f"{COLOR_INFO}"),
             title=f"[{color}]{tool_name}[/{color}]",
-            subtitle=f"[italic #415a77]{subtitle}[/italic #415a77]" if subtitle else None,
+            subtitle=(
+                f"[italic {COLOR_INFO}]{subtitle}[/italic {COLOR_INFO}]"
+                if subtitle
+                else None
+            ),
             subtitle_align="right",
             border_style=color,
             box=box.ROUNDED,
@@ -175,52 +153,25 @@ def display_tool_result(tool_name: str, content: str, elapsed: float | None = No
     )
 
 
-def display_node_transition(node_name: str) -> None:
-    """Show when the agent graph transitions to a new node."""
-    # Map internal node names to human-readable descriptions
-    labels = {
-        "model": "LLM thinking...",
-        "tools": "executing tools",
-    }
-    label = labels.get(node_name, node_name)
-    console.print(
-        Text.assemble(
-            ("  \u203a ", "#415a77"),
-            (label, "italic #415a77"),
-        )
-    )
-
-
 def display_timing(elapsed: float) -> None:
     """Show total response time."""
     console.print(
         Text.assemble(
-            _badge("DONE", "#10b981"),
-            (f" {elapsed:.1f}s", "#10b981"),
+            _badge("DONE", f"{COLOR_SUCCESS}"),
+            (f" {elapsed:.1f}s", f"{COLOR_SUCCESS}"),
         )
     )
     console.print()
-
-
-def display_model_switch(model_name: str) -> None:
-    """Show when the fallback manager switches to a different model."""
-    console.print(
-        Text.assemble(
-            _badge("FALLBACK", "#ffd700"),
-            (" ", ""),
-            (model_name, "bold #ffd700"),
-        )
-    )
 
 
 def display_indexing_result(source: str, chunks: int, elapsed: float) -> None:
     """Show indexing progress for a knowledge source."""
     console.print(
         Text.assemble(
-            _badge("INDEX", "#ffd700"),
-            (f" {source}", "bold #ffd700"),
-            (f" \u2014 {chunks} chunks indexed", "#e0d8c0"),
-            (f" ({elapsed:.1f}s)", "italic #415a77"),
+            _badge("INDEX", f"{COLOR_WARNING}"),
+            (f" {source}", f"bold {COLOR_WARNING}"),
+            (f" \u2014 {chunks} chunks indexed", f"{COLOR_ACCENT}"),
+            (f" ({elapsed:.1f}s)", f"italic {COLOR_INFO}"),
         )
     )
 
@@ -230,17 +181,17 @@ def display_gather_result(source: str, elapsed: float, success: bool = True) -> 
     if success:
         console.print(
             Text.assemble(
-                _badge("GATHER", "#10b981"),
-                (f" {source}", "bold #10b981"),
-                (f" ({elapsed:.1f}s)", "italic #415a77"),
+                _badge("GATHER", f"{COLOR_SUCCESS}"),
+                (f" {source}", f"bold {COLOR_SUCCESS}"),
+                (f" ({elapsed:.1f}s)", f"italic {COLOR_INFO}"),
             )
         )
     else:
         console.print(
             Text.assemble(
-                _badge("FAILED", "#ff6b6b"),
-                (f" {source}", "bold #ff6b6b"),
-                (f" ({elapsed:.1f}s)", "italic #415a77"),
+                _badge("FAILED", f"{COLOR_ERROR}"),
+                (f" {source}", f"bold {COLOR_ERROR}"),
+                (f" ({elapsed:.1f}s)", f"italic {COLOR_INFO}"),
             )
         )
 
@@ -248,31 +199,54 @@ def display_gather_result(source: str, elapsed: float, success: bool = True) -> 
 def display_welcome() -> None:
     """Display welcome message when starting a chat session."""
     content = Text.assemble(
-        ("AI Career Intelligence Agent\n\n", "#e0d8c0"),
-        (" \u25c6 ", "#ffd700"),
-        ("Analyze skills and identify gaps\n", "#e0d8c0"),
-        (" \u25c6 ", "#ffd700"),
-        ("Search for job opportunities\n", "#e0d8c0"),
-        (" \u25c6 ", "#ffd700"),
-        ("Generate tailored CVs\n", "#e0d8c0"),
-        (" \u25c6 ", "#ffd700"),
-        ("Get career strategy advice\n\n", "#e0d8c0"),
-        (" /help", "#415a77"),
-        (" \u00b7 ", "#415a77"),
-        ("/setup", "#415a77"),
-        (" \u00b7 ", "#415a77"),
-        ("/profile", "#415a77"),
-        (" \u00b7 ", "#415a77"),
-        ("/quit", "#415a77"),
+        ("AI Career Intelligence Agent\n\n", f"{COLOR_ACCENT}"),
+        (" \u25c6 ", f"{COLOR_WARNING}"),
+        ("Analyze skills and identify gaps\n", f"{COLOR_ACCENT}"),
+        (" \u25c6 ", f"{COLOR_WARNING}"),
+        ("Search for job opportunities\n", f"{COLOR_ACCENT}"),
+        (" \u25c6 ", f"{COLOR_WARNING}"),
+        ("Generate tailored CVs\n", f"{COLOR_ACCENT}"),
+        (" \u25c6 ", f"{COLOR_WARNING}"),
+        ("Get career strategy advice\n\n", f"{COLOR_ACCENT}"),
+        (" /help", f"{COLOR_INFO}"),
+        (" \u00b7 ", f"{COLOR_INFO}"),
+        ("/setup", f"{COLOR_INFO}"),
+        (" \u00b7 ", f"{COLOR_INFO}"),
+        ("/profile", f"{COLOR_INFO}"),
+        (" \u00b7 ", f"{COLOR_INFO}"),
+        ("/quit", f"{COLOR_INFO}"),
     )
 
     console.print(
         Panel(
             content,
-            title="[bold #ffd700]FUTUREPROOF[/bold #ffd700]",
-            border_style="#ffd700",
+            title=f"[bold {COLOR_WARNING}]FUTUREPROOF[/bold {COLOR_WARNING}]",
+            border_style=f"{COLOR_WARNING}",
             box=box.DOUBLE,
             padding=(1, 2),
+        )
+    )
+    console.print()
+
+
+def _display_panel(
+    content: str | Text | Markdown,
+    title: str,
+    color: str = COLOR_INFO,
+    box_style: box.Box = box.ROUNDED,
+    subtitle: str | None = None,
+    padding: tuple[int, int] = (0, 1),
+) -> None:
+    """Helper to display a consistent Rich panel."""
+    console.print(
+        Panel(
+            content,
+            title=f"[bold {color}]{title}[/bold {color}]",
+            subtitle=subtitle,
+            subtitle_align="right",
+            border_style=color,
+            box=box_style,
+            padding=padding,
         )
     )
     console.print()
@@ -284,15 +258,24 @@ def display_error(message: str) -> None:
     Args:
         message: The error message to display
     """
-    console.print(
-        Panel(
-            Text(message, style="#ff6b6b"),
-            title="[bold #ff6b6b]Error[/bold #ff6b6b]",
-            border_style="#ff6b6b",
-            box=box.ROUNDED,
-        )
-    )
-    console.print()
+    _display_panel(Text(message, style=COLOR_ERROR), "Error", COLOR_ERROR)
+
+
+def display_interrupt_confirmation(question: str, details: str = "") -> None:
+    """Display a human-in-the-loop confirmation request.
+
+    Args:
+        question: The confirmation question to ask the user
+        details: Additional context or details about the request
+    """
+    # Build content with question and optional details
+    content_parts = [question]
+    if details:
+        content_parts.append("")
+        content_parts.append(details)
+
+    content = Text("\n".join(content_parts), style=COLOR_WARNING)
+    _display_panel(content, "Confirmation", COLOR_WARNING)
 
 
 def display_help() -> None:
@@ -304,11 +287,15 @@ def display_help() -> None:
 |---------|-------------|
 | `/help` or `/h` | Show this help message |
 | `/setup` | Configure LLM providers and API keys |
+| `/gather` | Gather career data (LinkedIn, CliftonStrengths, CV, portfolio) |
 | `/profile` | View your career profile |
 | `/goals` | View your career goals |
 | `/thread [name]` | Show or switch conversation thread |
 | `/threads` | List all conversation threads |
 | `/memory` | Show memory and profile stats |
+| `/debug` | Toggle debug mode (verbose logging) |
+| `/verbose` | Show system information |
+| `/agents` | List available specialist agents |
 | `/clear` | Clear current thread history |
 | `/reset` | Factory reset (delete all generated data) |
 | `/quit` or `/q` | Exit chat |
@@ -325,27 +312,24 @@ def display_help() -> None:
         Panel(
             Markdown(help_text),
             title="[bold #5bc0be]Help[/bold #5bc0be]",
-            border_style="#415a77",
+            border_style=f"{COLOR_INFO}",
             box=box.ROUNDED,
         )
     )
     console.print()
 
 
-def display_profile_summary() -> None:
-    """Display the user's profile summary."""
-    from fu7ur3pr00f.memory.profile import load_profile
+def display_profile_summary(profile: UserProfile) -> None:
+    """Display the user's profile summary.
 
-    profile = load_profile()
-
+    Args:
+        profile: The user profile to display
+    """
     if not profile.name:
-        console.print(
-            Panel(
-                "No profile configured yet. Tell me about yourself to get started!",
-                title="[bold #5bc0be]Your Profile[/bold #5bc0be]",
-                border_style="#5bc0be",
-                box=box.ROUNDED,
-            )
+        _display_panel(
+            "No profile configured yet. Tell me about yourself to get started!",
+            "Your Profile",
+            "#5bc0be",
         )
         return
 
@@ -358,7 +342,9 @@ def display_profile_summary() -> None:
     if profile.years_experience:
         profile_parts.append(f"**Experience:** {profile.years_experience} years")
     if profile.technical_skills:
-        profile_parts.append(f"**Technical Skills:** {', '.join(profile.technical_skills[:10])}")
+        profile_parts.append(
+            f"**Technical Skills:** {', '.join(profile.technical_skills[:10])}"
+        )
     if profile.target_roles:
         profile_parts.append(f"**Target Roles:** {', '.join(profile.target_roles)}")
     if profile.preferred_work_style:
@@ -368,31 +354,20 @@ def display_profile_summary() -> None:
     if profile.salary_expectations:
         profile_parts.append(f"**Compensation:** {profile.salary_expectations}")
 
-    console.print(
-        Panel(
-            Markdown("\n".join(profile_parts)),
-            title="[bold #5bc0be]Your Profile[/bold #5bc0be]",
-            border_style="#5bc0be",
-            box=box.ROUNDED,
-        )
-    )
-    console.print()
+    _display_panel(Markdown("\n".join(profile_parts)), "Your Profile", "#5bc0be")
 
 
-def display_goals() -> None:
-    """Display the user's career goals."""
-    from fu7ur3pr00f.memory.profile import load_profile
+def display_goals(profile: UserProfile) -> None:
+    """Display the user's career goals.
 
-    profile = load_profile()
-
+    Args:
+        profile: The user profile containing goals
+    """
     if not profile.goals:
-        console.print(
-            Panel(
-                "No goals set yet. Tell me about your career aspirations!",
-                title="[bold #5bc0be]Your Goals[/bold #5bc0be]",
-                border_style="#5bc0be",
-                box=box.ROUNDED,
-            )
+        _display_panel(
+            "No goals set yet. Tell me about your career aspirations!",
+            "Your Goals",
+            "#5bc0be",
         )
         return
 
@@ -402,12 +377,116 @@ def display_goals() -> None:
         status_text = f" ({goal.status})" if goal.status != "active" else ""
         goal_parts.append(f"{i}. {priority_icon} {goal.description}{status_text}")
 
+    _display_panel("\n".join(goal_parts), "Your Goals", "#5bc0be")
+
+
+def display_specialist_progress(
+    specialist_name: str,
+    status: str,
+    elapsed: float | None = None,
+) -> None:
+    """Display specialist progress during blackboard execution.
+
+    Args:
+        specialist_name: Name of the specialist
+        status: "working" | "done" | "error"
+        elapsed: Optional elapsed time in seconds
+    """
+    colors = {
+        "working": f"{COLOR_WARNING}",
+        "done": f"{COLOR_SUCCESS}",
+        "error": f"{COLOR_ERROR}",
+    }
+    color = colors.get(status, f"{COLOR_INFO}")
+    badge_labels = {"working": "ANALYZING", "done": "DONE", "error": "ERROR"}
+    label = badge_labels.get(status, status.upper())
+
+    timing = f" ({elapsed:.1f}s)" if elapsed is not None else ""
+    badge = f"[bold {color}][{label}][/bold {color}]"
+    name = f"[bold {color}]{specialist_name.upper()}[/bold {color}]"
+
+    console.print(f"{badge} {name}{timing}")
+
+
+def display_blackboard_result(
+    synthesis: dict,
+    specialists_contributed: list[str],
+    elapsed: float,
+) -> None:
+    """Display the blackboard synthesis result.
+
+    For single-specialist results, renders the narrative directly without
+    heavy framing. For multi-specialist results, uses the integrated panel.
+
+    Args:
+        synthesis: Synthesis dict with 'narrative' and 'integrated_advice'
+        specialists_contributed: List of specialist names that ran
+        elapsed: Total elapsed time in seconds
+    """
+    narrative = synthesis.get("narrative", "")
+    contributors = ", ".join(s.upper() for s in specialists_contributed)
+
+    if narrative:
+        if len(specialists_contributed) == 1:
+            # Single specialist — show narrative directly, light framing
+            console.print(Markdown(narrative))
+            console.print(f"[dim] {contributors} · {elapsed:.1f}s[/dim]")
+        else:
+            # Multi-specialist — use the integrated analysis panel
+            console.print(
+                Panel(
+                    Markdown(narrative),
+                    title=(
+                        f"[bold {COLOR_WARNING}]"
+                        f"INTEGRATED ANALYSIS[/bold {COLOR_WARNING}]"
+                    ),
+                    subtitle=(f"[italic]{contributors} · {elapsed:.1f}s[/italic]"),
+                    subtitle_align="right",
+                    border_style=f"{COLOR_WARNING}",
+                    box=box.DOUBLE,
+                    padding=(1, 2),
+                )
+            )
+        console.print()
+        return
+
+    # Fallback: structured display from integrated_advice
+    integrated = synthesis.get("integrated_advice", {})
+    parts: list[str] = []
+    if integrated.get("target_role"):
+        parts.append(f"**Target Role:** {integrated['target_role']}")
+    if integrated.get("timeline"):
+        parts.append(f"**Timeline:** {integrated['timeline']}")
+    if integrated.get("key_gaps"):
+        gaps_str = ", ".join(str(g) for g in integrated["key_gaps"][:5])
+        parts.append(f"**Key Gaps:** {gaps_str}")
+    if integrated.get("learning_plan"):
+        plan_str = ", ".join(str(s) for s in integrated["learning_plan"][:5])
+        parts.append(f"**Learning Plan:** {plan_str}")
+    if integrated.get("opportunities"):
+        parts.append(
+            f"**Opportunities:** {len(integrated['opportunities'])} identified"
+        )
+    if integrated.get("next_steps"):
+        steps_str = "\n".join(f"- {s}" for s in integrated["next_steps"][:5])
+        parts.append(f"\n**Next Steps:**\n{steps_str}")
+
+    body = "\n".join(parts) if parts else "Analysis complete."
+    subtitle_text = (
+        f"[italic {COLOR_INFO}]{contributors} · {elapsed:.1f}s[/italic {COLOR_INFO}]"
+    )
     console.print(
         Panel(
-            "\n".join(goal_parts),
-            title="[bold #5bc0be]Your Goals[/bold #5bc0be]",
-            border_style="#5bc0be",
-            box=box.ROUNDED,
+            Markdown(body),
+            title=(
+                f"[bold {COLOR_WARNING}]"
+                f"INTEGRATED CAREER ANALYSIS[/bold {COLOR_WARNING}]"
+            ),
+            subtitle=subtitle_text,
+            subtitle_align="right",
+            border_style=f"{COLOR_WARNING}",
+            box=box.DOUBLE,
+            padding=(1, 2),
         )
     )
     console.print()

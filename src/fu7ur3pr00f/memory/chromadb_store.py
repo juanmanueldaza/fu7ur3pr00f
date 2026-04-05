@@ -8,7 +8,7 @@ This base class extracts that shared pattern.
 import logging
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .embeddings import get_embedding_function
 
@@ -51,7 +51,9 @@ class ChromaDBStore:
             try:
                 import chromadb  # type: ignore[import-not-found]
 
-                self._client = chromadb.PersistentClient(path=str(self.persist_dir))
+                self._client = chromadb.PersistentClient(  # type: ignore[assignment]
+                    path=str(self.persist_dir)
+                )
                 logger.info("ChromaDB initialized at %s", self.persist_dir)
             except ImportError:
                 logger.warning("ChromaDB not installed.")
@@ -81,7 +83,10 @@ class ChromaDBStore:
         metadatas: list[dict[str, Any]],
     ) -> None:
         """Add documents to the collection."""
-        self.collection.add(ids=ids, documents=documents, metadatas=metadatas)  # type: ignore[arg-type]
+        from chromadb.api.types import Metadata  # type: ignore[import-not-found]
+
+        metas = cast(list[Metadata], metadatas)
+        self.collection.add(ids=ids, documents=documents, metadatas=metas)
 
     def _query(
         self,
@@ -159,3 +164,11 @@ class ChromaDBStore:
             group_label: self._count_by_values(group_field, group_values),
             "persist_dir": str(self.persist_dir),
         }
+
+
+# =============================================================================
+# Shared ChromaDB Client for Multi-Agent System
+# =============================================================================
+
+_chroma_client = None
+_chroma_lock = threading.Lock()

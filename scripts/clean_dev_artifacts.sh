@@ -5,8 +5,19 @@ set -euo pipefail
 rm -rf dist build
 
 # Remove Python cache directories and bytecode files that accumulate during development.
-find . -name "__pycache__" -type d -prune -exec rm -rf {} + || true
-find . -name "*.pyc" -delete || true
+# Security: Log errors instead of silently suppressing them
+find . -name "__pycache__" -type d -prune -exec rm -rf {} + 2>&1 | while read -r line; do
+  echo "[WARN] clean_dev: ${line}" >&2
+done || true
+
+find . -name "*.pyc" -delete 2>&1 | while read -r line; do
+  echo "[WARN] clean_dev: ${line}" >&2
+done || true
 
 # Optionally purge transient market cache to force fresh data.
-rm -rf data/cache || true
+if [[ -d "data/cache" ]]; then
+  rm -rf data/cache 2>&1 | while read -r line; do
+    echo "[WARN] clean_dev: ${line}" >&2
+  done || true
+  echo "[INFO] Market cache cleared"
+fi

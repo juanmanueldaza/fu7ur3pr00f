@@ -15,6 +15,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from fu7ur3pr00f.constants import INDEX_BATCH_SIZE
+
+from ._singleton import create_singleton
 from .chromadb_store import ChromaDBStore
 from .chunker import MarkdownChunker, Section
 
@@ -93,16 +96,17 @@ class CareerKnowledgeStore(ChromaDBStore):
                 chunk_id = str(uuid.uuid4())
                 ids.append(chunk_id)
                 documents.append(chunk.content)
-                metadatas.append({
-                    "source": source.value,
-                    "section": section.name,
-                    "chunk_index": str(chunk_idx),
-                })
+                metadatas.append(
+                    {
+                        "source": source.value,
+                        "section": section.name,
+                        "chunk_index": str(chunk_idx),
+                    }
+                )
                 chunk_idx += 1
 
-        batch_size = 100
-        for i in range(0, len(ids), batch_size):
-            end = min(i + batch_size, len(ids))
+        for i in range(0, len(ids), INDEX_BATCH_SIZE):
+            end = min(i + INDEX_BATCH_SIZE, len(ids))
             self._add(
                 ids=ids[i:end],
                 documents=documents[i:end],
@@ -129,11 +133,12 @@ class CareerKnowledgeStore(ChromaDBStore):
         if not docs or not metas:
             return ""
 
-        pairs = list(zip(docs, metas))
+        pairs = list(zip(docs, metas, strict=True))
 
         if excluded_sections or excluded_prefixes:
             pairs = [
-                (doc, meta) for doc, meta in pairs
+                (doc, meta)
+                for doc, meta in pairs
                 if str(meta.get("section", "")) not in excluded_sections
                 and not (
                     excluded_prefixes
@@ -217,12 +222,14 @@ class CareerKnowledgeStore(ChromaDBStore):
                     continue
                 if excluded_prefixes and sec.startswith(excluded_prefixes):
                     continue
-            items.append({
-                "content": doc,
-                "source": meta.get("source", "portfolio"),
-                "section": sec,
-                "metadata": {k: v for k, v in meta.items() if k not in reserved},
-            })
+            items.append(
+                {
+                    "content": doc,
+                    "source": meta.get("source", "portfolio"),
+                    "section": sec,
+                    "metadata": {k: v for k, v in meta.items() if k not in reserved},
+                }
+            )
 
         return items[:limit]
 
@@ -249,18 +256,5 @@ class CareerKnowledgeStore(ChromaDBStore):
 # Module-level store instance
 # =============================================================================
 
-_store: CareerKnowledgeStore | None = None
 _store_lock = threading.Lock()
-
-
-def get_knowledge_store() -> CareerKnowledgeStore:
-    """Get the global knowledge store instance."""
-    global _store
-    if _store is not None:
-        return _store
-
-    with _store_lock:
-        if _store is not None:
-            return _store
-        _store = CareerKnowledgeStore()
-        return _store
+get_knowledge_store = create_singleton(lambda: CareerKnowledgeStore(), _store_lock)

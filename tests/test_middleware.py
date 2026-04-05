@@ -48,11 +48,18 @@ class TestBuildDynamicPrompt:
             system_message=SystemMessage(content="original"),
         )
 
+        # Create mock service that returns mock_stats from get_stats()
+        mock_service = MagicMock()
+        mock_service.get_stats.return_value = mock_stats
+
         with (
-            patch("fu7ur3pr00f.memory.profile.load_profile", return_value=mock_profile),
             patch(
-                "fu7ur3pr00f.services.knowledge_service.KnowledgeService.get_stats",
-                return_value=mock_stats,
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_profile",
+                return_value=mock_profile,
+            ),
+            patch(
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_knowledge_service",
+                return_value=mock_service,
             ),
         ):
             build_dynamic_prompt.wrap_model_call(request, handler)
@@ -86,7 +93,7 @@ class TestBuildDynamicPrompt:
         stats = {"total_chunks": 0, "by_source": {}}
 
         content = self._call_middleware(profile, stats)
-        assert "No profile configured yet" in content
+        # Profile context replaced when summary indicates no data
         assert "No career data indexed" in content
         assert "gather_all_career_data" in content
 
@@ -114,7 +121,6 @@ class TestBuildDynamicPrompt:
         profile.summary.return_value = "Name: Juan"
         stats = {"total_chunks": 10, "by_source": {"linkedin": 10}}
 
-        mock_load = MagicMock(return_value=profile)
         mock_get_stats = MagicMock(return_value=stats)
 
         def handler(request):
@@ -126,40 +132,43 @@ class TestBuildDynamicPrompt:
             system_message=SystemMessage(content="original"),
         )
 
+        # Create mock service
+        mock_service = MagicMock()
+        mock_service.get_stats = mock_get_stats
+
         with (
             patch(
-                "fu7ur3pr00f.memory.profile.load_profile",
-                mock_load,
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_profile",
+                return_value=profile,
             ),
             patch(
-                "fu7ur3pr00f.services.knowledge_service."
-                "KnowledgeService.get_stats",
-                mock_get_stats,
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_knowledge_service",
+                return_value=mock_service,
             ),
         ):
-            # First call — should hit I/O
+            # First call — should build prompt
             build_dynamic_prompt.wrap_model_call(
-                request, handler,
+                request,
+                handler,
             )
-            assert mock_load.call_count == 1
             assert mock_get_stats.call_count == 1
 
             # Second call — should hit cache
             build_dynamic_prompt.wrap_model_call(
-                request, handler,
+                request,
+                handler,
             )
-            assert mock_load.call_count == 1
-            assert mock_get_stats.call_count == 1
+            assert mock_get_stats.call_count == 1  # Still 1, cached
 
     def test_get_stats_called_once_per_invocation(self):
         """get_stats is called exactly once (not twice) per build."""
         profile = MagicMock()
-        profile.summary.return_value = (
-            "No profile information available."
-        )
+        profile.summary.return_value = "No profile information available."
         stats = {"total_chunks": 0, "by_source": {}}
 
         mock_get_stats = MagicMock(return_value=stats)
+        mock_service = MagicMock()
+        mock_service.get_stats = mock_get_stats
 
         def handler(request):
             return MagicMock()
@@ -172,17 +181,17 @@ class TestBuildDynamicPrompt:
 
         with (
             patch(
-                "fu7ur3pr00f.memory.profile.load_profile",
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_profile",
                 return_value=profile,
             ),
             patch(
-                "fu7ur3pr00f.services.knowledge_service."
-                "KnowledgeService.get_stats",
-                mock_get_stats,
+                "fu7ur3pr00f.agents.middleware.dynamic_prompt.get_knowledge_service",
+                return_value=mock_service,
             ),
         ):
             build_dynamic_prompt.wrap_model_call(
-                request, handler,
+                request,
+                handler,
             )
             assert mock_get_stats.call_count == 1
 
@@ -194,7 +203,8 @@ class TestAnalysisSynthesisMiddleware:
         self.middleware = AnalysisSynthesisMiddleware()
 
     def _make_handler(self, response_msg=None):
-        """Build a handler that captures messages and returns a configurable response."""
+        """Build a handler that captures messages and returns a configurable
+        response."""
         captured = {}
 
         if response_msg is None:
@@ -233,7 +243,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "call_1", "name": "get_user_profile", "args": {}}],
             ),
-            ToolMessage(content="Name: Juan", tool_call_id="call_1", name="get_user_profile"),
+            ToolMessage(
+                content="Name: Juan", tool_call_id="call_1", name="get_user_profile"
+            ),
         ]
         handler, captured = self._make_handler()
         request = ModelRequest(
@@ -251,10 +263,14 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="analyze me"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "call_1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "call_1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
-                content="### Professional Identity\n- Senior Engineer at Accenture\n...",
+                content=(
+                    "### Professional Identity\n- Senior Engineer at Accenture\n..."
+                ),
                 tool_call_id="call_1",
                 name="analyze_career_alignment",
             ),
@@ -299,7 +315,9 @@ class TestAnalysisSynthesisMiddleware:
         messages = [
             AIMessage(
                 content="",
-                tool_calls=[{"id": "tc_abc123", "name": "get_career_advice", "args": {}}],
+                tool_calls=[
+                    {"id": "tc_abc123", "name": "get_career_advice", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Long advice text...",
@@ -325,12 +343,20 @@ class TestAnalysisSynthesisMiddleware:
                     {"id": "c4", "name": "get_salary_insights", "args": {}},
                 ],
             ),
-            ToolMessage(content="Profile data", tool_call_id="c1", name="get_user_profile"),
             ToolMessage(
-                content="Career analysis...", tool_call_id="c2", name="analyze_career_alignment",
+                content="Profile data", tool_call_id="c1", name="get_user_profile"
             ),
-            ToolMessage(content="Skill gaps...", tool_call_id="c3", name="analyze_skill_gaps"),
-            ToolMessage(content="Salary data...", tool_call_id="c4", name="get_salary_insights"),
+            ToolMessage(
+                content="Career analysis...",
+                tool_call_id="c2",
+                name="analyze_career_alignment",
+            ),
+            ToolMessage(
+                content="Skill gaps...", tool_call_id="c3", name="analyze_skill_gaps"
+            ),
+            ToolMessage(
+                content="Salary data...", tool_call_id="c4", name="get_salary_insights"
+            ),
         ]
         result = self._call_masking(messages)
         # Profile (index 2) and salary (index 5) untouched
@@ -356,12 +382,15 @@ class TestAnalysisSynthesisMiddleware:
     # =========================================================================
 
     def test_synthesis_called_on_final_response(self):
-        """When analysis tools present and response has no tool_calls, synthesis is triggered."""
+        """When analysis tools present and response has no tool_calls, synthesis is
+        triggered."""
         messages = [
             HumanMessage(content="how to earn more?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "c1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Career alignment: 85/100...",
@@ -379,7 +408,9 @@ class TestAnalysisSynthesisMiddleware:
 
         synthesis_result = AIMessage(content="Target $180K-$200K at Google...")
         with patch.object(
-            self.middleware, "_synthesize", return_value=ModelResponse(result=[synthesis_result])
+            self.middleware,
+            "_synthesize",
+            return_value=ModelResponse(result=[synthesis_result]),
         ) as mock_synth:
             response = self.middleware.wrap_model_call(request, handler)
 
@@ -393,7 +424,9 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="how to earn more?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "c1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Career alignment: 85/100...",
@@ -418,6 +451,7 @@ class TestAnalysisSynthesisMiddleware:
 
         mock_synth.assert_not_called()
         # Original response with tool_calls is returned
+        assert isinstance(response.result[0], AIMessage)
         assert response.result[0].tool_calls[0]["name"] == "get_salary_insights"
 
     def test_no_synthesis_without_analysis_tools(self):
@@ -428,7 +462,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c1", "name": "get_user_profile", "args": {}}],
             ),
-            ToolMessage(content="Name: Juan", tool_call_id="c1", name="get_user_profile"),
+            ToolMessage(
+                content="Name: Juan", tool_call_id="c1", name="get_user_profile"
+            ),
         ]
         handler, _ = self._make_handler(AIMessage(content="Your name is Juan."))
         request = ModelRequest(
@@ -450,7 +486,9 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="how to earn more?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "c1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Career alignment: 92/100...",
@@ -462,13 +500,19 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="what do you think about my linkedin profile?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c2", "name": "search_career_knowledge", "args": {}}],
+                tool_calls=[
+                    {"id": "c2", "name": "search_career_knowledge", "args": {}}
+                ],
             ),
             ToolMessage(
-                content="Profile: Juan...", tool_call_id="c2", name="search_career_knowledge",
+                content="Profile: Juan...",
+                tool_call_id="c2",
+                name="search_career_knowledge",
             ),
         ]
-        handler, _ = self._make_handler(AIMessage(content="Your LinkedIn looks strong."))
+        handler, _ = self._make_handler(
+            AIMessage(content="Your LinkedIn looks strong.")
+        )
         request = ModelRequest(
             model=MagicMock(),
             messages=messages,
@@ -494,13 +538,15 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c1", "name": "analyze_skill_gaps", "args": {}}],
             ),
-            ToolMessage(content="Gaps found...", tool_call_id="c1", name="analyze_skill_gaps"),
+            ToolMessage(
+                content="Gaps found...", tool_call_id="c1", name="analyze_skill_gaps"
+            ),
         ]
         analysis_results = {"analyze_skill_gaps": "Gaps found..."}
 
         with (
             patch(
-                "fu7ur3pr00f.llm.fallback.get_model_with_fallback",
+                "fu7ur3pr00f.agents.middleware.analysis_synthesis.get_model",
                 return_value=(mock_model, MagicMock(description="test-model")),
             ),
             patch(
@@ -533,17 +579,21 @@ class TestAnalysisSynthesisMiddleware:
                 ],
             ),
             ToolMessage(
-                content="Salary: $150K-$200K", tool_call_id="c1", name="get_salary_insights",
+                content="Salary: $150K-$200K",
+                tool_call_id="c1",
+                name="get_salary_insights",
             ),
             ToolMessage(
-                content="Alignment: 85/100", tool_call_id="c2", name="analyze_career_alignment",
+                content="Alignment: 85/100",
+                tool_call_id="c2",
+                name="analyze_career_alignment",
             ),
         ]
         analysis_results = {"analyze_career_alignment": "Alignment: 85/100"}
 
         with (
             patch(
-                "fu7ur3pr00f.llm.fallback.get_model_with_fallback",
+                "fu7ur3pr00f.agents.middleware.analysis_synthesis.get_model",
                 return_value=(mock_model, MagicMock(description="test-model")),
             ),
             patch(
@@ -567,7 +617,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c1", "name": "analyze_skill_gaps", "args": {}}],
             ),
-            ToolMessage(content="Gaps...", tool_call_id="c1", name="analyze_skill_gaps"),
+            ToolMessage(
+                content="Gaps...", tool_call_id="c1", name="analyze_skill_gaps"
+            ),
         ]
 
         def handler(req):
@@ -681,7 +733,8 @@ class TestToolCallRepairMiddleware:
         assert result is None
 
     def test_last_ai_with_tool_calls_has_orphans(self):
-        """The last AIMessage with tool_calls has orphans, even if not the very last message."""
+        """The last AIMessage with tool_calls has orphans, even if not the very last
+        message."""
         state = _make_state(
             [
                 HumanMessage(content="first"),

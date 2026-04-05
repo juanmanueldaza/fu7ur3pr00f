@@ -1,7 +1,7 @@
 """Tests for in-chat settings management.
 
 Covers: write_user_setting, reload_settings, get_user_env_path,
-reset_fallback_manager, and the get_current_config / update_setting tools.
+reset_model_selection_manager, and the get_current_config / update_setting tools.
 """
 
 from pathlib import Path
@@ -132,27 +132,27 @@ class TestGetUserEnvPath:
         assert path.name == ".env"
 
 
-# ── reset_fallback_manager ──────────────────────────────────────────────
+# ── reset_model_selection_manager ───────────────────────────────────────
 
 
-class TestResetFallbackManager:
+class TestResetModelSelectionManager:
     def test_clears_cached_manager(self) -> None:
-        import fu7ur3pr00f.llm.fallback as fb
+        import fu7ur3pr00f.llm.model_selection as ms
 
         # Simulate a cached manager
-        fb._fallback_manager = "sentinel"  # type: ignore[assignment]
-        fb.reset_fallback_manager()
-        assert fb._fallback_manager is None
+        ms._selection_manager = "sentinel"  # type: ignore[assignment]
+        ms.reset_model_selection_manager()
+        assert ms._selection_manager is None
 
     def test_get_creates_new_after_reset(self) -> None:
-        from fu7ur3pr00f.llm.fallback import (
-            get_fallback_manager,
-            reset_fallback_manager,
+        from fu7ur3pr00f.llm.model_selection import (
+            get_model_selection_manager,
+            reset_model_selection_manager,
         )
 
-        mgr1 = get_fallback_manager()
-        reset_fallback_manager()
-        mgr2 = get_fallback_manager()
+        mgr1 = get_model_selection_manager()
+        reset_model_selection_manager()
+        mgr2 = get_model_selection_manager()
         assert mgr1 is not mgr2
 
 
@@ -211,10 +211,10 @@ class TestUpdateSettingTool:
 
     @patch("fu7ur3pr00f.agents.tools.settings.write_user_setting")
     @patch("fu7ur3pr00f.agents.tools.settings.reload_settings")
-    @patch("fu7ur3pr00f.agents.career_agent.reset_career_agent")
-    @patch("fu7ur3pr00f.llm.fallback.reset_fallback_manager")
+    @patch("fu7ur3pr00f.agents.specialists.orchestrator.reset_orchestrator")
+    @patch("fu7ur3pr00f.llm.model_selection.reset_model_selection_manager")
     def test_restart_keys_trigger_agent_reset(
-        self, mock_reset_fb, mock_reset_agent, mock_reload, mock_write
+        self, mock_reset_fb, mock_reset_orch, mock_reload, mock_write
     ) -> None:
         from fu7ur3pr00f.agents.tools.settings import update_setting
 
@@ -222,14 +222,14 @@ class TestUpdateSettingTool:
             {"key": "agent_model", "value": "gpt-4o"},
         )
         mock_reset_fb.assert_called_once()
-        mock_reset_agent.assert_called_once()
+        mock_reset_orch.assert_called_once()
         assert "next message" in result
 
     @patch("fu7ur3pr00f.agents.tools.settings.write_user_setting")
     @patch("fu7ur3pr00f.agents.tools.settings.reload_settings")
-    @patch("fu7ur3pr00f.agents.career_agent.reset_career_agent")
+    @patch("fu7ur3pr00f.agents.specialists.orchestrator.reset_orchestrator")
     def test_non_restart_key_no_agent_reset(
-        self, mock_reset_agent, mock_reload, mock_write
+        self, mock_reset_orch, mock_reload, mock_write
     ) -> None:
         from fu7ur3pr00f.agents.tools.settings import update_setting
 
@@ -237,7 +237,7 @@ class TestUpdateSettingTool:
         update_setting.invoke(
             {"key": "market_cache_hours", "value": "48"},
         )
-        mock_reset_agent.assert_not_called()
+        mock_reset_orch.assert_not_called()
 
     def test_normalizes_key_to_lowercase(self) -> None:
         from fu7ur3pr00f.agents.tools.settings import update_setting
@@ -253,9 +253,9 @@ class TestUpdateSettingTool:
         from fu7ur3pr00f.agents.tools.settings import _AGENT_CONFIGURABLE
 
         for key in _AGENT_CONFIGURABLE:
-            assert key in Settings.model_fields, (
-                f"'{key}' in _AGENT_CONFIGURABLE but not in Settings"
-            )
+            assert (
+                key in Settings.model_fields
+            ), f"{key!r} in _AGENT_CONFIGURABLE but not in Settings"
 
     def test_sensitive_keys_not_in_configurable(self) -> None:
         """Ensure no sensitive key accidentally appears in the whitelist."""

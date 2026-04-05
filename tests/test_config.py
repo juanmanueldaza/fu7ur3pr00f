@@ -145,33 +145,22 @@ class TestAzureEndpointNormalization:
         """AI Foundry project path is removed."""
         s = make_settings(
             azure_openai_endpoint=(
-                "https://res.services.ai.azure.com"
-                "/api/projects/myproject"
+                "https://res.services.ai.azure.com" "/api/projects/myproject"
             ),
         )
-        assert s.azure_openai_endpoint == (
-            "https://res.services.ai.azure.com"
-        )
+        assert s.azure_openai_endpoint == ("https://res.services.ai.azure.com")
 
     def test_strips_trailing_slash(self) -> None:
         s = make_settings(
-            azure_openai_endpoint=(
-                "https://res.openai.azure.com/"
-            ),
+            azure_openai_endpoint=("https://res.openai.azure.com/"),
         )
-        assert s.azure_openai_endpoint == (
-            "https://res.openai.azure.com"
-        )
+        assert s.azure_openai_endpoint == ("https://res.openai.azure.com")
 
     def test_preserves_clean_endpoint(self) -> None:
         s = make_settings(
-            azure_openai_endpoint=(
-                "https://res.openai.azure.com"
-            ),
+            azure_openai_endpoint=("https://res.openai.azure.com"),
         )
-        assert s.azure_openai_endpoint == (
-            "https://res.openai.azure.com"
-        )
+        assert s.azure_openai_endpoint == ("https://res.openai.azure.com")
 
     def test_empty_endpoint_unchanged(self) -> None:
         s = make_settings(azure_openai_endpoint="")

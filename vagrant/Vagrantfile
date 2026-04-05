@@ -1,38 +1,147 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Unified Vagrantfile - Development + Testing
+# 
+# VMs available:
+#   dev        - Development with synced folders (primary, auto-starts)
+#   ubuntu2404 - Clean Ubuntu 24.04 for apt testing (manual start)
+#   debian12   - Clean Debian 12 for apt testing (manual start)
+
 Vagrant.configure("2") do |config|
   config.vm.boot_timeout = 600
-  config.vm.synced_folder "..", "/workspace"
 
-  machines = {
-    "ubuntu2404" => {
-      box: "bento/ubuntu-24.04",
-      hostname: "fu7ur3pr00f-ubuntu2404"
-    },
-    "debian12" => {
-      box: "bento/debian-12",
-      hostname: "fu7ur3pr00f-debian12"
-    }
-  }
+  # === DEVELOPMENT VM ===
+  config.vm.define "dev", primary: true do |dev|
+    dev.vm.box = "bento/ubuntu-24.04"
+    dev.vm.hostname = "fu7ur3pr00f-dev"
+    
+    # Sync project and user data
+    dev.vm.synced_folder "..", "/workspace"
+    dev.vm.synced_folder "#{Dir.home}/.fu7ur3pr00f", "/home/vagrant/.fu7ur3pr00f",
+      create: true, owner: "vagrant", group: "vagrant"
+    
+    dev.vm.provider "virtualbox" do |vb|
+      vb.memory = 4096
+      vb.cpus = 2
+      vb.name = "fu7ur3pr00f-dev"
+    end
+    
+    # Development provisioning
+    dev.vm.provision "shell", name: "dev-setup", privileged: false, inline: <<-'SHELL'
+      set -euo pipefail
+      
+      log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
+      
+      log "Installing system dependencies..."
+      sudo apt-get update
+      sudo apt-get install -y software-properties-common
+      sudo add-apt-repository -y ppa:deadsnakes/ppa
+      sudo apt-get update
+      sudo apt-get install -y \
+        python3.13 python3.13-venv python3.13-dev \
+        git curl build-essential sqlite3 \
+        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 \
+        libfontconfig1 libgdk-pixbuf-2.0-0 \
+        poppler-utils glab
+      
+      log "Setting up Python environment..."
+      cd /workspace
+      rm -rf .venv
+      python3.13 -m venv .venv
+      .venv/bin/pip install -e . pyright pytest ruff
+      
+      # Install GitHub MCP server
+      if ! command -v github-mcp-server &>/dev/null; then
+        log "Installing GitHub MCP server..."
+        curl -fsSL https://github.com/github/github-mcp-server/releases/download/v0.1.0/github-mcp-server_Linux_x86_64.tar.gz | \
+          sudo tar xzf - -C /usr/local/bin github-mcp-server
+      fi
+      
+      # Check for existing data
+      DB_CHUNKS=0
+      if [ -f "/home/vagrant/.fu7ur3pr00f/episodic/chroma.sqlite3" ]; then
+        DB_CHUNKS=$(sqlite3 "/home/vagrant/.fu7ur3pr00f/episodic/chroma.sqlite3" \
+          "SELECT COUNT(*) FROM embeddings;" 2>/dev/null || echo 0)
+      fi
+      log "ChromaDB: ${DB_CHUNKS} chunks found"
+      
+      log "Development environment ready!"
+      log "Run: cd /workspace && source .venv/bin/activate && fu7ur3pr00f"
+    SHELL
+  end
 
-  machines.each do |name, spec|
-    config.vm.define name do |machine|
+  # === APT TESTING VMs ===
+  # These test the REAL published repo from GitHub Pages
+  {
+    "ubuntu2404" => { box: "bento/ubuntu-24.04", name: "Ubuntu 24.04" },
+    "debian12" => { box: "bento/debian-12", name: "Debian 12" }
+  }.each do |vm_name, spec|
+    config.vm.define vm_name, autostart: false do |machine|
       machine.vm.box = spec[:box]
-      machine.vm.hostname = spec[:hostname]
-
+      machine.vm.hostname = "test-#{vm_name}"
+      
+      # Clean environment - no synced folders
+      machine.vm.synced_folder ".", "/vagrant", disabled: true
+      
       machine.vm.provider "virtualbox" do |vb|
-        vb.memory = 4096
-        vb.cpus = 2
+        vb.memory = 2048
+        vb.cpus = 1
+        vb.name = "fu7ur3pr00f-test-#{vm_name}"
       end
-
-      machine.vm.provision "shell",
-                           path: "../scripts/vagrant_apt_smoke.sh",
-                           privileged: true,
-                           env: {
-                             "PACKAGE_NAME" => "fu7ur3pr00f",
-                             "REPO_BASE_URL" => "https://juanmanueldaza.github.io/fu7ur3pr00f",
-                             "REPO_DIST" => "stable",
-                             "REPO_COMPONENT" => "main",
-                             "LOG_PATH" => "/home/vagrant/fu7ur3pr00f-apt-smoke.log"
-                           }
+      
+      # Test installation from published apt repo
+      machine.vm.provision "shell", name: "apt-test", env: {
+        "TEST_DISTRO" => spec[:name]
+      }, inline: <<-'SHELL'
+        set -euo pipefail
+        export DEBIAN_FRONTEND=noninteractive
+        
+        echo "=== Testing fu7ur3pr00f on ${TEST_DISTRO} ==="
+        echo "Repository: https://juanmanueldaza.github.io/fu7ur3pr00f"
+        
+        # Remove Microsoft repos that can interfere
+        find /etc/apt/sources.list.d -type f -name '*microsoft*' -delete 2>/dev/null || true
+        
+        # Install prerequisites
+        apt-get update
+        apt-get install -y ca-certificates curl gnupg
+        
+        # Add fu7ur3pr00f repository
+        echo "Adding GPG key..."
+        curl -fsSL https://juanmanueldaza.github.io/fu7ur3pr00f/fu7ur3pr00f-archive-keyring.gpg | \
+          tee /usr/share/keyrings/fu7ur3pr00f-archive-keyring.gpg >/dev/null
+        
+        echo "Adding repository..."
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/fu7ur3pr00f-archive-keyring.gpg] \
+        https://juanmanueldaza.github.io/fu7ur3pr00f stable main" | \
+          tee /etc/apt/sources.list.d/fu7ur3pr00f.list
+        
+        # Update and show available versions
+        apt-get update
+        echo "Available versions:"
+        apt-cache policy fu7ur3pr00f
+        
+        # Install
+        echo "Installing fu7ur3pr00f..."
+        apt-get install -y fu7ur3pr00f
+        
+        # Verify installation
+        echo "Testing installation..."
+        fu7ur3pr00f --version
+        
+        # Test Python environment
+        /opt/fu7ur3pr00f/python/bin/python -c "
+import fu7ur3pr00f
+print(f'✓ Python import successful: {fu7ur3pr00f}')
+"
+        
+        # Test reinstall
+        echo "Testing reinstall..."
+        apt-get install --reinstall -y fu7ur3pr00f
+        
+        echo "=== All tests passed on ${TEST_DISTRO}! ==="
+      SHELL
     end
   end
 end

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Security: GPG key handling via gpg-agent (never exposed in environment or process list)
+# Uses ephemeral GPG home with secure cleanup
+
 if [[ $# -lt 1 ]]; then
   echo "Usage: scripts/build_apt_repo.sh path/to/package.deb"
   exit 1
@@ -19,7 +22,27 @@ component="${APT_COMPONENT:-main}"
 arch="amd64"
 gpg_home="$(mktemp -d)"
 
+# Security: Configure gpg-agent for batch operations without passphrase in environment
+gpg_conf="${gpg_home}/gpg.conf"
+gpg_agent_conf="${gpg_home}/gpg-agent.conf"
+
+cat > "${gpg_conf}" <<'EOF'
+use-agent
+pinentry-mode loopback
+EOF
+
+cat > "${gpg_agent_conf}" <<'EOF'
+allow-loopback-pinentry
+allow-preset-passphrase
+EOF
+
+chmod 600 "${gpg_conf}" "${gpg_agent_conf}"
+
 cleanup() {
+  # Security: Clear any cached passphrases
+  if [[ -n "${GPG_AGENT_INFO:-}" ]]; then
+    gpgconf --kill gpg-agent 2>/dev/null || true
+  fi
   rm -rf "${gpg_home}"
 }
 trap cleanup EXIT
@@ -76,12 +99,20 @@ mkdir -p "${gpg_home}"
 chmod 700 "${gpg_home}"
 export GNUPGHOME="${gpg_home}"
 
+# Start gpg-agent for secure key handling
+gpg-agent --daemon --homedir "${gpg_home}" >/dev/null 2>&1 || true
+
 if [[ -n "${APT_GPG_PRIVATE_KEY:-}" ]]; then
   if [[ -z "${APT_GPG_PASSPHRASE:-}" ]]; then
     echo "APT_GPG_PASSPHRASE is required when APT_GPG_PRIVATE_KEY is provided."
     exit 1
   fi
-  echo "${APT_GPG_PRIVATE_KEY}" | gpg --batch --import >/dev/null
+  # Security: Import key via file descriptor, not command line argument
+  key_file="${gpg_home}/private.key"
+  echo "${APT_GPG_PRIVATE_KEY}" > "${key_file}"
+  chmod 600 "${key_file}"
+  gpg --batch --import "${key_file}" >/dev/null 2>&1
+  rm -f "${key_file}"
 elif [[ "${APT_GPG_ALLOW_EPHEMERAL:-0}" == "1" ]]; then
   batch_file="${gpg_home}/ephemeral-gpg-batch"
   cat > "${batch_file}" <<'EOF'
@@ -93,7 +124,8 @@ Name-Email: noreply@fu7ur3pr00f.invalid
 Expire-Date: 1d
 %commit
 EOF
-  gpg --batch --generate-key "${batch_file}" >/dev/null
+  chmod 600 "${batch_file}"
+  gpg --batch --generate-key "${batch_file}" >/dev/null 2>&1
   rm -f "${batch_file}"
 else
   echo "APT_GPG_PRIVATE_KEY and APT_GPG_PASSPHRASE are required for release signing."

@@ -4,6 +4,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pytest_asyncio import fixture as async_fixture  # type: ignore
+
+from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
 
 
 @pytest.fixture
@@ -21,8 +24,12 @@ def tmp_project(tmp_path: Path) -> Path:
 def sample_career_data() -> dict[str, str]:
     """Sample career data for testing."""
     return {
-        "linkedin_data": "# LinkedIn Profile\n\nSoftware Engineer with 5 years experience.",
-        "portfolio_data": "# Portfolio\n\n## About\nFull-stack developer passionate about AI.",
+        "linkedin_data": (
+            "# LinkedIn Profile\n\n" "Software Engineer with 5 years experience."
+        ),
+        "portfolio_data": (
+            "# Portfolio\n\n## About\n" "Full-stack developer passionate about AI."
+        ),
     }
 
 
@@ -38,5 +45,13 @@ def mock_llm() -> MagicMock:
 def mock_llm_with_structured_format() -> MagicMock:
     """Mock LLM returning structured content format (list of dicts)."""
     mock = MagicMock()
-    mock.invoke.return_value.content = [{"type": "text", "text": "Mocked structured response"}]
+    mock.invoke.return_value.content = [
+        {"type": "text", "text": "Mocked structured response"}
+    ]
     return mock
+
+
+@async_fixture
+async def orchestrator():
+    """Orchestrator for tests."""
+    yield OrchestratorAgent()

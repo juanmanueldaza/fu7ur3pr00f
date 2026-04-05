@@ -12,7 +12,9 @@ import httpx
 
 from .agents.tools import get_all_tools
 from .config import settings
+from .constants import GITHUB_API_BASE, HTTP_TIMEOUT
 from .mcp.factory import MCPClientFactory, MCPServerType
+from .utils.security import sanitize_error
 
 
 def _print_result(name: str, ok: bool, detail: str = "") -> None:
@@ -28,7 +30,9 @@ def _check_llm() -> bool:
     configured = [p for p in providers if settings.is_provider_configured(p)]
     active = settings.active_provider or "none"
     _print_result("LLM provider active", bool(settings.active_provider), active)
-    _print_result("LLM providers configured", bool(configured), ", ".join(configured) or "none")
+    _print_result(
+        "LLM providers configured", bool(configured), ", ".join(configured) or "none"
+    )
     return bool(settings.active_provider)
 
 
@@ -42,7 +46,7 @@ def _check_gitlab() -> bool:
             [glab_path, "auth", "status"],
             capture_output=True,
             text=True,
-            timeout=20,
+            timeout=HTTP_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
         _print_result("GitLab (glab)", False, "auth status timed out")
@@ -69,8 +73,8 @@ async def _check_mcp_server(server_type: MCPServerType) -> bool:
 
     client = MCPClientFactory.create(server_type)
     try:
-        await asyncio.wait_for(client.connect(), timeout=20)
-        tools = await asyncio.wait_for(client.list_tools(), timeout=20)
+        await asyncio.wait_for(client.connect(), timeout=HTTP_TIMEOUT)
+        tools = await asyncio.wait_for(client.list_tools(), timeout=HTTP_TIMEOUT)
         _print_result(f"MCP:{server_type}", True, f"{len(tools)} tools")
         return True
     except Exception as exc:  # pragma: no cover - diagnostics surface raw failure
@@ -79,9 +83,11 @@ async def _check_mcp_server(server_type: MCPServerType) -> bool:
             if ok:
                 _print_result("MCP:github", True, detail)
                 return True
-            _print_result("MCP:github", False, detail or str(exc))
+            # Security: Sanitize error detail
+            _print_result("MCP:github", False, sanitize_error(detail or str(exc)))
             return False
-        _print_result(f"MCP:{server_type}", False, str(exc))
+        # Security: Sanitize error message
+        _print_result(f"MCP:{server_type}", False, sanitize_error(str(exc)))
         return False
     finally:
         with contextlib.suppress(Exception):
@@ -98,12 +104,15 @@ def _check_github_rest() -> tuple[bool, str]:
         "X-GitHub-Api-Version": "2022-11-28",
     }
     try:
-        response = httpx.get("https://api.github.com/user", headers=headers, timeout=20)
+        response = httpx.get(
+            f"{GITHUB_API_BASE}/user", headers=headers, timeout=HTTP_TIMEOUT
+        )
         if response.status_code >= 400:
             return False, f"REST {response.status_code}"
         return True, "rest fallback"
     except Exception as exc:
-        return False, f"REST error: {exc}"
+        # Security: Sanitize error to prevent token leakage
+        return False, sanitize_error(f"REST error: {exc}")
 
 
 async def _run_async_checks() -> dict[str, Any]:

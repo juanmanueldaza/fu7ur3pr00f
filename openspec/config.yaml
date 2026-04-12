@@ -1,0 +1,70 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Python 3.13, LangChain/LangGraph, ChromaDB, SQLite, MCP, WeasyPrint, Hatchling
+  Architecture: Multi-agent blackboard (CareerBlackboard TypedDict), 5 specialists, 41 tools
+  Testing: pytest + pytest-asyncio + pytest-cov, unit + integration layers
+  Style: ruff (E,F,I,UP) line=100, black line=88, pyright + mypy
+
+strict_tdd: true
+
+testing:
+  strict_tdd: true
+  detected: "2026-04-12"
+  runner:
+    framework: pytest
+    command: "pytest tests/ -q"
+  layers:
+    unit:
+      available: true
+      tool: "pytest (@pytest.mark.unit)"
+    integration:
+      available: true
+      tool: "pytest (@pytest.mark.integration)"
+    e2e:
+      available: false
+  coverage:
+    available: true
+    command: "pytest tests/ --cov=src/fu7ur3pr00f"
+  quality:
+    linter:
+      available: true
+      command: "ruff check ."
+    type_checker:
+      available: true
+      command: "pyright src/fu7ur3pr00f"
+    formatter:
+      available: true
+      command: "black"
+  conventions:
+    - Mock LLMs and HTTP clients — never make real API calls in tests
+    - Patch lazy imports at source module, not at call site
+    - Shared fixtures in tests/conftest.py (tmp_project, mock_llm, sample_career_data)
+    - Markers: unit, integration, slow
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+    - Note circular import implications if touching agents/ or tools/
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Call out lazy import strategy if adding new inter-package deps
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - All prompts loaded from prompts/md/ — no hardcoded fallback strings
+    - Update _ALL_TOOLS in agents/tools/__init__.py when adding tools
+  verify:
+    - Run pytest tests/ -q before marking done
+    - Run ruff check . and pyright src/fu7ur3pr00f
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)

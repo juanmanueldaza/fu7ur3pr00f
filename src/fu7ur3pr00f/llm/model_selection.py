@@ -7,6 +7,7 @@ with sanitized messages.
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -72,6 +73,22 @@ _PROVIDER_CHAINS: dict[str, list[ModelConfig]] = {
         ModelConfig("ollama", "qwen3", "Ollama Qwen3"),
     ],
 }
+
+
+_PROVIDER_CONFIGURED_MAP: dict[str, Callable[[], bool]] = {
+    "fu7ur3pr00f": lambda: settings.has_proxy,
+    "openai": lambda: settings.has_openai,
+    "anthropic": lambda: settings.has_anthropic,
+    "google": lambda: settings.has_google,
+    "azure": lambda: settings.has_azure,
+    "ollama": lambda: settings.has_ollama,
+}
+
+
+def _is_configured(config: ModelConfig) -> bool:
+    """Return True if the provider's credentials are set in settings."""
+    check = _PROVIDER_CONFIGURED_MAP.get(config.provider)
+    return check() if check is not None else False
 
 
 def build_default_chain() -> list[ModelConfig]:
@@ -163,7 +180,7 @@ class ModelSelectionManager:
         temperature: float | None = None,
         chain: list[ModelConfig] | None = None,
     ) -> tuple[BaseChatModel, ModelConfig]:
-        """Get the selected model for this provider and purpose."""
+        """Get the first available model by walking the chain."""
         effective_chain = chain or self._chain
         if not effective_chain:
             raise RuntimeError(
@@ -172,11 +189,30 @@ class ModelSelectionManager:
                 "ANTHROPIC_API_KEY, or install Ollama for local models."
             )
 
-        config = effective_chain[0]
-        with self._lock:
-            self._current_model = config
-        logger.info("Using model: %s", config.description)
-        return self._create_model(config, temperature=temperature), config
+        last_error: Exception | None = None
+        for config in effective_chain:
+            if not _is_configured(config):
+                logger.debug("Skipping %s: provider not configured", config.description)
+                continue
+            try:
+                model = self._create_model(config, temperature=temperature)
+                with self._lock:
+                    self._current_model = config
+                logger.info("Using model: %s", config.description)
+                return model, config
+            except Exception as e:
+                logger.warning(
+                    "Model %s failed to initialise: %s — trying next",
+                    config.description,
+                    sanitize_error(str(e)),
+                )
+                last_error = e
+
+        raise RuntimeError(
+            "No model available in the configured chain. "
+            f"Last error: {sanitize_error(str(last_error))}. "
+            "Check provider API keys and model availability."
+        )
 
     def get_status(self) -> dict[str, Any]:
         """Get current selection status."""

@@ -44,21 +44,29 @@ class ConversationEngine:
     Manages turn-by-turn execution via the outer graph, persisting
     session state across turns via LangGraph checkpointer.
 
-    Callbacks wired here are passed through to the inner blackboard
-    executor for real-time progress display.
+    Callbacks are updated per-turn via a shared mutable dict closed over
+    by the compiled graph's nodes. This avoids recompiling on every turn.
+
+    Not safe for concurrent invoke_turn() calls on the same instance.
+    If concurrent use is needed, use contextvars.ContextVar instead of
+    the shared dict.
     """
 
     def __init__(self) -> None:
-        """Initialize the engine with checkpointer-backed graph."""
+        """Initialize the engine with checkpointer-backed graph compiled once."""
         from fu7ur3pr00f.agents.blackboard.conversation_graph import (
             build_conversation_graph,
         )
 
         checkpointer = get_checkpointer()
-        # Graph is compiled without callbacks — they are passed per-turn
-        # to allow different UIs to use the same engine
         self._checkpointer = checkpointer
-        self._build_graph = build_conversation_graph
+        # Mutable holder — updated per turn, read by nodes at execution time
+        self._callbacks: dict[str, Any] = {}
+        # Compile once — nodes close over self._callbacks
+        self._graph = build_conversation_graph(
+            checkpointer=checkpointer,
+            callbacks=self._callbacks,
+        )
 
     def invoke_turn(
         self,
@@ -88,6 +96,17 @@ class ConversationEngine:
         Returns:
             TurnResult with synthesis, specialists, elapsed time, suggestions
         """
+        # Update callback holder — nodes read this at execution time
+        self._callbacks.update(
+            {
+                "on_specialist_start": on_specialist_start,
+                "on_specialist_complete": on_specialist_complete,
+                "on_tool_start": on_tool_start,
+                "on_tool_result": on_tool_result,
+                "confirm_fn": confirm_fn,
+            }
+        )
+
         if user_profile is None:
             profile = load_profile()
             user_profile = {
@@ -102,21 +121,11 @@ class ConversationEngine:
                 "gitlab_username": profile.gitlab_username or "",
             }
 
-        # Build graph with callbacks closed-over for this turn
-        graph = self._build_graph(
-            checkpointer=self._checkpointer,
-            on_specialist_start=on_specialist_start,
-            on_specialist_complete=on_specialist_complete,
-            on_tool_start=on_tool_start,
-            on_tool_result=on_tool_result,
-            confirm_fn=confirm_fn,
-        )
-
         config = {"configurable": {"thread_id": thread_id}}
         start = time.monotonic()
 
         # Load existing session or start fresh
-        snap = graph.get_state(config)  # type: ignore[arg-type]
+        snap = self._graph.get_state(config)  # type: ignore[arg-type]
         if snap and snap.values:
             session_state = dict(snap.values)  # type: ignore
         else:
@@ -129,7 +138,9 @@ class ConversationEngine:
         session_state["user_profile"] = user_profile
 
         logger.debug("Turn: %r (thread=%s)", query[:60], thread_id)
-        result_state = graph.invoke(session_state, config)  # type: ignore[arg-type]
+        result_state = self._graph.invoke(
+            session_state, config  # type: ignore[arg-type]
+        )
 
         elapsed = time.monotonic() - start
 

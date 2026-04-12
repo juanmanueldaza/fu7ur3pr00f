@@ -8,6 +8,7 @@ from fu7ur3pr00f.llm.model_selection import (
     ModelConfig,
     ModelSelectionManager,
     _build_provider_kwargs,
+    _is_configured,
     build_default_chain,
     get_model,
     get_model_selection_manager,
@@ -105,7 +106,10 @@ class TestModelSelectionManager:
             ModelConfig("openai", "gpt-4o", "GPT-4o"),
         ]
         manager = ModelSelectionManager(model_chain=chain)
-        with patch.object(manager, "_create_model") as mock_create:
+        with (
+            patch.object(manager, "_create_model") as mock_create,
+            patch("fu7ur3pr00f.llm.model_selection._is_configured", return_value=True),
+        ):
             mock_create.return_value = MagicMock()
             _model, config = manager.get_model()
         assert config.model == "gpt-4.1"
@@ -250,3 +254,134 @@ class TestGetModel:
 
         assert model is mock_model
         mock_purpose.assert_called_once_with("agent", None)
+
+
+class TestIsConfigured:
+    """Test _is_configured for each provider."""
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_fu7ur3pr00f_true_when_has_proxy(self, mock_settings) -> None:
+        mock_settings.has_proxy = True
+        assert _is_configured(ModelConfig("fu7ur3pr00f", "gpt-4.1", "FP")) is True
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_fu7ur3pr00f_false_when_no_proxy(self, mock_settings) -> None:
+        mock_settings.has_proxy = False
+        assert _is_configured(ModelConfig("fu7ur3pr00f", "gpt-4.1", "FP")) is False
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_openai_true(self, mock_settings) -> None:
+        mock_settings.has_openai = True
+        assert _is_configured(ModelConfig("openai", "gpt-4.1", "OAI")) is True
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_anthropic_true(self, mock_settings) -> None:
+        mock_settings.has_anthropic = True
+        assert (
+            _is_configured(ModelConfig("anthropic", "claude-sonnet-4-20250514", "ANT"))
+            is True
+        )
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_google_true(self, mock_settings) -> None:
+        mock_settings.has_google = True
+        assert _is_configured(ModelConfig("google", "gemini-2.5-flash", "GGL")) is True
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_azure_true(self, mock_settings) -> None:
+        mock_settings.has_azure = True
+        assert _is_configured(ModelConfig("azure", "gpt-4.1", "AZ")) is True
+
+    @patch("fu7ur3pr00f.llm.model_selection.settings")
+    def test_ollama_true(self, mock_settings) -> None:
+        mock_settings.has_ollama = True
+        assert _is_configured(ModelConfig("ollama", "qwen3", "OLL")) is True
+
+    def test_unknown_provider_returns_false(self) -> None:
+        assert _is_configured(ModelConfig("unknown", "model", "X")) is False
+
+
+class TestChainWalk:
+    """Test get_model chain-walk behaviour."""
+
+    def test_skips_unconfigured_uses_second(self) -> None:
+        chain = [
+            ModelConfig("openai", "gpt-4.1", "GPT-4.1"),
+            ModelConfig("anthropic", "claude-sonnet-4-20250514", "Claude"),
+        ]
+        mock_model = MagicMock()
+        manager = ModelSelectionManager(model_chain=chain)
+
+        def fake_is_configured(config: ModelConfig) -> bool:
+            return config.provider == "anthropic"
+
+        with (
+            patch(
+                "fu7ur3pr00f.llm.model_selection._is_configured",
+                side_effect=fake_is_configured,
+            ),
+            patch.object(manager, "_create_model", return_value=mock_model),
+        ):
+            model, config = manager.get_model()
+
+        assert config.provider == "anthropic"
+        assert model is mock_model
+
+    def test_falls_through_on_create_failure(self) -> None:
+        chain = [
+            ModelConfig("openai", "gpt-4.1", "GPT-4.1"),
+            ModelConfig("openai", "gpt-4o", "GPT-4o"),
+        ]
+        mock_model = MagicMock()
+        manager = ModelSelectionManager(model_chain=chain)
+        call_count = 0
+
+        def fake_create(config: ModelConfig, temperature=None) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ValueError("model not found")
+            return mock_model
+
+        with (
+            patch("fu7ur3pr00f.llm.model_selection._is_configured", return_value=True),
+            patch.object(manager, "_create_model", side_effect=fake_create),
+        ):
+            model, config = manager.get_model()
+
+        assert config.model == "gpt-4o"
+        assert model is mock_model
+
+    def test_chain_exhausted_raises_runtime_error(self) -> None:
+        chain = [ModelConfig("openai", "gpt-4.1", "GPT-4.1")]
+        manager = ModelSelectionManager(model_chain=chain)
+
+        with (
+            patch("fu7ur3pr00f.llm.model_selection._is_configured", return_value=False),
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                manager.get_model()
+
+        assert "API keys" in str(exc_info.value) or "chain" in str(exc_info.value)
+
+    def test_happy_path_stops_at_first_success(self) -> None:
+        chain = [
+            ModelConfig("openai", "gpt-4.1", "GPT-4.1"),
+            ModelConfig("openai", "gpt-4o", "GPT-4o"),
+        ]
+        mock_model = MagicMock()
+        manager = ModelSelectionManager(model_chain=chain)
+        create_calls: list[str] = []
+
+        def fake_create(config: ModelConfig, temperature=None) -> MagicMock:
+            create_calls.append(config.model)
+            return mock_model
+
+        with (
+            patch("fu7ur3pr00f.llm.model_selection._is_configured", return_value=True),
+            patch.object(manager, "_create_model", side_effect=fake_create),
+        ):
+            _, config = manager.get_model()
+
+        assert config.model == "gpt-4.1"
+        assert create_calls == ["gpt-4.1"]  # second model never touched

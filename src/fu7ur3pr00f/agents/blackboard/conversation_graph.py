@@ -5,13 +5,11 @@ cumulative findings, and proactive suggestions across turns.
 """
 
 import logging
-from collections.abc import Callable
 from typing import Any
 
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
 
-from fu7ur3pr00f.agents.blackboard.blackboard import SpecialistFinding
 from fu7ur3pr00f.agents.blackboard.session import (
     format_cumulative_context,
     summarize_turn,
@@ -24,65 +22,64 @@ from fu7ur3pr00f.prompts import load_prompt
 logger = logging.getLogger(__name__)
 
 
-def _direct_profile_answer(query: str, user_profile: dict[str, Any]) -> str | None:
-    """Answer simple profile fact questions without invoking the inner graph."""
-    lowered = query.lower()
-    name = str(user_profile.get("name", "")).strip()
-    role = str(
-        user_profile.get("current_role") or user_profile.get("role") or ""
-    ).strip()
-    location = str(user_profile.get("location", "")).strip()
-    years_experience = user_profile.get("years_experience", 0)
-    technical_skills = user_profile.get("technical_skills", []) or []
+def suggest_next_node(state: dict[str, Any]) -> dict[str, Any]:
+    """Generate proactive follow-up suggestions using LLM.
 
-    if "who am i" in lowered:
-        parts = []
-        if name:
-            parts.append(f"Your name is {name}.")
-        if role:
-            parts.append(f"Your current role is {role}.")
-        if location:
-            parts.append(f"You are based in {location}.")
-        if technical_skills:
-            skills = ", ".join(str(skill) for skill in technical_skills[:5])
-            parts.append(f"Your main technical skills include {skills}.")
-        return " ".join(parts) if parts else None
+    Skipped for factual queries. Uses action_items, gaps, open_questions
+    extracted by specialists to produce contextual next-step suggestions.
+    """
+    turn_type = state.get("turn_type", "new_query")
 
-    if ("what" in lowered or "what's" in lowered) and "my name" in lowered and name:
-        return f"Your name is {name}."
+    # Skip suggestions for simple factual queries
+    if turn_type == "factual":
+        return {**state, "suggested_next": []}
 
-    if (
-        any(term in lowered for term in ("current role", "job title", "my title"))
-        and role
-    ):
-        return f"Your current role is {role}."
+    blackboard = state.get("current_blackboard", {})
+    findings = blackboard.get("findings", {})
+    if not findings:
+        return {**state, "suggested_next": []}
 
-    if (
-        any(term in lowered for term in ("where am i based", "my location"))
-        and location
-    ):
-        return f"You are based in {location}."
+    # Collect the richest signals from all specialists
+    gaps: list[str] = []
+    action_items: list[str] = []
+    open_questions: list[str] = []
+    for finding in findings.values():
+        gaps.extend(finding.get("gaps", [])[:2])
+        action_items.extend(finding.get("action_items", [])[:2])
+        open_questions.extend(finding.get("open_questions", [])[:1])
 
-    if "what skills do i have" in lowered and technical_skills:
-        skills = ", ".join(str(skill) for skill in technical_skills[:10])
-        return f"Your technical skills include {skills}."
+    # Use LLM to generate contextual suggestions
+    try:
+        prompt_template = load_prompt("suggest_next")
+        findings_text = _format_findings_for_prompt(findings)
+        profile = load_profile()
+        profile_status = "empty" if not profile.name else f"has data ({profile.name})"
+        prompt = prompt_template.format(
+            query=blackboard.get("query", ""),
+            findings_text=findings_text,
+            gaps=", ".join(gaps[:3]) or "none",
+            action_items=", ".join(action_items[:3]) or "none",
+            open_questions=", ".join(open_questions[:2]) or "none",
+            profile_status=profile_status,
+        )
+        model, _ = get_model(purpose="analysis")
+        response = model.invoke([HumanMessage(content=prompt)])
+        raw = response.content if hasattr(response, "content") else str(response)
+        suggestions = _parse_suggestions(str(raw))
+        logger.debug("Generated %d suggestions", len(suggestions))
+    except Exception:
+        logger.warning(
+            "Suggest LLM failed, returning empty suggestions",
+            exc_info=True,
+        )
+        suggestions = []
 
-    if "how many skills" in lowered and technical_skills:
-        return f"You have {len(technical_skills)} technical skills recorded."
-
-    if "how many years" in lowered and years_experience:
-        return f"You have {years_experience} years of experience recorded."
-
-    return None
+    return {**state, "suggested_next": suggestions[:3]}
 
 
 def build_conversation_graph(  # noqa: C901
     checkpointer: Any = None,
-    on_specialist_start: Callable[[str], None] | None = None,
-    on_specialist_complete: Callable[[str, SpecialistFinding], None] | None = None,
-    on_tool_start: Callable[[str, str, dict], None] | None = None,
-    on_tool_result: Callable[[str, str, str], None] | None = None,
-    confirm_fn: Callable[[str, str], bool] | None = None,
+    callbacks: dict | None = None,
 ):  # type: ignore
     """Build the outer conversation StateGraph.
 
@@ -91,12 +88,12 @@ def build_conversation_graph(  # noqa: C901
 
     Args:
         checkpointer: LangGraph checkpointer for persistence across turns
-        on_specialist_start: Callback when a specialist starts working
-        on_specialist_complete: Callback when a specialist completes
-        on_tool_start: Callback when a tool is invoked
-        on_tool_result: Callback when a tool returns a result
-        confirm_fn: Human-in-the-loop confirmation callback for tool interrupts
+        callbacks: Mutable dict holding per-turn callbacks. Keys:
+            on_specialist_start, on_specialist_complete, on_tool_start,
+            on_tool_result, confirm_fn. Update the dict before each
+            invoke_turn() call — nodes read it at execution time.
     """
+    _cb = callbacks if callbacks is not None else {}
 
     graph = StateGraph(dict)  # type: ignore[type-var]
 
@@ -166,22 +163,6 @@ def build_conversation_graph(  # noqa: C901
             if context:
                 constraints.append(context)
 
-        if turn_type == "factual":
-            direct_answer = _direct_profile_answer(query, user_profile)
-            if direct_answer:
-                blackboard = {
-                    "query": query,
-                    "findings": {
-                        "coach": {
-                            "reasoning": direct_answer,
-                            "confidence": 1.0,
-                        }
-                    },
-                    "synthesis": {"narrative": direct_answer},
-                    "errors": [],
-                }
-                return {**state, "current_blackboard": blackboard}
-
         # Get executor and run inner graph, passing through all callbacks
         orchestrator = get_orchestrator()
         executor = orchestrator.get_executor(routed)
@@ -200,13 +181,13 @@ def build_conversation_graph(  # noqa: C901
                     query=query,
                     user_profile=user_profile,
                     constraints=constraints,
-                    on_specialist_start=on_specialist_start,
-                    on_specialist_complete=(
-                        on_specialist_complete
-                    ),  # type: ignore[arg-type]
-                    on_tool_start=on_tool_start,
-                    on_tool_result=on_tool_result,
-                    confirm_fn=confirm_fn,
+                    on_specialist_start=_cb.get("on_specialist_start"),
+                    on_specialist_complete=_cb.get(  # type: ignore[arg-type]
+                        "on_specialist_complete"
+                    ),
+                    on_tool_start=_cb.get("on_tool_start"),
+                    on_tool_result=_cb.get("on_tool_result"),
+                    confirm_fn=_cb.get("confirm_fn"),
                 )
             )
             findings = blackboard.get("findings", {})
@@ -276,69 +257,6 @@ def build_conversation_graph(  # noqa: C901
         synthesis["narrative"] = "Analysis complete."
         return {**state, "synthesis": synthesis}
 
-    def suggest_next_node(state: dict[str, Any]) -> dict[str, Any]:
-        """Generate proactive follow-up suggestions using LLM.
-
-        Skipped for factual queries. Uses action_items, gaps, open_questions
-        extracted by specialists to produce contextual next-step suggestions.
-        """
-        turn_type = state.get("turn_type", "new_query")
-
-        # Skip suggestions for simple factual queries
-        if turn_type == "factual":
-            return {**state, "suggested_next": []}
-
-        blackboard = state.get("current_blackboard", {})
-        findings = blackboard.get("findings", {})
-        if not findings:
-            return {**state, "suggested_next": []}
-
-        # Collect the richest signals from all specialists
-        gaps: list[str] = []
-        action_items: list[str] = []
-        open_questions: list[str] = []
-        for finding in findings.values():
-            gaps.extend(finding.get("gaps", [])[:2])
-            action_items.extend(finding.get("action_items", [])[:2])
-            open_questions.extend(finding.get("open_questions", [])[:1])
-
-        # Use LLM to generate contextual suggestions
-        try:
-            prompt_template = load_prompt("suggest_next")
-            findings_text = _format_findings_for_prompt(findings)
-            profile = load_profile()
-            profile_status = (
-                "empty" if not profile.name else f"has data ({profile.name})"
-            )
-            prompt = prompt_template.format(
-                query=blackboard.get("query", ""),
-                findings_text=findings_text,
-                gaps=", ".join(gaps[:3]) or "none",
-                action_items=", ".join(action_items[:3]) or "none",
-                open_questions=", ".join(open_questions[:2]) or "none",
-                profile_status=profile_status,
-            )
-            model, _ = get_model(purpose="analysis")
-            response = model.invoke([HumanMessage(content=prompt)])
-            raw = response.content if hasattr(response, "content") else str(response)
-            suggestions = _parse_suggestions(str(raw))
-            logger.debug("Generated %d suggestions", len(suggestions))
-        except Exception:
-            # LLM call failed — fall back to heuristic extraction
-            logger.warning(
-                "Suggest LLM failed, using heuristics",
-                exc_info=True,
-            )
-            suggestions = []
-            if action_items:
-                suggestions.append(f"Start with: {action_items[0]}")
-            if gaps:
-                suggestions.append(f"Address the gap: {gaps[0]}")
-            if open_questions:
-                suggestions.append(f"Explore: {open_questions[0]}")
-
-        return {**state, "suggested_next": suggestions[:3]}
-
     # ── Graph construction ────────────────────────────────────────────────
 
     graph.add_node("classify_turn", classify_turn_node)  # type: ignore[type-var]
@@ -379,4 +297,4 @@ def _parse_suggestions(text: str) -> list[str]:
     return suggestions[:3]
 
 
-__all__ = ["build_conversation_graph"]
+__all__ = ["build_conversation_graph", "suggest_next_node"]

@@ -11,6 +11,7 @@ Usage:
 
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from langchain.agents.middleware.types import (
     AgentMiddleware,
@@ -25,9 +26,9 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
+from fu7ur3pr00f.agents.blackboard.streaming import synthesis_token_callback
 from fu7ur3pr00f.constants import ANALYSIS_MARKER as _ANALYSIS_MARKER
-from fu7ur3pr00f.llm.model_selection import get_model
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ _ANALYSIS_TOOLS = frozenset(
 )
 
 
-class AnalysisSynthesisMiddleware(AgentMiddleware):
+class AnalysisSynthesisMiddleware(AgentMiddleware[Any, Any, Any]):
     """Two-pass middleware: masks analysis results, then synthesizes the final response.
 
     Pass 1 (before model): Replaces analysis tool results with short markers so
@@ -60,8 +61,8 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
     def wrap_model_call(
         self,
         request: ModelRequest,
-        handler: Callable[[ModelRequest], ModelResponse],  # type: ignore[type-arg]
-    ) -> ModelResponse:
+        handler: Callable[[ModelRequest[Any]], ModelResponse[Any]],
+    ) -> ModelResponse[Any]:
         # Find the last HumanMessage index — only consider analysis tools
         # from the current turn (after the last user message)
         last_human_idx = -1
@@ -125,7 +126,8 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         user_question = ""
         for msg in reversed(messages):
             if isinstance(msg, HumanMessage):
-                user_question = msg.content  # type: ignore[assignment]
+                raw = msg.content
+                user_question = raw if isinstance(raw, str) else str(raw)
                 break
 
         # Only collect tool results from current turn (after last user msg)
@@ -151,26 +153,34 @@ class AnalysisSynthesisMiddleware(AgentMiddleware):
         )
 
         # Load synthesis prompt and format
-        prompt_template = load_prompt("synthesis")
+        prompt_template = container.load_prompt("synthesis")
         prompt = prompt_template.format(
             user_question=user_question,
             tool_results=tool_results,
         )
 
-        # Call synthesis model
-        model, config = get_model(purpose="synthesis")
+        # Call synthesis model with streaming
+        model, config = container.get_model(purpose="synthesis")
         logger.info("Synthesis model: %s", config.description)
 
+        narrative = ""
+        callback = synthesis_token_callback.get()
         # Google Gemini requires HumanMessage for synthesis
         # Other providers use SystemMessage for proper behavioral context
         if config.provider == "google":
-            result = model.invoke([HumanMessage(content=prompt)])
+            chunks = model.stream([HumanMessage(content=prompt)])
         else:
-            result = model.invoke(
+            chunks = model.stream(
                 [SystemMessage(content=prompt), HumanMessage(content=prompt)]
             )
+        for chunk in chunks:
+            token = str(getattr(chunk, "content", "") or "")
+            if token:
+                narrative += token
+                if callback:
+                    callback(token)
 
-        return ModelResponse(result=[result])
+        return ModelResponse(result=[AIMessage(content=narrative)])
 
 
 __all__ = ["AnalysisSynthesisMiddleware"]

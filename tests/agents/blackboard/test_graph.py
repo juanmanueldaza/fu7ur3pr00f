@@ -11,6 +11,7 @@ from fu7ur3pr00f.agents.blackboard.graph import (
     build_blackboard_graph,
 )
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
+from fu7ur3pr00f.container import container
 
 
 class TestSpecialistNode:
@@ -205,12 +206,12 @@ class TestSynthesizeNode:
         }
         state["iteration"] = 1
 
+        mock_chunk = MagicMock()
+        mock_chunk.content = "Integrated career advice narrative."
         mock_model = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = "Integrated career advice narrative."
-        mock_model.invoke.return_value = mock_response
+        mock_model.stream.return_value = iter([mock_chunk])
 
-        with patch("fu7ur3pr00f.agents.blackboard.graph.get_model") as mock_fallback:
+        with patch.object(container, "get_model") as mock_fallback:
             mock_fallback.return_value = (mock_model, MagicMock())
             result = _synthesize_node(state)
 

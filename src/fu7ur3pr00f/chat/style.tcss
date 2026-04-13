@@ -1,0 +1,160 @@
+/* Monkey Island nautical palette */
+$parchment: #e0d8c0;
+$gold: #ffd700;
+$emerald: #10b981;
+$ocean: #415a77;
+$coral: #ff6b6b;
+$night-sea: #0d1b2a;
+$deep-teal: #1a3a4a;
+
+/* App layout */
+Screen {
+    background: $night-sea;
+    color: $parchment;
+}
+
+Header {
+    background: $deep-teal;
+    color: $gold;
+    text-style: bold;
+}
+
+#chat-view {
+    height: 1fr;
+    overflow-y: scroll;
+    padding: 0 1;
+}
+
+#input-bar {
+    dock: bottom;
+    height: auto;
+    background: $deep-teal;
+    padding: 0 1;
+}
+
+Input {
+    background: $night-sea;
+    border: tall $ocean;
+    color: $parchment;
+}
+
+Input:focus {
+    border: tall $gold;
+}
+
+/* Message bubbles */
+MessageBubble {
+    background: $deep-teal;
+    border: tall $ocean;
+    margin: 0 0 1 0;
+    padding: 0 1;
+    color: $parchment;
+}
+
+ResponseBubble {
+    background: $night-sea;
+    border: tall $deep-teal;
+    margin: 0 0 1 4;
+    padding: 0 1;
+    color: $parchment;
+}
+
+/* Specialist status */
+SpecialistStatus {
+    height: auto;
+    background: $deep-teal;
+    padding: 0 1;
+}
+
+SpecialistBadge {
+    color: $gold;
+    transition: color 300ms in_out_cubic, opacity 200ms out_cubic;
+}
+
+SpecialistBadge.--working {
+    color: $gold;
+}
+
+SpecialistBadge.--done {
+    color: $emerald;
+}
+
+/* Tool log panel */
+ToolLogPanel {
+    height: 0;
+    overflow: hidden;
+    background: $night-sea;
+    border: tall $ocean;
+}
+
+ToolLogPanel.--visible {
+    height: 8;
+}
+
+/* Toast notifications */
+Toast {
+    background: $deep-teal;
+    border: tall $gold;
+    color: $parchment;
+}
+
+Toast.-error {
+    border: tall $coral;
+}
+
+ToastRack {
+    align: left bottom;
+}
+
+/* Loading */
+LoadingIndicator {
+    color: $gold;
+}
+
+/* Confirm dialog */
+ConfirmDialog {
+    background: $deep-teal;
+    border: tall $gold;
+    width: 60;
+    height: auto;
+    padding: 1 2;
+}
+
+/* Modal screen backdrop */
+ModalScreen {
+    align: center middle;
+}
+
+/* Setup screen */
+SetupScreen {
+    background: $night-sea;
+}
+
+.setup-title {
+    color: $gold;
+    text-style: bold;
+    text-align: center;
+    padding: 1;
+}
+
+.setup-label {
+    color: $parchment;
+    margin: 0 0 0 1;
+}
+
+.setup-provider-option {
+    color: $parchment;
+}
+
+.setup-provider-option.--selected {
+    color: $gold;
+    text-style: bold;
+}
+
+/* Splash */
+SplashBanner {
+    height: 3;
+    color: $gold;
+    text-style: bold;
+    content-align: center middle;
+}

@@ -36,7 +36,6 @@ from .tools import (
     TOOL_RESULT_MAX_CHARS,
     TOOL_RESULT_PREVIEW_CHARS,
 )
-from .ui import COLOR_ACCENT, COLOR_ERROR, COLOR_INFO, COLOR_SUCCESS, COLOR_WARNING
 from .urls import (
     DEVTO_API_BASE,
     FOREX_API_BASE,
@@ -107,10 +106,4 @@ __all__ = [
     "STATUS_ERROR",
     "STATUS_WORKING",
     "STATUS_COMPLETE",
-    # ui
-    "COLOR_SUCCESS",
-    "COLOR_WARNING",
-    "COLOR_ERROR",
-    "COLOR_INFO",
-    "COLOR_ACCENT",
 ]

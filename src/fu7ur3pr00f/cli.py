@@ -2,6 +2,7 @@
 
 import inspect
 import logging
+from typing import Any
 
 import click
 import typer
@@ -28,11 +29,11 @@ def _patch_click_make_metavar() -> None:
             continue
 
         def _compat_make_metavar(
-            self, ctx=None, _orig=make_metavar
-        ):  # type: ignore[no-untyped-def]
+            self: Any, ctx: Any = None, _orig: Any = make_metavar
+        ) -> Any:
             return _orig(self)
 
-        cls.make_metavar = _compat_make_metavar  # type: ignore[assignment]
+        cls.make_metavar = _compat_make_metavar
 
 
 _patch_click_make_metavar()
@@ -103,12 +104,12 @@ def main(
             ):
                 handler.setLevel(logging.DEBUG)
 
-    from .chat.client import run_chat
+    from .chat import run_chat
 
     try:
         run_chat(thread_id=thread)
     except KeyboardInterrupt:
-        console.print("\n[dim]Chat ended.[/dim]")
+        pass
     except Exception as e:
         console.print(f"[red]Chat error: {e}[/red]")
         raise typer.Exit(code=1) from e

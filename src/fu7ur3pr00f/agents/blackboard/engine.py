@@ -8,12 +8,14 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
+
+from langchain_core.runnables import RunnableConfig
 
 from fu7ur3pr00f.agents.blackboard.blackboard import SpecialistFinding
 from fu7ur3pr00f.agents.blackboard.session import make_initial_session
-from fu7ur3pr00f.memory.checkpointer import get_checkpointer
-from fu7ur3pr00f.memory.profile import load_profile
+from fu7ur3pr00f.agents.blackboard.streaming import synthesis_token_callback
+from fu7ur3pr00f.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -54,19 +56,12 @@ class ConversationEngine:
 
     def __init__(self) -> None:
         """Initialize the engine with checkpointer-backed graph compiled once."""
-        from fu7ur3pr00f.agents.blackboard.conversation_graph import (
-            build_conversation_graph,
-        )
-
-        checkpointer = get_checkpointer()
+        checkpointer = container.get_checkpointer()
         self._checkpointer = checkpointer
         # Mutable holder — updated per turn, read by nodes at execution time
         self._callbacks: dict[str, Any] = {}
         # Compile once — nodes close over self._callbacks
-        self._graph = build_conversation_graph(
-            checkpointer=checkpointer,
-            callbacks=self._callbacks,
-        )
+        self._graph = container.conversation_graph
 
     def invoke_turn(
         self,
@@ -80,6 +75,7 @@ class ConversationEngine:
         on_tool_start: Callable[[str, str, dict], None] | None = None,
         on_tool_result: Callable[[str, str, str], None] | None = None,
         confirm_fn: Callable[[str, str], bool] | None = None,
+        on_synthesis_token: Callable[[str], None] | None = None,
     ) -> TurnResult:
         """Execute a single conversation turn.
 
@@ -107,40 +103,49 @@ class ConversationEngine:
             }
         )
 
+        # Set synthesis streaming callback in ContextVar (thread-safe, per-turn)
+        stream_token = synthesis_token_callback.set(on_synthesis_token)
+        try:
+            return self._invoke_turn_inner(query, thread_id, user_profile)
+        finally:
+            synthesis_token_callback.reset(stream_token)
+
+    def _invoke_turn_inner(
+        self,
+        query: str,
+        thread_id: str,
+        user_profile: dict[str, Any] | None,
+    ) -> TurnResult:
         if user_profile is None:
-            profile = load_profile()
+            profile = container.profile
             user_profile = {
                 "name": profile.name,
                 "location": profile.location,
                 "current_role": profile.current_role,
                 "years_experience": profile.years_experience,
-                "technical_skills": profile.technical_skills or [],
-                "target_roles": profile.target_roles or [],
-                "goals": [g.description for g in (profile.goals or [])],
-                "github_username": profile.github_username or "",
-                "gitlab_username": profile.gitlab_username or "",
+                "technical_skills": profile.technical_skills,
+                "target_roles": profile.target_roles,
+                "goals": [g.description for g in profile.goals],
+                "github_username": profile.github_username,
+                "gitlab_username": profile.gitlab_username,
             }
 
-        config = {"configurable": {"thread_id": thread_id}}
+        config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
         start = time.monotonic()
 
         # Load existing session or start fresh
-        snap = self._graph.get_state(config)  # type: ignore[arg-type]
+        snap = self._graph.get_state(config)
         if snap and snap.values:
-            session_state = dict(snap.values)  # type: ignore
+            session_state = cast(dict[str, Any], snap.values)
         else:
-            session_state = make_initial_session(  # type: ignore[assignment]
-                user_profile
-            )
+            session_state = cast(dict[str, Any], make_initial_session(user_profile))
 
         # Update for this turn
         session_state["current_query"] = query
         session_state["user_profile"] = user_profile
 
         logger.debug("Turn: %r (thread=%s)", query[:60], thread_id)
-        result_state = self._graph.invoke(
-            session_state, config  # type: ignore[arg-type]
-        )
+        result_state = self._graph.invoke(session_state, config)
 
         elapsed = time.monotonic() - start
 
@@ -166,9 +171,10 @@ def get_conversation_engine() -> ConversationEngine:
 
 
 def reset_conversation_engine() -> None:
-    """Reset the engine singleton (e.g. after provider/model change)."""
+    """Reset the engine singleton and its cached graph via the global container."""
     global _engine
     _engine = None
+    container.reset_services()
 
 
 __all__ = [

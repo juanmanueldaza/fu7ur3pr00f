@@ -13,7 +13,7 @@ via LLM for multi-specialist results.
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.config import get_stream_writer
@@ -22,8 +22,9 @@ from langgraph.graph import StateGraph
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
-from fu7ur3pr00f.llm.model_selection import get_model
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.agents.blackboard.streaming import synthesis_token_callback
+from fu7ur3pr00f.container import container
+from fu7ur3pr00f.services.exceptions import AnalysisError
 from fu7ur3pr00f.utils.security import sanitize_error, sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
@@ -177,7 +178,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     # Single specialist — use its reasoning directly, no extra LLM call
     if len(findings) == 1:
         only_finding = next(iter(findings.values()))
-        reasoning = only_finding.get("reasoning", "") or ""
+        reasoning = only_finding.get("reasoning", "")
         if not reasoning.strip():
             # Fallback: build narrative from structured fields
             parts = []
@@ -188,13 +189,16 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
                 "skills",
                 "action_items",
             ):
-                raw = only_finding.get(field, [])  # type: ignore[attr-defined]
+                finding_dict = cast(dict[str, Any], only_finding)
+                raw = finding_dict.get(field, [])
                 if raw:
                     label = field.replace("_", " ").title()
-                    vals: list[object] = list(raw)  # type: ignore[call-overload]
+                    vals: list[object] = list(raw)
                     joined = ", ".join(str(i) for i in vals)
                     parts.append(f"**{label}:** {joined}")
-            reasoning = "\n".join(parts) if parts else "Analysis complete."
+            if not parts:
+                raise AnalysisError("Specialist produced no output")
+            reasoning = "\n".join(parts)
         synthesis["narrative"] = sanitize_for_prompt(reasoning)
         logger.info("Synthesis (single specialist): pass-through")
         return {"synthesis": synthesis}
@@ -206,7 +210,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         parts = [f"### {specialist_name.upper()}"]
 
         # Add reasoning first (high-level summary)
-        reasoning = finding.get("reasoning")  # type: ignore[assignment]
+        reasoning: str | None = cast(dict[str, Any], finding).get("reasoning")
         if reasoning:
             parts.append(f"**Summary:** {sanitize_for_prompt(reasoning)}")
 
@@ -248,19 +252,28 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
     )
 
     try:
-        model, _ = get_model(purpose="synthesis")
-        result = model.invoke(
+        model, _ = container.get_model(purpose="synthesis")
+        narrative = ""
+        callback = synthesis_token_callback.get()
+        for chunk in model.stream(
             [
-                SystemMessage(content=load_prompt("blackboard_synthesis_system")),
+                SystemMessage(
+                    content=container.load_prompt("blackboard_synthesis_system")
+                ),
                 HumanMessage(
-                    content=load_prompt("blackboard_synthesis_human").format(
+                    content=container.load_prompt("blackboard_synthesis_human").format(
                         query=query,
                         findings_text=findings_text,
                     )
                 ),
             ]
-        )
-        synthesis["narrative"] = str(getattr(result, "content", result))
+        ):
+            token = str(getattr(chunk, "content", "") or "")
+            if token:
+                narrative += token
+                if callback:
+                    callback(token)
+        synthesis["narrative"] = narrative
         logger.info("Synthesis complete: %d specialists → narrative", len(findings))
 
     except Exception as e:

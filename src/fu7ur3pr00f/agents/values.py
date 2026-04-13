@@ -71,11 +71,7 @@ class ValuesContext:
             >>> ctx.has_red_flags()
             True
         """
-        return (
-            not self.work_is_ethical
-            or not self.product_respects_freedom
-            or self.crunch_expected
-        )
+        return not self.work_is_ethical or not self.product_respects_freedom or self.crunch_expected
 
     def has_green_flags(self) -> bool:
         """Check if opportunity has ethical green flags.
@@ -164,6 +160,7 @@ def apply_values_filter(
     Returns:
         Filtered response with values-aware messaging
     """
+    _ = include_values_reminder  # parameter reserved for future use
     # Opt-in: return unchanged unless explicitly enabled
     from fu7ur3pr00f.config import settings
 
@@ -200,8 +197,7 @@ def apply_values_filter(
         red_flags="\n".join(red_flags) if red_flags else "None identified",
         green_flags="\n".join(green_flags) if green_flags else "None identified",
         alternatives=(
-            "- Look for OSS-contributing companies\n"
-            "- Seek remote-first, values-aligned startups"
+            "- Look for OSS-contributing companies\n- Seek remote-first, values-aligned startups"
         ),
         # Freedom Tax placeholders (defaults for template compatibility)
         amount="0",
@@ -238,7 +234,7 @@ def check_opportunity_alignment(
 
     from langchain_core.messages import HumanMessage
 
-    from fu7ur3pr00f.llm.model_selection import get_model
+    from fu7ur3pr00f.container import container
 
     if user_values is None:
         user_values = [
@@ -264,29 +260,20 @@ def check_opportunity_alignment(
         f'"recommendation": "<one sentence>"}}'
     )
 
-    try:
-        model, _ = get_model(purpose="analysis")
-        result = model.invoke([HumanMessage(content=prompt)])
-        content = result.content.strip()  # type: ignore
-        # Extract JSON from response
-        start = content.find("{")
-        end = content.rfind("}") + 1
-        data = json.loads(content[start:end])
-        return {
-            "score": int(data.get("score", 50)),
-            "breakdown": {
-                v: int(data.get("breakdown", {}).get(v, 50)) for v in user_values
-            },
-            "recommendation": str(
-                data.get("recommendation", "Unable to assess alignment.")
-            ),
-        }
-    except Exception:
-        return {
-            "score": 50,
-            "breakdown": {v: 50 for v in user_values},
-            "recommendation": "Could not assess alignment — check logs for details.",
-        }
+    model, _ = container.get_model(purpose="analysis")
+    result = model.invoke([HumanMessage(content=prompt)])
+    raw = result.content
+    content = raw if isinstance(raw, str) else str(raw)
+    content = content.strip()
+    # Extract JSON from response
+    start = content.find("{")
+    end = content.rfind("}") + 1
+    data = json.loads(content[start:end])
+    return {
+        "score": int(data.get("score", 50)),
+        "breakdown": {v: int(data.get("breakdown", {}).get(v, 50)) for v in user_values},
+        "recommendation": str(data.get("recommendation", "Unable to assess alignment.")),
+    }
 
 
 # Export public API

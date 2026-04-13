@@ -7,7 +7,6 @@ This is the "semantic memory" layer - persistent facts about the user that
 should be available across all conversations.
 """
 
-import contextlib
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -17,7 +16,8 @@ from typing import Any
 
 import yaml
 
-from fu7ur3pr00f.memory.checkpointer import get_data_dir
+from fu7ur3pr00f.container import container
+from fu7ur3pr00f.services.exceptions import ServiceError
 from fu7ur3pr00f.utils.logging import get_logger
 
 # Serialize concurrent profile reads/writes (parallel tool calls)
@@ -63,9 +63,7 @@ class UserProfile:
     goals: list[CareerGoal] = field(default_factory=list)
     target_roles: list[str] = field(default_factory=list)
     target_companies: list[str] = field(default_factory=list)
-    deal_breakers: list[str] = field(
-        default_factory=list
-    )  # e.g., "no relocation", "remote only"
+    deal_breakers: list[str] = field(default_factory=list)  # e.g., "no relocation", "remote only"
 
     # Preferences
     preferred_work_style: str = ""  # remote, hybrid, onsite
@@ -193,7 +191,7 @@ class UserProfile:
 
 def get_profile_path() -> Path:
     """Get the path to the user profile YAML file."""
-    return get_data_dir() / "profile.yaml"
+    return container.get_data_dir() / "profile.yaml"
 
 
 def load_profile() -> UserProfile:
@@ -213,12 +211,12 @@ def load_profile() -> UserProfile:
 
     try:
         with path.open(encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+            data = yaml.safe_load(f)
+        if data is None:
+            raise ServiceError(f"Profile file is empty or corrupt: {path}")
         return UserProfile.from_dict(data)
     except (yaml.YAMLError, OSError) as e:
-        # Log error but return empty profile to avoid breaking the app
-        logger.warning("Could not load profile: %s", e)
-        return UserProfile()
+        raise ServiceError(f"Could not load profile: {path}") from e
 
 
 def save_profile(profile: UserProfile) -> None:
@@ -234,10 +232,8 @@ def save_profile(profile: UserProfile) -> None:
     path = get_profile_path()
     profile.last_updated = datetime.now().isoformat()
 
-    from fu7ur3pr00f.utils.security import secure_open
-
     # Write with restricted permissions (owner read/write only, no TOCTOU)
-    with secure_open(path) as f:
+    with container.security_utils.secure_open(path) as f:
         yaml.dump(
             profile.to_dict(),
             f,
@@ -262,8 +258,9 @@ def edit_profile(modifier: Callable[["UserProfile"], None]) -> "UserProfile":
         profile = load_profile()
         modifier(profile)
         save_profile(profile)
-        with contextlib.suppress(Exception):
-            from fu7ur3pr00f.utils.services import get_profile
-
-            get_profile.cache_clear()
+        try:
+            # Invalidate container cache
+            container.reload_profile()
+        except Exception:
+            pass
         return profile

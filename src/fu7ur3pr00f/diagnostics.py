@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import shutil
 import subprocess
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -66,7 +66,7 @@ async def _check_mcp_server(server_type: MCPServerType) -> bool:
 
     if server_type == "jobspy":
         try:
-            import jobspy  # type: ignore[import-not-found]  # noqa: F401
+            import jobspy  # noqa: F401
         except ImportError:
             _print_result("MCP:jobspy", False, "python-jobspy not installed")
             return False
@@ -121,7 +121,7 @@ async def _run_async_checks() -> dict[str, Any]:
     results["gitlab"] = _check_gitlab()
 
     for server_type in MCPClientFactory.AVAILABILITY_CHECKERS.keys():
-        ok = await _check_mcp_server(server_type)  # type: ignore[arg-type]
+        ok = await _check_mcp_server(cast(MCPServerType, server_type))
         results["mcp"][server_type] = ok
     return results
 

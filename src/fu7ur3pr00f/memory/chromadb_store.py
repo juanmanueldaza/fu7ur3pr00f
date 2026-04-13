@@ -10,6 +10,7 @@ import threading
 from pathlib import Path
 from typing import Any, cast
 
+from fu7ur3pr00f.container import container
 from .embeddings import get_embedding_function
 
 logger = logging.getLogger(__name__)
@@ -26,16 +27,11 @@ class ChromaDBStore:
     _init_lock = threading.RLock()
 
     def __init__(self, persist_dir: Path | None = None) -> None:
-        from fu7ur3pr00f.memory.checkpointer import get_data_dir
-
         if persist_dir is None:
-            persist_dir = get_data_dir() / "episodic"
+            persist_dir = container.get_data_dir() / "episodic"
 
-        from fu7ur3pr00f.utils.security import secure_mkdir
-
+        container.security_utils.secure_mkdir(persist_dir)
         self.persist_dir = persist_dir
-        secure_mkdir(self.persist_dir)
-
         self._client = None
         self._collection = None
 
@@ -49,11 +45,9 @@ class ChromaDBStore:
             if self._client is not None:
                 return self._client
             try:
-                import chromadb  # type: ignore[import-not-found]
+                import chromadb
 
-                self._client = chromadb.PersistentClient(  # type: ignore[assignment]
-                    path=str(self.persist_dir)
-                )
+                self._client = cast(Any, chromadb.PersistentClient(path=str(self.persist_dir)))
                 logger.info("ChromaDB initialized at %s", self.persist_dir)
             except ImportError:
                 logger.warning("ChromaDB not installed.")
@@ -72,7 +66,7 @@ class ChromaDBStore:
             embedding_fn = get_embedding_function()
             self._collection = self.client.get_or_create_collection(
                 name=self.collection_name,
-                embedding_function=embedding_fn,  # type: ignore[arg-type]
+                embedding_function=cast(Any, embedding_fn),
             )
         return self._collection
 
@@ -83,7 +77,7 @@ class ChromaDBStore:
         metadatas: list[dict[str, Any]],
     ) -> None:
         """Add documents to the collection."""
-        from chromadb.api.types import Metadata  # type: ignore[import-not-found]
+        from chromadb.api.types import Metadata
 
         metas = cast(list[Metadata], metadatas)
         self.collection.add(ids=ids, documents=documents, metadatas=metas)
@@ -98,7 +92,7 @@ class ChromaDBStore:
         results = self.collection.query(
             query_texts=[query],
             n_results=limit,
-            where=where,  # type: ignore[arg-type]
+            where=cast(Any, where),
         )
 
         items = []
@@ -132,11 +126,11 @@ class ChromaDBStore:
         if not values:
             return counts
         results = self.collection.get(
-            where={field: {"$in": values}},  # type: ignore[arg-type]
+            where=cast(Any, {field: {"$in": values}}),
             include=["metadatas"],
         )
         for meta in results["metadatas"] or []:
-            val = str(meta.get(field, ""))  # type: ignore[union-attr]
+            val = str(meta.get(field, "") if meta is not None else "")
             if val in counts:
                 counts[val] += 1
         return counts

@@ -207,6 +207,23 @@ class TestFounderAgent:
 
 
 class TestOrchestratorAgent:
+    def setup_method(self):
+        """Populate the global factory with real specialists for routing/executor tests."""
+        from fu7ur3pr00f.container import container
+        from fu7ur3pr00f.agents.specialists.coach import CoachAgent
+        from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+        from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+        from fu7ur3pr00f.agents.specialists.code import CodeAgent
+        from fu7ur3pr00f.agents.specialists.founder import FounderAgent
+
+        factory = container.blackboard_factory
+        factory.clear()
+        factory.register_specialist("coach", CoachAgent())
+        factory.register_specialist("learning", LearningAgent())
+        factory.register_specialist("jobs", JobsAgent())
+        factory.register_specialist("code", CodeAgent())
+        factory.register_specialist("founder", FounderAgent())
+
     def _make_orchestrator(self) -> OrchestratorAgent:
         """Orchestrator with real specialists (no LLM calls needed for routing)."""
         return OrchestratorAgent()

@@ -1,7 +1,6 @@
 """GitHub tools for live queries via MCP server."""
 
 import base64
-import contextlib
 import json
 import logging
 
@@ -10,7 +9,7 @@ from langchain_core.tools import tool
 from fu7ur3pr00f.config import settings
 from fu7ur3pr00f.constants import GITHUB_API_BASE, HTTP_TIMEOUT
 from fu7ur3pr00f.mcp.pool import MCPErrorType, call_mcp, get_error_type
-from fu7ur3pr00f.memory.profile import edit_profile
+from fu7ur3pr00f.memory.profile import UserProfile, edit_profile
 
 logger = logging.getLogger(__name__)
 
@@ -93,12 +92,11 @@ def _github_http(tool_name: str, args: dict) -> str:
 def _save_github_username(username: str) -> None:
     """Save GitHub username to profile if not already set."""
 
-    def _set(profile):  # type: ignore[no-untyped-def]
+    def _set(profile: UserProfile) -> None:
         if not profile.github_username:
             profile.github_username = username
 
-    with contextlib.suppress(Exception):
-        edit_profile(_set)
+    edit_profile(_set)
 
 
 def _github(tool_name: str, args: dict) -> str:

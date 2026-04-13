@@ -15,7 +15,7 @@ Usage:
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -51,18 +51,12 @@ def handle_tool_error[
         return f"Could not {error_noun}: {type(e).__name__}. Check logs for details."
 
 
-def handle_async_tool_error[
-    T
-](
-    action_fn: Callable[[], T],
+async def handle_async_tool_error[T](
+    action_fn: Callable[[], Awaitable[T]],
     error_noun: str,
     fallback: T | None = None,
-) -> Callable[
-    [], T | str
-]:
+) -> T | str:
     """Execute async tool action with standardized error handling.
-
-    Wrapper for async functions — returns coroutine that handles errors.
 
     Args:
         action_fn: Async callable that performs the tool action
@@ -70,7 +64,7 @@ def handle_async_tool_error[
         fallback: Optional fallback value on error
 
     Returns:
-        Async function that resolves to tool result or error string
+        Tool result on success, error string or fallback on failure
 
     Example:
         >>> result = await handle_async_tool_error(
@@ -78,17 +72,10 @@ def handle_async_tool_error[
         ...     error_noun="fetch data"
         ... )
     """
-
-    async def _wrapper() -> T | str:
-        try:
-            # Type ignore: action_fn returns T, but we know it's awaitable
-            return await action_fn()  # type: ignore[misc]
-        except Exception as e:
-            logger.exception("Error during %s", error_noun)
-            if fallback is not None:
-                return fallback
-            return (
-                f"Could not {error_noun}: {type(e).__name__}. Check logs for details."
-            )
-
-    return _wrapper()  # type: ignore[return-value]
+    try:
+        return await action_fn()
+    except Exception as e:
+        logger.exception("Error during %s", error_noun)
+        if fallback is not None:
+            return fallback
+        return f"Could not {error_noun}: {type(e).__name__}. Check logs for details."

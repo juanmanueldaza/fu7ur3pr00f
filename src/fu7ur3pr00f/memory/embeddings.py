@@ -16,7 +16,7 @@ Usage:
 import logging
 import threading
 from abc import abstractmethod
-from typing import Any
+from typing import Any, cast
 
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 
@@ -174,7 +174,7 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
                 response.raise_for_status()
                 data = response.json()
                 embeddings.append(data["embeddings"][0])
-            return embeddings  # type: ignore[return-value]
+            return cast(Embeddings, embeddings)
         except Exception as e:
             logger.error("Ollama embedding failed: %s", e)
             raise
@@ -227,7 +227,7 @@ class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
 
                 self._cache[doc] = emb
 
-        return results  # type: ignore[return-value]
+        return cast(Embeddings, results)
 
 
 # Global embedding function instance
@@ -235,7 +235,7 @@ _embedding_function: EmbeddingFunction[Documents] | None = None
 _embed_lock = threading.Lock()
 
 
-def get_embedding_function() -> EmbeddingFunction[Documents]:
+def get_embedding_function() -> EmbeddingFunction[Documents] | None:
     """Get the configured embedding function for ChromaDB.
 
     Auto-detects the active provider and returns the appropriate
@@ -287,7 +287,7 @@ def get_embedding_function() -> EmbeddingFunction[Documents]:
                 "No embedding provider configured. Using default embeddings "
                 "(slow, local). Set an LLM provider for faster performance."
             )
-            return None  # type: ignore[return-value]
+            return None
 
         _embedding_function = CachedEmbeddingFunction(base)
         return _embedding_function

@@ -91,6 +91,13 @@ class SessionState(TypedDict, total=False):
     suggested_next: list[str]
     """Suggested follow-up questions/actions"""
 
+    # Transient per-turn fields (overwritten each turn, not accumulated)
+    turn_type: str
+    """Classified turn type: factual, follow_up, steer, new_query, workflow_step"""
+
+    synthesis: dict[str, Any]
+    """Final synthesis produced by synthesize_turn node"""
+
 
 def make_initial_session(user_profile: dict[str, Any]) -> SessionState:
     """Create an initial session state.

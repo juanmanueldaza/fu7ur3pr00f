@@ -1,22 +1,22 @@
 """Tests for outer conversation graph helpers."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
+
+import pytest
+from fu7ur3pr00f.container import container
 
 from fu7ur3pr00f.agents.blackboard.conversation_graph import suggest_next_node
 from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
+from fu7ur3pr00f.services.exceptions import AnalysisError
 
 
 class TestTurnClassifierHeuristics:
     def test_classifies_identity_question_as_factual_without_history(self):
-        result = classify(
-            "you know who am I?", conversation_history=None, active_goals=None
-        )
+        result = classify("you know who am I?", conversation_history=None, active_goals=None)
         assert result == "factual"
 
     def test_classifies_role_question_as_factual_without_history(self):
-        result = classify(
-            "what is my current role?", conversation_history=None, active_goals=None
-        )
+        result = classify("what is my current role?", conversation_history=None, active_goals=None)
         assert result == "factual"
 
 
@@ -37,6 +37,23 @@ _STATE_WITH_FINDINGS = {
 
 
 class TestFactualQueryReachesCoach:
+    def setup_method(self):
+        """Populate the global factory with real specialists."""
+        from fu7ur3pr00f.container import container
+        from fu7ur3pr00f.agents.specialists.coach import CoachAgent
+        from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+        from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+        from fu7ur3pr00f.agents.specialists.code import CodeAgent
+        from fu7ur3pr00f.agents.specialists.founder import FounderAgent
+
+        factory = container.blackboard_factory
+        factory.clear()
+        factory.register_specialist("coach", CoachAgent())
+        factory.register_specialist("learning", LearningAgent())
+        factory.register_specialist("jobs", JobsAgent())
+        factory.register_specialist("code", CodeAgent())
+        factory.register_specialist("founder", FounderAgent())
+
     def test_factual_query_reaches_coach(self):
         """Factual query must reach executor (not short-circuited by deleted bypass)."""
         from langgraph.checkpoint.memory import MemorySaver
@@ -69,19 +86,21 @@ class TestFactualQueryReachesCoach:
                 "fu7ur3pr00f.agents.specialists.orchestrator.get_orchestrator",
                 return_value=mock_orchestrator,
             ),
-            patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.get_model",
+            patch.object(
+                container,
+                "get_model",
                 side_effect=RuntimeError("no LLM in test"),
             ),
-            patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.load_prompt",
+            patch.object(
+                container,
+                "load_prompt",
                 return_value=(
-                    "{query}{findings_text}{gaps}"
-                    "{action_items}{open_questions}{profile_status}"
+                    "{query}{findings_text}{gaps}{action_items}{open_questions}{profile_status}"
                 ),
             ),
             patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.load_profile",
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
                 return_value=MagicMock(name=""),
             ),
         ):
@@ -99,50 +118,51 @@ class TestFactualQueryReachesCoach:
 
 
 class TestSuggestNextNode:
-    def test_suggest_next_returns_empty_on_llm_failure(self):
+    def test_suggest_next_raises_on_llm_failure(self):
         with (
-            patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.get_model",
+            patch.object(
+                container,
+                "get_model",
                 side_effect=RuntimeError("no model"),
             ),
-            patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.load_prompt",
+            patch.object(
+                container,
+                "load_prompt",
                 return_value=(
-                    "{query}{findings_text}{gaps}"
-                    "{action_items}{open_questions}{profile_status}"
+                    "{query}{findings_text}{gaps}{action_items}{open_questions}{profile_status}"
                 ),
             ),
             patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.load_profile",
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
                 return_value=MagicMock(name=""),
             ),
+            pytest.raises(AnalysisError, match="Suggest LLM failed"),
         ):
-            result = suggest_next_node(_STATE_WITH_FINDINGS)
-
-        assert result["suggested_next"] == []
+            suggest_next_node(_STATE_WITH_FINDINGS)
 
     def test_suggest_next_returns_suggestions_on_success(self):
         mock_response = MagicMock()
-        mock_response.content = (
-            "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
-        )
+        mock_response.content = "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
         mock_model = MagicMock()
         mock_model.invoke.return_value = mock_response
 
         with (
-            patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.get_model",
+            patch.object(
+                container,
+                "get_model",
                 return_value=(mock_model, MagicMock()),
             ),
-            patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.load_prompt",
+            patch.object(
+                container,
+                "load_prompt",
                 return_value=(
-                    "{query}{findings_text}{gaps}"
-                    "{action_items}{open_questions}{profile_status}"
+                    "{query}{findings_text}{gaps}{action_items}{open_questions}{profile_status}"
                 ),
             ),
             patch(
-                "fu7ur3pr00f.agents.blackboard.conversation_graph.load_profile",
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
                 return_value=MagicMock(name="Juan"),
             ),
         ):

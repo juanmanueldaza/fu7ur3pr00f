@@ -2,7 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import COACH_TOOLS
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 
 
 class CoachAgent(BaseAgent):
@@ -25,7 +25,7 @@ class CoachAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return load_prompt("specialist_coach")
+        return container.load_prompt("specialist_coach")
 
     @property
     def tools(self) -> list:

@@ -9,15 +9,13 @@ Usage:
 """
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any, cast
 
 from fu7ur3pr00f._config import load_config
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
-from fu7ur3pr00f.agents.specialists.coach import CoachAgent
-from fu7ur3pr00f.agents.specialists.code import CodeAgent
-from fu7ur3pr00f.agents.specialists.founder import FounderAgent
-from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
-from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+from fu7ur3pr00f.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +97,14 @@ class RoutingService:
     """
 
     def __init__(self) -> None:
+        from fu7ur3pr00f.agents.specialists import (
+            CoachAgent,
+            LearningAgent,
+            JobsAgent,
+            CodeAgent,
+            FounderAgent,
+        )
+
         self._specialists: dict[str, BaseAgent] = {
             "coach": CoachAgent(),
             "learning": LearningAgent(),
@@ -110,7 +116,7 @@ class RoutingService:
     def route(
         self,
         query: str,
-        conversation_history: list[dict] | None = None,
+        conversation_history: Sequence[Any] | None = None,
         turn_type: str | None = None,
     ) -> RoutingResult:
         """Route query to one or more specialists via LLM.
@@ -159,7 +165,7 @@ class RoutingService:
     def _route_with_llm(
         self,
         query: str,
-        conversation_history: list[dict] | None = None,
+        conversation_history: Sequence[Any] | None = None,
         turn_type: str | None = None,
     ) -> list[str]:
         """Route using LLM-based semantic understanding.
@@ -168,9 +174,7 @@ class RoutingService:
         structured output (Pydantic model).
         """
         from langchain_core.messages import HumanMessage
-
         from fu7ur3pr00f.agents.specialists.routing_schema import RoutingDecision
-        from fu7ur3pr00f.llm.model_selection import get_model
         from fu7ur3pr00f.prompts import load_prompt
 
         # Build context from conversation history
@@ -186,16 +190,12 @@ class RoutingService:
             context=context,
         )
 
-        model, _ = get_model(purpose="summary", temperature=0.0)
+        model, _ = container.get_model(purpose="summary", temperature=0.0)
         router = model.with_structured_output(RoutingDecision)
-        result = router.invoke([HumanMessage(content=prompt)])  # type: ignore
+        result = cast(RoutingDecision, router.invoke([HumanMessage(content=prompt)]))
 
         # Validate names against known specialists
-        valid = [
-            name
-            for name in result.specialists  # type: ignore
-            if name in self._specialists
-        ]
+        valid = [name for name in result.specialists if name in self._specialists]
         return valid or ["coach"]
 
     def _route_with_keywords(self, query: str) -> list[str]:
@@ -230,10 +230,7 @@ class RoutingService:
 
     def list_agents(self) -> list[dict[str, str]]:
         """List all available specialists."""
-        return [
-            {"name": a.name, "description": a.description}
-            for a in self._specialists.values()
-        ]
+        return [{"name": a.name, "description": a.description} for a in self._specialists.values()]
 
     def reset(self) -> None:
         """Reset routing state (no-op for stateless routing)."""
@@ -242,27 +239,15 @@ class RoutingService:
 
 # ── Module-level singleton ────────────────────────────────────────────────────
 
-_routing_service: RoutingService | None = None
-_service_lock = __import__("threading").Lock()
+# The RoutingService is now managed by the fu7ur3pr00f.container.container singleton.
+# get_routing_service and reset_routing_service are kept for backward compatibility.
 
 
 def get_routing_service() -> RoutingService:
-    """Get or create the global routing service singleton."""
-    global _routing_service
-    if _routing_service is not None:
-        return _routing_service
-    with _service_lock:
-        if _routing_service is None:
-            _routing_service = RoutingService()
-            logger.info(
-                "RoutingService initialised with %d specialists",
-                len(_routing_service._specialists),
-            )
-    return _routing_service
+    """Get the routing service from the global container."""
+    return container.routing_service
 
 
 def reset_routing_service() -> None:
-    """Reset the routing service singleton."""
-    global _routing_service
-    with _service_lock:
-        _routing_service = None
+    """Reset the routing service via the global container."""
+    container.reset_services()

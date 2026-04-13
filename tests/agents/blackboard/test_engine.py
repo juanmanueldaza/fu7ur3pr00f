@@ -1,6 +1,7 @@
 """Tests for ConversationEngine graph-compile-once behaviour."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
+from fu7ur3pr00f.container import container
 
 _MOCK_PROFILE = MagicMock(
     name="Juan",
@@ -14,11 +15,7 @@ _MOCK_PROFILE = MagicMock(
     gitlab_username=None,
 )
 
-_BUILD_TARGET = (
-    "fu7ur3pr00f.agents.blackboard.conversation_graph.build_conversation_graph"
-)
-_CHECKPOINTER_TARGET = "fu7ur3pr00f.agents.blackboard.engine.get_checkpointer"
-_PROFILE_TARGET = "fu7ur3pr00f.agents.blackboard.engine.load_profile"
+_BUILD_TARGET = "fu7ur3pr00f.agents.blackboard.conversation_graph.build_conversation_graph"
 
 
 def _fake_turn_state():
@@ -36,6 +33,24 @@ def _fake_turn_state():
 
 
 class TestGraphCompileOnce:
+    def setup_method(self):
+        """Populate the global factory with real specialists."""
+        from fu7ur3pr00f.container import container
+        from fu7ur3pr00f.agents.specialists.coach import CoachAgent
+        from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+        from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+        from fu7ur3pr00f.agents.specialists.code import CodeAgent
+        from fu7ur3pr00f.agents.specialists.founder import FounderAgent
+
+        container.reset_services()
+        factory = container.blackboard_factory
+        factory.clear()
+        factory.register_specialist("coach", CoachAgent())
+        factory.register_specialist("learning", LearningAgent())
+        factory.register_specialist("jobs", JobsAgent())
+        factory.register_specialist("code", CodeAgent())
+        factory.register_specialist("founder", FounderAgent())
+
     def test_graph_compiled_once_on_init(self):
         mock_graph = MagicMock()
         mock_graph.get_state.return_value = None
@@ -43,9 +58,13 @@ class TestGraphCompileOnce:
         mock_build = MagicMock(return_value=mock_graph)
 
         with (
-            patch(_CHECKPOINTER_TARGET, return_value=MagicMock()),
+            patch.object(container, "get_checkpointer", return_value=MagicMock()),
             patch(_BUILD_TARGET, mock_build),
-            patch(_PROFILE_TARGET, return_value=_MOCK_PROFILE),
+            patch(
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
+                return_value=_MOCK_PROFILE,
+            ),
         ):
             from fu7ur3pr00f.agents.blackboard.engine import ConversationEngine
 
@@ -70,9 +89,13 @@ class TestGraphCompileOnce:
         mock_graph.invoke.side_effect = fake_invoke
 
         with (
-            patch(_CHECKPOINTER_TARGET, return_value=MagicMock()),
+            patch.object(container, "get_checkpointer", return_value=MagicMock()),
             patch(_BUILD_TARGET, return_value=mock_graph),
-            patch(_PROFILE_TARGET, return_value=_MOCK_PROFILE),
+            patch(
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
+                return_value=_MOCK_PROFILE,
+            ),
         ):
             from fu7ur3pr00f.agents.blackboard.engine import ConversationEngine
 
@@ -102,9 +125,13 @@ class TestGraphCompileOnce:
         mock_graph.invoke.return_value = _fake_turn_state()
 
         with (
-            patch(_CHECKPOINTER_TARGET, return_value=MagicMock()),
+            patch.object(container, "get_checkpointer", return_value=MagicMock()),
             patch(_BUILD_TARGET, return_value=mock_graph),
-            patch(_PROFILE_TARGET, return_value=_MOCK_PROFILE),
+            patch(
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
+                return_value=_MOCK_PROFILE,
+            ),
         ):
             from fu7ur3pr00f.agents.blackboard.engine import ConversationEngine
 
@@ -132,9 +159,13 @@ class TestGraphCompileOnce:
         mock_build = MagicMock(return_value=mock_graph)
 
         with (
-            patch(_CHECKPOINTER_TARGET, return_value=MagicMock()),
+            patch.object(container, "get_checkpointer", return_value=MagicMock()),
             patch(_BUILD_TARGET, mock_build),
-            patch(_PROFILE_TARGET, return_value=_MOCK_PROFILE),
+            patch(
+                "fu7ur3pr00f.container.Container.profile",
+                new_callable=PropertyMock,
+                return_value=_MOCK_PROFILE,
+            ),
         ):
             from fu7ur3pr00f.agents.blackboard.engine import (
                 get_conversation_engine,

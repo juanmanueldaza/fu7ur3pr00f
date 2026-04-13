@@ -10,12 +10,18 @@ Usage (from the chat client):
     blackboard = executor.execute(query=..., user_profile=..., callbacks=...)
 """
 
+from __future__ import annotations
+
 import logging
+from collections.abc import Sequence
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fu7ur3pr00f.agents.specialists.routing import RoutingResult
 
 from fu7ur3pr00f.agents.blackboard.executor import BlackboardExecutor
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
-from fu7ur3pr00f.agents.specialists.blackboard_factory import get_blackboard_factory
-from fu7ur3pr00f.agents.specialists.routing import RoutingResult, get_routing_service
+from fu7ur3pr00f.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +39,13 @@ class OrchestratorAgent:
     """
 
     def __init__(self) -> None:
-        self._routing = get_routing_service()
-        self._factory = get_blackboard_factory()
+        self._routing = container.routing_service
+        self._factory = container.blackboard_factory
 
     def route(
         self,
         query: str,
-        conversation_history: list[dict] | None = None,
+        conversation_history: Sequence[Any] | None = None,
         turn_type: str | None = None,
     ) -> list[str]:
         """Route query to one or more specialists.
@@ -61,7 +67,7 @@ class OrchestratorAgent:
     def route_with_result(
         self,
         query: str,
-        conversation_history: list[dict] | None = None,
+        conversation_history: Sequence[Any] | None = None,
         turn_type: str | None = None,
     ) -> RoutingResult:
         """Route query and return full RoutingResult with metadata.
@@ -112,9 +118,7 @@ class OrchestratorAgent:
     def get_model_name(self, specialist_name: str | None = None) -> str | None:
         """Return the model description used by specialists."""
         try:
-            from fu7ur3pr00f.llm.model_selection import get_model
-
-            _, config = get_model(purpose="agent")
+            _, config = container.get_model(purpose="agent")
             return config.description
         except Exception:
             logger.warning(
@@ -137,31 +141,13 @@ _orchestrator_lock = __import__("threading").Lock()
 
 
 def get_orchestrator() -> OrchestratorAgent:
-    """Get or create the global orchestrator singleton."""
-    global _orchestrator
-    if _orchestrator is not None:
-        return _orchestrator
-    with _orchestrator_lock:
-        if _orchestrator is None:
-            _orchestrator = OrchestratorAgent()
-            logger.info(
-                "Orchestrator initialised (routing + blackboard factory)",
-            )
-    return _orchestrator
+    """Get the orchestrator from the global container."""
+    return container.orchestrator
 
 
 def reset_orchestrator() -> None:
-    """Reset the orchestrator and underlying services."""
-    global _orchestrator
-    with _orchestrator_lock:
-        _orchestrator = None
-    from fu7ur3pr00f.agents.specialists.blackboard_factory import (
-        reset_blackboard_factory,
-    )
-    from fu7ur3pr00f.agents.specialists.routing import reset_routing_service
-
-    reset_routing_service()
-    reset_blackboard_factory()
+    """Reset the orchestrator via the global container."""
+    container.reset_services()
 
 
 __all__ = [

@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from ..config import settings
 from ..llm.model_selection import get_model
@@ -18,6 +18,12 @@ from ..utils.security import (
     validate_file_size,
 )
 
+markdown: Any = None
+nh3: Any = None
+HTML: Any = None
+default_url_fetcher: Any = None
+_PDF_SUPPORT: bool = False
+
 try:
     import markdown
     import nh3
@@ -26,11 +32,7 @@ try:
 
     _PDF_SUPPORT = True
 except ImportError:
-    markdown = None  # type: ignore[assignment]
-    nh3 = None  # type: ignore[assignment]
-    HTML = None  # type: ignore[assignment]
-    default_url_fetcher = None  # type: ignore[assignment]
-    _PDF_SUPPORT = False
+    pass
 
 logger = logging.getLogger(__name__)
 

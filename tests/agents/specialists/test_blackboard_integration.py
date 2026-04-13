@@ -1,7 +1,8 @@
 """Integration tests for blackboard specialist contribution flow."""
 
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
+from fu7ur3pr00f.container import container
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
@@ -37,8 +38,9 @@ class TestBlackboardIntegration:
         agent = CoachAgent()
         blackboard = self._create_blackboard()
 
-        with patch(
-            "fu7ur3pr00f.agents.specialists.base.get_model",
+        with patch.object(
+            container,
+            "get_model",
             side_effect=RuntimeError("No API key configured"),
         ):
             finding = agent.contribute(blackboard)

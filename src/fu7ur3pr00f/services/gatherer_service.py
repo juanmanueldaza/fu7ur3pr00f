@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from fu7ur3pr00f.utils.services import get_knowledge_service
 
-from ..chat.ui import display_gather_result
 from ..config import settings
 from ..gatherers import (
     CliftonStrengthsGatherer,
@@ -118,14 +117,10 @@ class GathererService:
                 fn(*args, **kwargs)
                 elapsed = time.monotonic() - t0
                 logger.info("%s gathered in %.1fs", name, elapsed)
-                if verbose:
-                    display_gather_result(name, elapsed)
                 return True
             except Exception as e:
                 elapsed = time.monotonic() - t0
                 logger.warning("%s gather failed in %.1fs: %s", name, elapsed, e)
-                if verbose:
-                    display_gather_result(name, elapsed, success=False)
                 return False
 
         results["portfolio"] = _timed_gather(
@@ -161,11 +156,6 @@ class GathererService:
 
         total_elapsed = time.monotonic() - total_start
         logger.info("All sources gathered in %.1fs", total_elapsed)
-        if verbose:
-            from ..chat.ui import display_timing
-
-            display_timing(total_elapsed)
-
         return results
 
     def gather_portfolio(

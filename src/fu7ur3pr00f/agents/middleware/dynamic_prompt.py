@@ -11,7 +11,6 @@ Usage:
     )
 """
 
-import contextlib
 import logging
 import threading
 import time
@@ -21,13 +20,8 @@ from langchain.agents.middleware import dynamic_prompt as dp_decorator
 from langchain.agents.middleware.types import ModelRequest
 
 from fu7ur3pr00f.agents.tools.gathering import _auto_populate_profile
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.utils.security import anonymize_career_data, sanitize_for_prompt
-from fu7ur3pr00f.utils.services import (
-    get_knowledge_service,
-    get_profile,
-    reload_profile,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -71,31 +65,29 @@ def _build_prompt_uncached() -> str:
     """Generate the full system prompt (no caching)."""
 
     # Single stats call — reused for auto-populate and data section
-    service = get_knowledge_service()
+    service = container.knowledge_service
     stats = service.get_stats()
 
-    profile = get_profile()
+    profile = container.profile
     summary = profile.summary()
 
-    # Auto-populate profile if data exists but profile is empty
     if summary == "No profile information available.":
         if stats.get("total_chunks", 0) > 0:
-            with contextlib.suppress(Exception):
+            try:
                 _auto_populate_profile()
-                # Reload profile after auto-populate to get updated data
-                profile = reload_profile()
+                profile = container.reload_profile()
                 summary = profile.summary()
+            except Exception:
+                logger.exception("Auto-populate profile failed")
+                raise
 
     profile_context = (
-        summary
-        if summary != "No profile information available."
-        else "No profile configured yet."
+        summary if summary != "No profile information available." else "No profile configured yet."
     )
-    # Anonymize PII and escape XML boundaries before injecting into system prompt
     if profile_context != "No profile configured yet.":
         profile_context = sanitize_for_prompt(anonymize_career_data(profile_context))
 
-    base = load_prompt("system").format(
+    base = container.load_prompt("system").format(
         user_profile=profile_context,
     )
 
@@ -104,9 +96,7 @@ def _build_prompt_uncached() -> str:
 
     if total > 0:
         by_source = stats.get("by_source", {})
-        sources = [
-            f"- {src}: {count} chunks" for src, count in by_source.items() if count > 0
-        ]
+        sources = [f"- {src}: {count} chunks" for src, count in by_source.items() if count > 0]
         data_section = (
             "\n\n## Data Availability (live)\n"
             + "\n".join(sources)

@@ -12,7 +12,7 @@ import logging
 import time
 import uuid
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from langgraph.errors import GraphInterrupt as _GraphInterrupt
 from langgraph.types import Command
@@ -165,7 +165,7 @@ class BlackboardExecutor:
 
             snap = graph.get_state(config)
             if snap:
-                final_state = dict(snap.values)  # type: ignore
+                final_state = cast(CareerBlackboard, snap.values)
         finally:
             clear_thread_history(internal_thread_id)
 

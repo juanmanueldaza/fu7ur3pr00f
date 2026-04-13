@@ -2,17 +2,16 @@
 
 from fu7ur3pr00f.memory.profile import edit_profile
 from fu7ur3pr00f.utils.services import get_profile, reload_profile
+from fu7ur3pr00f.container import container
 
 
 class TestProfileCache:
     def teardown_method(self) -> None:
-        get_profile.cache_clear()
+        container.reset_services()
 
-    def test_edit_profile_invalidates_cached_profile(
-        self, monkeypatch, tmp_path
-    ) -> None:
+    def test_edit_profile_invalidates_cached_profile(self, monkeypatch, tmp_path) -> None:
         monkeypatch.setenv("HOME", str(tmp_path))
-        get_profile.cache_clear()
+        container.reset_services()
         reload_profile()
 
         cached = get_profile()

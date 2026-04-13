@@ -6,12 +6,12 @@ Uses LLM-based classification via the classify_turn prompt.
 
 import logging
 import re
-from typing import Literal
+from collections.abc import Sequence
+from typing import Any, Literal, cast
 
 from langchain_core.messages import HumanMessage
 
-from fu7ur3pr00f.llm.model_selection import get_model
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,8 @@ def _looks_like_factual_query(query: str) -> bool:
 
 def classify(
     query: str,
-    conversation_history: list[dict] | None = None,
-    active_goals: list[dict] | None = None,
+    conversation_history: Sequence[Any] | None = None,
+    active_goals: Sequence[Any] | None = None,
 ) -> TurnType:
     """Classify the turn type using LLM-based understanding.
 
@@ -85,22 +85,22 @@ def classify(
     else:
         active_goals_str = "None"
 
-    prompt = load_prompt("classify_turn").format(
+    prompt = container.load_prompt("classify_turn").format(
         conversation_summary=conversation_summary,
         query=query,
         active_goals=active_goals_str,
     )
 
     try:
-        model, _ = get_model(purpose="summary", temperature=0.0)
+        model, _ = container.get_model(purpose="summary", temperature=0.0)
         result = model.invoke([HumanMessage(content=prompt)])
         # First word of response is the turn type
-        first_word = (
-            result.content.strip().split()[0].lower().rstrip(".")  # type: ignore
-        )
+        raw = result.content
+        content_str = raw if isinstance(raw, str) else str(raw)
+        first_word = content_str.strip().split()[0].lower().rstrip(".")
         if first_word in _VALID_TYPES:
             logger.debug("classify: %r → %s (llm)", query[:60], first_word)
-            return first_word  # type: ignore
+            return cast(TurnType, first_word)
         logger.warning(
             "classify: LLM returned unknown type %r, defaulting to new_query",
             first_word,

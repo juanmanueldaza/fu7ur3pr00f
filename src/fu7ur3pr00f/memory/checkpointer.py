@@ -19,8 +19,10 @@ Usage:
 
 import threading
 from pathlib import Path
+from typing import Any
 
 from langgraph.checkpoint.sqlite import SqliteSaver
+from fu7ur3pr00f.container import container
 
 # Cached singleton to avoid creating new connections on every call
 _checkpointer: SqliteSaver | None = None
@@ -30,10 +32,8 @@ _INTERNAL_THREAD_PREFIX = "bb_"
 
 def get_data_dir() -> Path:
     """Get or create the fu7ur3pr00f data directory."""
-    from fu7ur3pr00f.utils.security import secure_mkdir
-
     data_dir = Path.home() / ".fu7ur3pr00f"
-    secure_mkdir(data_dir)
+    container.security_utils.secure_mkdir(data_dir)
     return data_dir
 
 
@@ -112,14 +112,9 @@ def list_threads() -> list[str]:
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT DISTINCT thread_id FROM checkpoints "
-            "UNION SELECT DISTINCT thread_id FROM writes"
+            "SELECT DISTINCT thread_id FROM checkpoints UNION SELECT DISTINCT thread_id FROM writes"
         )
-        return [
-            row[0]
-            for row in cursor.fetchall()
-            if row[0] and not is_internal_thread(row[0])
-        ]
+        return [row[0] for row in cursor.fetchall() if row[0] and not is_internal_thread(row[0])]
     except sqlite3.OperationalError:
         # Table doesn't exist yet
         return []

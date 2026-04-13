@@ -191,7 +191,8 @@ class CVGatherer:
         try:
             model, _ = get_model(purpose="summary")
             result = model.invoke([HumanMessage(content=prompt)])
-            content = result.content.strip()  # type: ignore
+            raw = result.content
+            content = (raw if isinstance(raw, str) else str(raw)).strip()
             start = content.find("[")
             end = content.rfind("]") + 1
             sections_data = json.loads(content[start:end])

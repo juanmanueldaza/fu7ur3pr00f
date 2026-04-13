@@ -276,7 +276,11 @@ def get_model_for_purpose(
         "synthesis": settings.azure_synthesis_deployment,
     }
 
-    provider = settings.active_provider or "azure"
+    if not settings.active_provider:
+        from fu7ur3pr00f.services.exceptions import ServiceError
+
+        raise ServiceError("No LLM provider configured")
+    provider = settings.active_provider
     model_name = purpose_map.get(purpose, "")
     if not model_name and provider == "azure":
         model_name = azure_map.get(purpose, "")

@@ -4,7 +4,7 @@ Uses the free Stack Exchange API (300 requests/day without key).
 https://api.stackexchange.com/ - Technology popularity and trends.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from fu7ur3pr00f.constants import STACKOVERFLOW_API_BASE
 
@@ -94,7 +94,7 @@ class StackOverflowMCPClient(HTTPMCPClient):
 
         response = await client.get(
             f"{self.BASE_URL}{endpoint}",
-            params=request_params,  # type: ignore[arg-type]
+            params=cast(Any, request_params),
         )
         response.raise_for_status()
 

@@ -103,11 +103,6 @@ class KnowledgeService:
 
         elapsed = time.monotonic() - t0
 
-        if verbose:
-            from ..chat.ui import display_indexing_result
-
-            display_indexing_result(source.value, len(chunk_ids), elapsed)
-
         logger.info(
             "Indexed %d chunks for %s in %.1fs", len(chunk_ids), source.value, elapsed
         )

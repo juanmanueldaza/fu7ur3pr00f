@@ -5,8 +5,7 @@ import logging
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import invoke_with_context
-from fu7ur3pr00f.prompts import load_prompt
-from fu7ur3pr00f.utils.services import get_profile
+from fu7ur3pr00f.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ def analyze_skill_gaps(target_role: str) -> str:
     try:
         result = invoke_with_context(
             search_query=f"skills experience {target_role}",
-            prompt=load_prompt("tool_analyze_skill_gaps").replace(
+            prompt=container.load_prompt("tool_analyze_skill_gaps").replace(
                 "{target_role}", target_role
             ),
             search_limit=10,
@@ -34,7 +33,7 @@ def analyze_skill_gaps(target_role: str) -> str:
 
     except Exception as e:
         logger.exception("Skill gap analysis failed for '%s'", target_role)
-        profile = get_profile()
+        profile = container.profile
         current_skills = profile.technical_skills + profile.soft_skills
 
         if not current_skills:
@@ -61,7 +60,7 @@ def analyze_career_alignment() -> str:
     try:
         result = invoke_with_context(
             search_query="career goals trajectory alignment",
-            prompt=load_prompt("tool_analyze_career_alignment"),
+            prompt=container.load_prompt("tool_analyze_career_alignment"),
             search_limit=15,
         )
         return f"Career alignment analysis:\n\n{result}"
@@ -86,7 +85,7 @@ def get_career_advice(target: str) -> str:
     try:
         result = invoke_with_context(
             search_query=target,
-            prompt=load_prompt("tool_get_career_advice").replace("{target}", target),
+            prompt=container.load_prompt("tool_get_career_advice").replace("{target}", target),
             search_limit=10,
         )
         return f"Career advice for {target!r}:\n\n{result}"

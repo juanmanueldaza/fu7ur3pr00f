@@ -10,6 +10,7 @@ Inspired by HEARSAY-II, the scheduler can use simple linear ordering (coach → 
 """
 
 import logging
+from typing import cast
 
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard
 
@@ -263,7 +264,7 @@ class BlackboardScheduler:
         plan = []
         current = None
         # Make a copy of the blackboard to simulate iteration advancement
-        sim_blackboard: CareerBlackboard = {**blackboard}  # type: ignore
+        sim_blackboard = cast(CareerBlackboard, {**blackboard})
 
         for _ in range(self.max_iterations * len(self._execution_order)):
             next_specialist = self.get_next_specialist(sim_blackboard, current)

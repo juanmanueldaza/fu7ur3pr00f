@@ -13,7 +13,7 @@ from .base import MCPClient, MCPToolError, MCPToolResult
 from .job_schema import generate_job_id
 
 try:
-    from jobspy.model import Country
+    import jobspy as _jobspy_mod  # noqa: F401
 
     _JOBSPY_AVAILABLE = True
 except ImportError:
@@ -145,9 +145,14 @@ class JobSpyMCPClient(MCPClient):
         if not location or location.lower() == "remote":
             return "worldwide"
 
+        if not _JOBSPY_AVAILABLE:
+            return "worldwide"
+
         # Try direct country match
+        from jobspy.model import Country  # noqa: PLC0415
+
         try:
-            Country.from_string(location)  # type: ignore[name-defined]
+            Country.from_string(location)
             return location.lower()
         except ValueError:
             pass
@@ -161,7 +166,7 @@ class JobSpyMCPClient(MCPClient):
 
     async def _run_scrape(self, search_params: dict[str, Any]):
         """Run JobSpy's synchronous scraper in a worker thread."""
-        from jobspy import scrape_jobs  # type: ignore[import-not-found]
+        from jobspy import scrape_jobs
 
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -189,8 +194,10 @@ class JobSpyMCPClient(MCPClient):
 
         # Exclude Glassdoor for unsupported countries (avoids noisy errors)
         if "glassdoor" in sites:
+            from jobspy.model import Country  # noqa: PLC0415
+
             try:
-                c = Country.from_string(country)  # type: ignore[name-defined]
+                c = Country.from_string(country)
                 c.glassdoor_domain_value  # raises if unsupported
             except Exception:
                 sites = [s for s in sites if s != "glassdoor"]

@@ -8,6 +8,7 @@ from langchain_core.tools import tool
 
 from fu7ur3pr00f.memory.episodic import get_episodic_store, remember_application
 from fu7ur3pr00f.memory.episodic import remember_decision as create_decision
+from fu7ur3pr00f.services.exceptions import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def _store_to_episodic(
     success_msg: str,
     error_noun: str,
 ) -> str:
-    """Store a memory to the episodic store with shared error handling.
+    """Store a memory to the episodic store.
 
     Args:
         action_fn: Callable that creates the memory object when called
@@ -25,13 +26,16 @@ def _store_to_episodic(
         error_noun: Noun describing what failed (for error message)
 
     Returns:
-        Success message or error string
+        Success message
+
+    Raises:
+        ServiceError: If storing to ChromaDB fails
     """
     try:
         get_episodic_store().remember(action_fn())
     except Exception as e:
         logger.exception("Error storing %s to ChromaDB", error_noun)
-        return f"Could not store {error_noun}: {e}"
+        raise ServiceError(f"Could not store {error_noun}: {e}") from e
 
     return success_msg
 
@@ -55,10 +59,7 @@ def remember_decision(
     """
     return _store_to_episodic(
         lambda: create_decision(decision, context, outcome),
-        (
-            f"Remembered: {decision!r}. "
-            "I'll be able to recall this in future conversations."
-        ),
+        (f"Remembered: {decision!r}. I'll be able to recall this in future conversations."),
         "decision",
     )
 

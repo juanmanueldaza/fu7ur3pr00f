@@ -33,6 +33,7 @@ class SpecialistFinding(TypedDict, total=False):
     """A specialist's contribution to the blackboard."""
 
     gaps: list[str]
+    strengths: list[str]
     opportunities: list[str]
     timeline: str
     skills: list[str]
@@ -40,6 +41,9 @@ class SpecialistFinding(TypedDict, total=False):
     roles: list[str]
     salary: str
     portfolio_items: list[str]
+    target_role: str
+    recommended_path: list[str]
+    extra: str
     reasoning: str
     confidence: float
     iteration_contributed: int

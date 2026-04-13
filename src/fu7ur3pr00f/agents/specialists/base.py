@@ -13,7 +13,7 @@ The base class handles:
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -26,13 +26,12 @@ from fu7ur3pr00f.constants import (
     MAX_TOOL_ROUNDS,
     MAX_TOTAL_TOOL_CALLS,
 )
-from fu7ur3pr00f.llm.model_selection import get_model
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.utils.security import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 
-_CONTRIBUTE_INSTRUCTION = "\n\n" + load_prompt("specialist_contribute")
+_CONTRIBUTE_INSTRUCTION = "\n\n" + container.load_prompt("specialist_contribute")
 
 
 @dataclass
@@ -141,13 +140,11 @@ class BaseAgent(ABC):
         ]
 
         tool_map = {t.name: t for t in self.tools}
-        tool_cache: dict[str, str] = (
-            blackboard.get("_tool_cache", {}) if blackboard else {}
-        )
+        tool_cache: dict[str, str] = blackboard.get("_tool_cache", {}) if blackboard else {}
         executor = ToolExecutor(self.name, tool_map)
 
         try:
-            model, _ = get_model(purpose="agent")
+            model, _ = container.get_model(purpose="agent")
             model_with_tools = model.bind_tools(self.tools)
         except Exception as e:
             logger.error("%s: failed to bind tools: %s", self.name, e)
@@ -260,9 +257,7 @@ class BaseAgent(ABC):
                         val = sanitize_for_prompt(str(val))
                     profile_parts.append(f"{label}: {val}")
 
-        profile_context = (
-            "\n".join(profile_parts) if profile_parts else "No profile data available"
-        )
+        profile_context = "\n".join(profile_parts) if profile_parts else "No profile data available"
 
         # Previous findings section
         context_msg = self._format_previous_findings(previous_findings)
@@ -281,7 +276,7 @@ class BaseAgent(ABC):
 
         # Append specialist guidance — fill placeholders with actual values
         guidance = (
-            load_prompt("specialist_guidance")
+            container.load_prompt("specialist_guidance")
             .replace("{specialist_name}", self.name)
             .replace("{user_query}", sanitize_for_prompt(query))
         )
@@ -298,9 +293,7 @@ class BaseAgent(ABC):
 
         return full_prompt
 
-    def _format_previous_findings(
-        self, previous_findings: dict[str, SpecialistFinding]
-    ) -> str:
+    def _format_previous_findings(self, previous_findings: dict[str, SpecialistFinding]) -> str:
         """Format findings from previous specialists for context (with truncation)."""
         context_parts = []
 
@@ -348,21 +341,16 @@ class BaseAgent(ABC):
         if not agent_text:
             # Fall back to last message of any type
             last_msg = messages[-1]
-            agent_text = str(getattr(last_msg, "content", str(last_msg)))[
-                :CAREER_CONTEXT_MAX_CHARS
-            ]
+            agent_text = str(getattr(last_msg, "content", str(last_msg)))[:CAREER_CONTEXT_MAX_CHARS]
             logger.warning(
-                (
-                    "%s._extract_findings: no AI text found, "
-                    "fell back to last msg type=%s, text=%r"
-                ),
+                ("%s._extract_findings: no AI text found, fell back to last msg type=%s, text=%r"),
                 self.name,
                 type(last_msg).__name__,
                 agent_text[:200],
             )
 
         try:
-            model, _ = get_model(purpose="analysis")
+            model, _ = container.get_model(purpose="analysis")
             extractor = model.with_structured_output(SpecialistFindingsModel)
 
             extraction_prompt = (
@@ -378,10 +366,11 @@ class BaseAgent(ABC):
                 f"'The specialist identified...' or 'Based on the query...')."
             )
 
-            result: SpecialistFindingsModel = extractor.invoke(  # type: ignore
-                [HumanMessage(content=extraction_prompt)]
+            result = cast(
+                SpecialistFindingsModel,
+                extractor.invoke([HumanMessage(content=extraction_prompt)]),
             )
-            return result.model_dump(exclude_none=True)  # type: ignore
+            return cast(SpecialistFinding, result.model_dump(exclude_none=True))
 
         except Exception as e:
             logger.info(

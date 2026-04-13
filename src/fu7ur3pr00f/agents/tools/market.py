@@ -5,12 +5,12 @@ import re
 from langchain_core.tools import tool
 
 from fu7ur3pr00f.agents.tools._analysis_helpers import run_market_analysis
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.gatherers.market import (
     ContentTrendsGatherer,
     JobMarketGatherer,
     TechTrendsGatherer,
 )
-from fu7ur3pr00f.prompts import load_prompt
 
 from ._async import run_async_call
 
@@ -40,11 +40,7 @@ def _normalize_location_tokens(location: str) -> set[str]:
         "remote": {"remote", "worldwide", "anywhere"},
     }
 
-    tokens = {
-        token
-        for token in re.split(r"[^a-z0-9]+", normalized)
-        if token and len(token) > 1
-    }
+    tokens = {token for token in re.split(r"[^a-z0-9]+", normalized) if token and len(token) > 1}
     expanded = set(tokens)
     for token in list(tokens) + [normalized]:
         expanded.update(aliases.get(token, set()))
@@ -96,9 +92,7 @@ def search_jobs(
     result_parts = [f"Job search results for {query!r} in {location!r}:"]
     total = summary.get("total_jobs", 0)
     sources = summary.get("sources", [])
-    result_parts.append(
-        f"\nFound {total} jobs from {len(sources)} sources: {', '.join(sources)}"
-    )
+    result_parts.append(f"\nFound {total} jobs from {len(sources)} sources: {', '.join(sources)}")
 
     if summary.get("remote_positions"):
         result_parts.append(f"Remote positions: {summary['remote_positions']}")
@@ -235,9 +229,7 @@ def get_salary_insights(role: str, location: str = "remote") -> str:
                 result_parts.append(f"    {snippet}...")
 
     if not salary_data and not jobs_with_salary:
-        result_parts.append(
-            "\nNo specific salary data found. Try broadening the search."
-        )
+        result_parts.append("\nNo specific salary data found. Try broadening the search.")
 
     return "\n".join(result_parts)
 
@@ -254,7 +246,7 @@ def analyze_market_fit() -> str:
     """
     return run_market_analysis(
         search_query="skills experience",
-        prompt_fn=lambda tech: load_prompt("tool_market_fit").replace("{tech}", tech),
+        prompt_fn=lambda tech: container.load_prompt("tool_market_fit").replace("{tech}", tech),
         noun="Market fit analysis",
     )
 
@@ -271,9 +263,7 @@ def analyze_market_skills() -> str:
     """
     return run_market_analysis(
         search_query="skills learning",
-        prompt_fn=lambda tech: load_prompt("tool_market_skills").replace(
-            "{tech}", tech
-        ),
+        prompt_fn=lambda tech: container.load_prompt("tool_market_skills").replace("{tech}", tech),
         noun="Market skills analysis",
     )
 
@@ -319,8 +309,7 @@ def gather_market_data(source: str = "all") -> str:
         sources_list = data.get("summary", {}).get("sources", [])
         remote = data.get("summary", {}).get("remote_positions", 0)
         result_parts.append(
-            f"\n**Job Market:** {len(listings)} listings "
-            f"from {len(sources_list)} sources"
+            f"\n**Job Market:** {len(listings)} listings from {len(sources_list)} sources"
         )
         result_parts.append(f"  Remote positions: {remote}")
 

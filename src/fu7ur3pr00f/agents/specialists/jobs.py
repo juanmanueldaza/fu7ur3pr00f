@@ -2,7 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import JOBS_TOOLS
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 
 
 class JobsAgent(BaseAgent):
@@ -26,7 +26,7 @@ class JobsAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return load_prompt("specialist_jobs")
+        return container.load_prompt("specialist_jobs")
 
     @property
     def tools(self) -> list:

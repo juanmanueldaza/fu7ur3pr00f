@@ -8,7 +8,7 @@ import html
 import json
 import re
 from collections import Counter
-from typing import Any
+from typing import Any, cast
 
 from fu7ur3pr00f.constants import HN_API_BASE, HN_BASE_URL
 
@@ -177,7 +177,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
         response = await client.get(
             f"{self.BASE_URL}{endpoint}",
-            params=params,  # type: ignore[arg-type]
+            params=cast(Any, params),
         )
         response.raise_for_status()
 
@@ -353,7 +353,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
             response = await client.get(
                 f"{self.BASE_URL}/search",
-                params=params,  # type: ignore[arg-type]
+                params=cast(Any, params),
             )
             if response.status_code != 200:
                 continue
@@ -472,7 +472,7 @@ class HackerNewsMCPClient(HTTPMCPClient):
 
             response = await client.get(
                 f"{self.BASE_URL}/search",
-                params=params,  # type: ignore[arg-type]
+                params=cast(Any, params),
             )
             if response.status_code != 200:
                 continue

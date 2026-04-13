@@ -15,6 +15,7 @@ from typing import Any
 from fu7ur3pr00f.agents.blackboard.executor import BlackboardExecutor
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
+from fu7ur3pr00f.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -132,50 +133,13 @@ _factory_lock = __import__("threading").Lock()
 
 
 def get_blackboard_factory() -> BlackboardFactory:
-    """Get or create the default blackboard factory with standard specialists.
-
-    The default factory is pre-populated with the 5 standard specialists:
-    coach, learning, jobs, code, founder
-
-    Returns:
-        BlackboardFactory instance with default specialists registered
-    """
-    global _default_factory
-    if _default_factory is not None:
-        return _default_factory
-
-    with _factory_lock:
-        if _default_factory is not None:
-            return _default_factory
-
-        _default_factory = BlackboardFactory()
-
-        # Register default specialists
-        from fu7ur3pr00f.agents.specialists.coach import CoachAgent
-        from fu7ur3pr00f.agents.specialists.code import CodeAgent
-        from fu7ur3pr00f.agents.specialists.founder import FounderAgent
-        from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
-        from fu7ur3pr00f.agents.specialists.learning import LearningAgent
-
-        _default_factory.register_specialist("coach", CoachAgent())
-        _default_factory.register_specialist("learning", LearningAgent())
-        _default_factory.register_specialist("jobs", JobsAgent())
-        _default_factory.register_specialist("code", CodeAgent())
-        _default_factory.register_specialist("founder", FounderAgent())
-
-        logger.info(
-            "Default BlackboardFactory initialised with %d specialists",
-            len(_default_factory._specialists),
-        )
-
-    return _default_factory
+    """Get the blackboard factory from the global container."""
+    return container.blackboard_factory
 
 
 def reset_blackboard_factory() -> None:
-    """Reset the default factory singleton."""
-    global _default_factory
-    with _factory_lock:
-        _default_factory = None
+    """Reset the blackboard factory via the global container."""
+    container.reset_services()
 
 
 def get_agent_config(

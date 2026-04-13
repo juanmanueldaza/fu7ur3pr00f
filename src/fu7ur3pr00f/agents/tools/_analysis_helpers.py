@@ -12,9 +12,8 @@ from collections.abc import Callable
 from langchain_core.messages import HumanMessage
 
 from fu7ur3pr00f.agents.tools._async import run_async_call
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.gatherers.market.tech_trends_gatherer import TechTrendsGatherer
-from fu7ur3pr00f.llm.model_selection import get_model
-from fu7ur3pr00f.utils.services import get_knowledge_service, get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +56,8 @@ def invoke_with_context(
     Raises:
         Exception: Propagates any LLM or service errors for caller to handle
     """
-    profile = get_profile()
-    knowledge_service = get_knowledge_service()
+    profile = container.profile
+    knowledge_service = container.knowledge_service
 
     career_data = knowledge_service.search(search_query, limit=search_limit)
     career_context = build_career_context(career_data)
@@ -68,9 +67,10 @@ def invoke_with_context(
         career_context=career_context,
     )
 
-    model, _ = get_model(purpose="analysis")
+    model, _ = container.get_model(purpose="analysis")
     result = model.invoke([HumanMessage(content=full_prompt)])
-    return result.content  # type: ignore
+    raw = result.content
+    return raw if isinstance(raw, str) else str(raw)
 
 
 def run_market_analysis(
@@ -93,10 +93,7 @@ def run_market_analysis(
         result = invoke_with_context(search_query, prompt_fn(tech_list))
         return f"{noun}:\n\n{result}"
     except Exception as e:
-        return (
-            f"Could not complete {noun.lower()}: "
-            f"{type(e).__name__}. Check logs for details."
-        )
+        return f"Could not complete {noun.lower()}: {type(e).__name__}. Check logs for details."
 
 
 def fetch_tech_list() -> str:

@@ -2,7 +2,7 @@
 
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
 from fu7ur3pr00f.agents.specialists.toolkits import FOUNDER_TOOLS
-from fu7ur3pr00f.prompts import load_prompt
+from fu7ur3pr00f.container import container
 
 
 class FounderAgent(BaseAgent):
@@ -26,7 +26,7 @@ class FounderAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return load_prompt("specialist_founder")
+        return container.load_prompt("specialist_founder")
 
     @property
     def tools(self) -> list:

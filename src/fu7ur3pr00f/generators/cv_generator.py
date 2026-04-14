@@ -20,15 +20,15 @@ from ..utils.security import (
 
 markdown: Any = None
 nh3: Any = None
-HTML: Any = None
-default_url_fetcher: Any = None
+_HTML: Any = None
+_DEFAULT_URL_FETCHER: Any = None
 _PDF_SUPPORT: bool = False
 
 try:
     import markdown
     import nh3
-    from weasyprint import HTML
-    from weasyprint.urls import default_url_fetcher
+    from weasyprint import HTML as _HTML
+    from weasyprint.urls import default_url_fetcher as _DEFAULT_URL_FETCHER
 
     _PDF_SUPPORT = True
 except ImportError:
@@ -104,15 +104,13 @@ def _render_pdf(markdown_path: Path) -> Path:
     validate_file_size(markdown_path, _MAX_MD_SIZE, "Markdown file")
 
     if not _PDF_SUPPORT:
-        console.print(
-            "  [yellow]PDF generation skipped: dependencies not installed[/yellow]"
-        )
+        console.print("  [yellow]PDF generation skipped: dependencies not installed[/yellow]")
         return markdown_path
 
     assert markdown is not None
     assert nh3 is not None
-    assert HTML is not None
-    assert default_url_fetcher is not None
+    assert _HTML is not None
+    assert _DEFAULT_URL_FETCHER is not None
 
     try:
         md_content = markdown_path.read_text()
@@ -273,14 +271,13 @@ def _render_pdf(markdown_path: Path) -> Path:
 
         def _deny_url_fetcher(url, timeout=10, ssl_context=None):
             """Block all external resource fetches from LLM-generated HTML."""
-
             if url.startswith("data:"):
-                assert default_url_fetcher is not None
-                return default_url_fetcher(url, timeout, ssl_context)
+                assert _DEFAULT_URL_FETCHER is not None
+                return _DEFAULT_URL_FETCHER(url, timeout, ssl_context)
             raise ValueError(f"External resource fetch blocked: {url}")
 
         pdf_path = markdown_path.with_suffix(".pdf")
-        HTML(string=styled_html, url_fetcher=_deny_url_fetcher).write_pdf(pdf_path)
+        _HTML(string=styled_html, url_fetcher=_deny_url_fetcher).write_pdf(pdf_path)
         os.chmod(pdf_path, 0o600)  # Owner read/write only
         console.print(f"  [dim]PDF generated: {pdf_path}[/dim]")
         return pdf_path
@@ -308,9 +305,7 @@ def _generate_with_llm(
 
     # Anonymize PII before sending to external LLM
     # For CV generation, we preserve professional email domains for context
-    anonymized_data = anonymize_career_data(
-        career_data, preserve_professional_emails=True
-    )
+    anonymized_data = anonymize_career_data(career_data, preserve_professional_emails=True)
 
     # Security: Sanitize to prevent prompt injection
     safe_career_data = sanitize_for_prompt(anonymized_data)

@@ -7,6 +7,7 @@ from fu7ur3pr00f.agents.tools.analysis import (
     analyze_skill_gaps,
     get_career_advice,
 )
+from fu7ur3pr00f.container import container
 
 
 class TestAnalyzeSkillGaps:
@@ -31,9 +32,10 @@ class TestAnalyzeSkillGaps:
             "fu7ur3pr00f.agents.tools.analysis.invoke_with_context",
             side_effect=RuntimeError("KB unavailable"),
         ):
-            with patch(
-                "fu7ur3pr00f.agents.tools.analysis.get_profile",
-                return_value=mock_profile,
+            with patch.object(
+                container,
+                "_profile",
+                mock_profile,
             ):
                 result = analyze_skill_gaps.invoke({"target_role": "ML Engineer"})
 
@@ -48,9 +50,10 @@ class TestAnalyzeSkillGaps:
             "fu7ur3pr00f.agents.tools.analysis.invoke_with_context",
             side_effect=RuntimeError("KB unavailable"),
         ):
-            with patch(
-                "fu7ur3pr00f.agents.tools.analysis.get_profile",
-                return_value=mock_profile,
+            with patch.object(
+                container,
+                "_profile",
+                mock_profile,
             ):
                 result = analyze_skill_gaps.invoke({"target_role": "ML Engineer"})
 

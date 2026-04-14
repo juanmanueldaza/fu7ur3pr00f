@@ -210,9 +210,9 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         parts = [f"### {specialist_name.upper()}"]
 
         # Add reasoning first (high-level summary)
-        reasoning: str | None = cast(dict[str, Any], finding).get("reasoning")
-        if reasoning:
-            parts.append(f"**Summary:** {sanitize_for_prompt(reasoning)}")
+        spec_reasoning: str | None = cast(dict[str, Any], finding).get("reasoning")
+        if spec_reasoning:
+            parts.append(f"**Summary:** {sanitize_for_prompt(spec_reasoning)}")
 
         # Add structured details from each specialist
         detail_fields = [
@@ -257,9 +257,7 @@ def _synthesize_node(state: CareerBlackboard) -> dict[str, Any]:
         callback = synthesis_token_callback.get()
         for chunk in model.stream(
             [
-                SystemMessage(
-                    content=container.load_prompt("blackboard_synthesis_system")
-                ),
+                SystemMessage(content=container.load_prompt("blackboard_synthesis_system")),
                 HumanMessage(
                     content=container.load_prompt("blackboard_synthesis_human").format(
                         query=query,

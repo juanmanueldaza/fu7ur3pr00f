@@ -12,15 +12,11 @@ from fu7ur3pr00f.services.exceptions import AnalysisError
 
 class TestTurnClassifierHeuristics:
     def test_classifies_identity_question_as_factual_without_history(self):
-        result = classify(
-            "you know who am I?", conversation_history=None, active_goals=None
-        )
+        result = classify("you know who am I?", conversation_history=None, active_goals=None)
         assert result == "factual"
 
     def test_classifies_role_question_as_factual_without_history(self):
-        result = classify(
-            "what is my current role?", conversation_history=None, active_goals=None
-        )
+        result = classify("what is my current role?", conversation_history=None, active_goals=None)
         assert result == "factual"
 
 
@@ -147,9 +143,7 @@ class TestSuggestNextNode:
 
     def test_suggest_next_returns_suggestions_on_success(self):
         mock_response = MagicMock()
-        mock_response.content = (
-            "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
-        )
+        mock_response.content = "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
         mock_model = MagicMock()
         mock_model.invoke.return_value = mock_response
 

@@ -208,7 +208,8 @@ class TestFounderAgent:
 
 class TestOrchestratorAgent:
     def setup_method(self):
-        """Populate the global factory with real specialists for routing/executor tests."""
+        """Populate the global factory with real specialists
+        for routing/executor tests."""
         from fu7ur3pr00f.agents.specialists.coach import CoachAgent
         from fu7ur3pr00f.agents.specialists.code import CodeAgent
         from fu7ur3pr00f.agents.specialists.founder import FounderAgent

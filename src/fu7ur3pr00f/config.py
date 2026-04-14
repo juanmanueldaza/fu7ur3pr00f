@@ -259,6 +259,7 @@ class IntegrationMixin(BaseSettings):
 
     # Market Intelligence MCP
     tavily_api_key: str = Field(default="", repr=False)
+    a2a_agent_key: str = Field(default="", repr=False)
 
     # JobSpy (no auth required, MIT licensed)
     jobspy_enabled: bool = True

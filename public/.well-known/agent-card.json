@@ -1,0 +1,17 @@
+{
+  "name": "FutureProof",
+  "description": "Career intelligence agent for professional growth and market analysis",
+  "capabilities": [
+    "career_coaching",
+    "market_analysis",
+    "skill_gap_analysis",
+    "cv_optimization"
+  ],
+  "endpoints": {
+    "a2a": "https://fu7ur3pr00f.dev/api/a2a"
+  },
+  "security": {
+    "auth_type": "api_key",
+    "header": "X-API-Key"
+  }
+}

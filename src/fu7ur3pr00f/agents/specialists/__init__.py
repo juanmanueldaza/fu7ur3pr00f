@@ -10,6 +10,7 @@ Usage:
     >>> response = await orchestrator.handle("How can I get promoted?")
 """
 
+from fu7ur3pr00f.agents.specialists.a2a_proxy import A2AProxyAgent
 from fu7ur3pr00f.agents.specialists.base import BaseAgent, KnowledgeResult, MemoryResult
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.agents.specialists.code import CodeAgent
@@ -27,5 +28,6 @@ __all__ = [
     "JobsAgent",
     "CodeAgent",
     "FounderAgent",
+    "A2AProxyAgent",
     "OrchestratorAgent",
 ]

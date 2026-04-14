@@ -159,13 +159,27 @@ pybs_dir="${work_dir}/python-build-standalone"
 mkdir -p "${pybs_dir}"
 pybs_log="${work_dir}/getpybs.log"
 echo "Downloading python-build-standalone"
-if ! "${build_venv}/bin/getpybs" \
-  --python-version 3.13 \
-  --architecture x86_64-unknown-linux-gnu \
-  --content-type install_only_stripped \
-  --dest "${pybs_dir}" >"${pybs_log}" 2>&1; then
+# Retry with backoff — GitHub API rate limits are common on shared CI runners
+getpybs_retries=3
+getpybs_delay=15
+for attempt in $(seq 1 "${getpybs_retries}"); do
+  if "${build_venv}/bin/getpybs" \
+    --python-version 3.13 \
+    --architecture x86_64-unknown-linux-gnu \
+    --content-type install_only_stripped \
+    --dest "${pybs_dir}" >"${pybs_log}" 2>&1; then
+    break
+  fi
+  if grep -qi "rate limit" "${pybs_log}"; then
+    if [[ "${attempt}" -lt "${getpybs_retries}" ]]; then
+      echo "  getpybs hit rate limit (attempt ${attempt}/${getpybs_retries}), retrying in ${getpybs_delay}s..."
+      sleep "${getpybs_delay}"
+      getpybs_delay=$((getpybs_delay * 2))
+      continue
+    fi
+  fi
   log_error_and_exit "getpybs failed" "${pybs_log}"
-fi
+done
 
 pybs_tarball="$(find "${pybs_dir}" -maxdepth 2 -type f -name "python-3.13*install_only_stripped*.tar.*" | head -n1)"
 if [[ -z "${pybs_tarball}" ]]; then

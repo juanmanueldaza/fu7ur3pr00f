@@ -113,21 +113,12 @@ class A2AProxyAgent(BaseAgent):
         if inspect.isawaitable(result):
             result = await result
 
+        from fu7ur3pr00f.agents.specialists.a2a_utils import extract_text_from_part
+
         async for event in result:
             if isinstance(event, Message):
                 for part in event.parts:
-                    # a2a.types.Part is a RootModel that wraps the real part
-                    # in .root. Accept either the wrapped Part or the concrete
-                    # TextPart instance for compatibility with different
-                    # client implementations and test doubles.
-                    text_val = None
-                    if isinstance(part, TextPart):
-                        text_val = part.text
-                    else:
-                        root = getattr(part, "root", None)
-                        if isinstance(root, TextPart):
-                            text_val = root.text
-
+                    text_val = extract_text_from_part(part)
                     if text_val:
                         response_text += text_val
 

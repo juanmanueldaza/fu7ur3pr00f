@@ -25,12 +25,13 @@ class A2AHandler(RequestHandler):
             # params.message.parts -> list[Part], where Part.root may be TextPart
             if hasattr(params, "message") and params.message and params.message.parts:
                 first = params.message.parts[0]
-                root = getattr(first, "root", None)
-                # Use getattr to satisfy static type checkers
-                if root is not None:
-                    text = getattr(root, "text", None)
-                if not text:
-                    text = getattr(first, "text", None)
+                # Use utility to handle both RootModel-wrapped Part and
+                # concrete TextPart instances.
+                from fu7ur3pr00f.agents.specialists.a2a_utils import (
+                    extract_text_from_part,
+                )
+
+                text = extract_text_from_part(first)
         except Exception:
             text = None
 
@@ -76,13 +77,15 @@ class A2AHandler(RequestHandler):
     async def on_cancel_task(self, params, context=None):
         return None
 
-    async def on_message_send_stream(self, params, context=None):
-        # Streaming not implemented: provide an async-generator that raises
-        # ServerError when iterated. The `if False: yield` makes this an
-        # async-generator function so its return type matches the base class.
-        if False:  # pragma: no cover - generator stub
-            yield None
-        raise ServerError(error=UnsupportedOperationError())
+    def on_message_send_stream(self, params, context=None):
+        # Streaming not implemented. Return an async-generator that raises
+        # ServerError when iterated to indicate the operation is unsupported.
+        async def _unsupported_gen():
+            if False:  # pragma: no cover - generator stub
+                yield None
+            raise ServerError(error=UnsupportedOperationError())
+
+        return _unsupported_gen()
 
     async def on_set_task_push_notification_config(self, params, context=None):
         raise ServerError(error=UnsupportedOperationError())
@@ -90,10 +93,13 @@ class A2AHandler(RequestHandler):
     async def on_get_task_push_notification_config(self, params, context=None):
         raise ServerError(error=UnsupportedOperationError())
 
-    async def on_resubscribe_to_task(self, params, context=None):
-        if False:  # pragma: no cover - generator stub
-            yield None
-        raise ServerError(error=UnsupportedOperationError())
+    def on_resubscribe_to_task(self, params, context=None):
+        async def _unsupported_gen():
+            if False:  # pragma: no cover - generator stub
+                yield None
+            raise ServerError(error=UnsupportedOperationError())
+
+        return _unsupported_gen()
 
     async def on_list_task_push_notification_config(self, params, context=None):
         raise ServerError(error=UnsupportedOperationError())

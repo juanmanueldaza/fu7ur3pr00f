@@ -61,10 +61,14 @@ class FutureProofApp(App):
         # Be defensive: during tests or alternate layouts the specialist-status
         # widget might not be present yet. Avoid raising NoMatches here so the
         # app can mount cleanly in test environments.
+        from textual.css.query import NoMatches
+
         try:
             self.query_one("#specialist-status", SpecialistStatus).display = False
-        except Exception:  # textual.css.query.NoMatches or others
+        except NoMatches:
             logger.debug("specialist-status not present on mount; skipping hide")
+        except Exception:
+            logger.exception("Unexpected error while hiding specialist-status on mount")
 
         try:
             self.query_one(Input).focus()

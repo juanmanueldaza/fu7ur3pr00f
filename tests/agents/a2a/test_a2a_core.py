@@ -28,14 +28,16 @@ def test_prea_auth_interceptor():
     # Using a sync wrapper for the async method for a simple unit test
     import asyncio
 
-    result_payload, result_http_kwargs = asyncio.run(
-        interceptor.intercept(
-            mock_method, mock_payload, mock_http_kwargs, mock_card, mock_context
+    try:
+        result_payload, result_http_kwargs = asyncio.run(
+            interceptor.intercept(
+                mock_method, mock_payload, mock_http_kwargs, mock_card, mock_context
+            )
         )
-    )
 
-    assert result_http_kwargs["headers"]["X-API-Key"] == "test-key-123"
-    container.settings.a2a_agent_key = original_key
+        assert result_http_kwargs["headers"]["X-API-Key"] == "test-key-123"
+    finally:
+        container.settings.a2a_agent_key = original_key
 
 
 @pytest.mark.unit

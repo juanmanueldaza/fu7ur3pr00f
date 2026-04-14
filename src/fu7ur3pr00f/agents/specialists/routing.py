@@ -135,9 +135,9 @@ class RoutingService:
                 from fu7ur3pr00f.agents.specialists import A2AProxyAgent
 
                 self._specialists["prea_proxy"] = A2AProxyAgent()
-        except Exception:
-            # Swallow errors here — routing should remain usable without A2A
-            pass
+        except (ImportError, AttributeError) as exc:
+            # Log and continue — routing should remain usable without A2A
+            logger.debug("A2A proxy not registered: %s", exc)
         self._initialized = True
 
     def route(

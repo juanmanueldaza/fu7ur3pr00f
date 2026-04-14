@@ -1,22 +1,26 @@
 """Tests for outer conversation graph helpers."""
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-from fu7ur3pr00f.container import container
 
 from fu7ur3pr00f.agents.blackboard.conversation_graph import suggest_next_node
 from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.services.exceptions import AnalysisError
 
 
 class TestTurnClassifierHeuristics:
     def test_classifies_identity_question_as_factual_without_history(self):
-        result = classify("you know who am I?", conversation_history=None, active_goals=None)
+        result = classify(
+            "you know who am I?", conversation_history=None, active_goals=None
+        )
         assert result == "factual"
 
     def test_classifies_role_question_as_factual_without_history(self):
-        result = classify("what is my current role?", conversation_history=None, active_goals=None)
+        result = classify(
+            "what is my current role?", conversation_history=None, active_goals=None
+        )
         assert result == "factual"
 
 
@@ -39,12 +43,12 @@ _STATE_WITH_FINDINGS = {
 class TestFactualQueryReachesCoach:
     def setup_method(self):
         """Populate the global factory with real specialists."""
-        from fu7ur3pr00f.container import container
         from fu7ur3pr00f.agents.specialists.coach import CoachAgent
-        from fu7ur3pr00f.agents.specialists.learning import LearningAgent
-        from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
         from fu7ur3pr00f.agents.specialists.code import CodeAgent
         from fu7ur3pr00f.agents.specialists.founder import FounderAgent
+        from fu7ur3pr00f.agents.specialists.jobs import JobsAgent
+        from fu7ur3pr00f.agents.specialists.learning import LearningAgent
+        from fu7ur3pr00f.container import container
 
         factory = container.blackboard_factory
         factory.clear()
@@ -143,7 +147,9 @@ class TestSuggestNextNode:
 
     def test_suggest_next_returns_suggestions_on_success(self):
         mock_response = MagicMock()
-        mock_response.content = "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
+        mock_response.content = (
+            "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
+        )
         mock_model = MagicMock()
         mock_model.invoke.return_value = mock_response
 

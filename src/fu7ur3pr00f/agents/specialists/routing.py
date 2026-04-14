@@ -99,10 +99,10 @@ class RoutingService:
     def __init__(self) -> None:
         from fu7ur3pr00f.agents.specialists import (
             CoachAgent,
-            LearningAgent,
-            JobsAgent,
             CodeAgent,
             FounderAgent,
+            JobsAgent,
+            LearningAgent,
         )
 
         self._specialists: dict[str, BaseAgent] = {
@@ -174,6 +174,7 @@ class RoutingService:
         structured output (Pydantic model).
         """
         from langchain_core.messages import HumanMessage
+
         from fu7ur3pr00f.agents.specialists.routing_schema import RoutingDecision
         from fu7ur3pr00f.prompts import load_prompt
 
@@ -230,7 +231,10 @@ class RoutingService:
 
     def list_agents(self) -> list[dict[str, str]]:
         """List all available specialists."""
-        return [{"name": a.name, "description": a.description} for a in self._specialists.values()]
+        return [
+            {"name": a.name, "description": a.description}
+            for a in self._specialists.values()
+        ]
 
     def reset(self) -> None:
         """Reset routing state (no-op for stateless routing)."""

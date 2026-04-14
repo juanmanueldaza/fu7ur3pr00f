@@ -35,8 +35,12 @@ ENV/
 # AI assistants
 .claude/
 CLAUDE.md
+.codex
 .qwen/
 !QWEN.md
+
+# pip accident artifacts
+=\d.\d+
 
 # Environment and secrets
 .env

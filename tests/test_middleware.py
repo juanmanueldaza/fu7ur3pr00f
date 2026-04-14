@@ -1,8 +1,7 @@
 """Tests for agent middleware."""
 
 from typing import Any, cast
-from unittest.mock import MagicMock, patch, PropertyMock
-from fu7ur3pr00f.container import container
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from langchain.agents.middleware.types import AgentState, ModelRequest, ModelResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -14,6 +13,7 @@ from fu7ur3pr00f.agents.middleware import (
     _invalidate_prompt_cache,
     build_dynamic_prompt,
 )
+from fu7ur3pr00f.container import container
 
 
 def _make_state(messages: list[Any]) -> AgentState[Any]:
@@ -250,7 +250,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "call_1", "name": "get_user_profile", "args": {}}],
             ),
-            ToolMessage(content="Name: Juan", tool_call_id="call_1", name="get_user_profile"),
+            ToolMessage(
+                content="Name: Juan", tool_call_id="call_1", name="get_user_profile"
+            ),
         ]
         handler, captured = self._make_handler()
         request = ModelRequest(
@@ -268,10 +270,14 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="analyze me"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "call_1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "call_1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
-                content=("### Professional Identity\n- Senior Engineer at Accenture\n..."),
+                content=(
+                    "### Professional Identity\n- Senior Engineer at Accenture\n..."
+                ),
                 tool_call_id="call_1",
                 name="analyze_career_alignment",
             ),
@@ -316,7 +322,9 @@ class TestAnalysisSynthesisMiddleware:
         messages = [
             AIMessage(
                 content="",
-                tool_calls=[{"id": "tc_abc123", "name": "get_career_advice", "args": {}}],
+                tool_calls=[
+                    {"id": "tc_abc123", "name": "get_career_advice", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Long advice text...",
@@ -342,14 +350,20 @@ class TestAnalysisSynthesisMiddleware:
                     {"id": "c4", "name": "get_salary_insights", "args": {}},
                 ],
             ),
-            ToolMessage(content="Profile data", tool_call_id="c1", name="get_user_profile"),
+            ToolMessage(
+                content="Profile data", tool_call_id="c1", name="get_user_profile"
+            ),
             ToolMessage(
                 content="Career analysis...",
                 tool_call_id="c2",
                 name="analyze_career_alignment",
             ),
-            ToolMessage(content="Skill gaps...", tool_call_id="c3", name="analyze_skill_gaps"),
-            ToolMessage(content="Salary data...", tool_call_id="c4", name="get_salary_insights"),
+            ToolMessage(
+                content="Skill gaps...", tool_call_id="c3", name="analyze_skill_gaps"
+            ),
+            ToolMessage(
+                content="Salary data...", tool_call_id="c4", name="get_salary_insights"
+            ),
         ]
         result = self._call_masking(messages)
         # Profile (index 2) and salary (index 5) untouched
@@ -381,7 +395,9 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="how to earn more?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "c1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Career alignment: 85/100...",
@@ -415,7 +431,9 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="how to earn more?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "c1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Career alignment: 85/100...",
@@ -451,7 +469,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c1", "name": "get_user_profile", "args": {}}],
             ),
-            ToolMessage(content="Name: Juan", tool_call_id="c1", name="get_user_profile"),
+            ToolMessage(
+                content="Name: Juan", tool_call_id="c1", name="get_user_profile"
+            ),
         ]
         handler, _ = self._make_handler(AIMessage(content="Your name is Juan."))
         request = ModelRequest(
@@ -473,7 +493,9 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="how to earn more?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c1", "name": "analyze_career_alignment", "args": {}}],
+                tool_calls=[
+                    {"id": "c1", "name": "analyze_career_alignment", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Career alignment: 92/100...",
@@ -485,7 +507,9 @@ class TestAnalysisSynthesisMiddleware:
             HumanMessage(content="what do you think about my linkedin profile?"),
             AIMessage(
                 content="",
-                tool_calls=[{"id": "c2", "name": "search_career_knowledge", "args": {}}],
+                tool_calls=[
+                    {"id": "c2", "name": "search_career_knowledge", "args": {}}
+                ],
             ),
             ToolMessage(
                 content="Profile: Juan...",
@@ -493,7 +517,9 @@ class TestAnalysisSynthesisMiddleware:
                 name="search_career_knowledge",
             ),
         ]
-        handler, _ = self._make_handler(AIMessage(content="Your LinkedIn looks strong."))
+        handler, _ = self._make_handler(
+            AIMessage(content="Your LinkedIn looks strong.")
+        )
         request = ModelRequest(
             model=MagicMock(),
             messages=messages,
@@ -521,7 +547,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c1", "name": "analyze_skill_gaps", "args": {}}],
             ),
-            ToolMessage(content="Gaps found...", tool_call_id="c1", name="analyze_skill_gaps"),
+            ToolMessage(
+                content="Gaps found...", tool_call_id="c1", name="analyze_skill_gaps"
+            ),
         ]
         analysis_results = {"analyze_skill_gaps": "Gaps found..."}
 
@@ -529,7 +557,10 @@ class TestAnalysisSynthesisMiddleware:
             patch.object(
                 container,
                 "get_model",
-                return_value=(mock_model, MagicMock(description="test-model", provider="openai")),
+                return_value=(
+                    mock_model,
+                    MagicMock(description="test-model", provider="openai"),
+                ),
             ),
             patch.object(
                 container,
@@ -580,7 +611,10 @@ class TestAnalysisSynthesisMiddleware:
             patch.object(
                 container,
                 "get_model",
-                return_value=(mock_model, MagicMock(description="test-model", provider="openai")),
+                return_value=(
+                    mock_model,
+                    MagicMock(description="test-model", provider="openai"),
+                ),
             ),
             patch.object(
                 container,
@@ -604,7 +638,9 @@ class TestAnalysisSynthesisMiddleware:
                 content="",
                 tool_calls=[{"id": "c1", "name": "analyze_skill_gaps", "args": {}}],
             ),
-            ToolMessage(content="Gaps...", tool_call_id="c1", name="analyze_skill_gaps"),
+            ToolMessage(
+                content="Gaps...", tool_call_id="c1", name="analyze_skill_gaps"
+            ),
         ]
 
         def handler(req):

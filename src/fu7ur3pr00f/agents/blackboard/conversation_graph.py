@@ -6,14 +6,13 @@ cumulative findings, and proactive suggestions across turns.
 
 import logging
 from collections.abc import Callable
-from typing import Any, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
+    pass
 
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
-from fu7ur3pr00f.container import container
 
 from fu7ur3pr00f.agents.blackboard.session import (
     SessionState,
@@ -21,6 +20,7 @@ from fu7ur3pr00f.agents.blackboard.session import (
     summarize_turn,
 )
 from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
+from fu7ur3pr00f.container import container
 from fu7ur3pr00f.services.exceptions import AnalysisError
 
 logger = logging.getLogger(__name__)
@@ -181,15 +181,20 @@ def build_conversation_graph(  # noqa: C901
                         Callable[[str], None] | None, _cb.get("on_specialist_start")
                     ),
                     on_specialist_complete=cast(
-                        Callable[[str, Any], None] | None, _cb.get("on_specialist_complete")
+                        Callable[[str, Any], None] | None,
+                        _cb.get("on_specialist_complete"),
                     ),
                     on_tool_start=cast(
-                        Callable[[str, str, dict], None] | None, _cb.get("on_tool_start")
+                        Callable[[str, str, dict], None] | None,
+                        _cb.get("on_tool_start"),
                     ),
                     on_tool_result=cast(
-                        Callable[[str, str, str], None] | None, _cb.get("on_tool_result")
+                        Callable[[str, str, str], None] | None,
+                        _cb.get("on_tool_result"),
                     ),
-                    confirm_fn=cast(Callable[[str, str], bool] | None, _cb.get("confirm_fn")),
+                    confirm_fn=cast(
+                        Callable[[str, str], bool] | None, _cb.get("confirm_fn")
+                    ),
                 )
             )
             findings = blackboard.get("findings", {})
@@ -255,7 +260,9 @@ def build_conversation_graph(  # noqa: C901
                 synthesis["narrative"] = "\n\n".join(reasoning_parts)
                 return {**state, "synthesis": synthesis}
 
-        raise AnalysisError("Synthesis produced no narrative and no specialist reasoning")
+        raise AnalysisError(
+            "Synthesis produced no narrative and no specialist reasoning"
+        )
 
     # ── Graph construction ────────────────────────────────────────────────
 

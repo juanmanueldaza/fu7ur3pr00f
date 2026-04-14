@@ -12,6 +12,7 @@ Usage:
 """
 
 from typing import TYPE_CHECKING
+
 from fu7ur3pr00f.container import container
 
 if TYPE_CHECKING:

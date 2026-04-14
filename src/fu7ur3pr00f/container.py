@@ -17,14 +17,13 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from fu7ur3pr00f.agents.specialists.blackboard_factory import BlackboardFactory
+    from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
+    from fu7ur3pr00f.agents.specialists.routing import RoutingService
     from fu7ur3pr00f.config import Settings
     from fu7ur3pr00f.llm.model_selection import ModelSelectionManager
     from fu7ur3pr00f.memory.profile import UserProfile
     from fu7ur3pr00f.services.knowledge_service import KnowledgeService
-    from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
-    from fu7ur3pr00f.agents.specialists.blackboard_factory import BlackboardFactory
-    from fu7ur3pr00f.agents.specialists.routing import RoutingService
-    from fu7ur3pr00f.utils import security
 
 
 class Container:
@@ -83,7 +82,9 @@ class Container:
             self._model_manager = ModelSelectionManager()
         return self._model_manager
 
-    def get_model(self, temperature: float | None = None, purpose: str | None = None) -> tuple:
+    def get_model(
+        self, temperature: float | None = None, purpose: str | None = None
+    ) -> tuple:
         """Get a configured model for the given purpose.
 
         Convenience method that delegates to model_manager.
@@ -158,7 +159,9 @@ class Container:
     def conversation_graph(self) -> Any:
         """Get the compiled conversation graph (lazy singleton)."""
         if self._conversation_graph is None:
-            from fu7ur3pr00f.agents.blackboard.conversation_graph import build_conversation_graph
+            from fu7ur3pr00f.agents.blackboard.conversation_graph import (
+                build_conversation_graph,
+            )
 
             self._conversation_graph = build_conversation_graph()
         return self._conversation_graph
@@ -176,7 +179,9 @@ class Container:
     def blackboard_factory(self) -> BlackboardFactory:
         """Get the blackboard factory (lazy singleton)."""
         if self._blackboard_factory is None:
-            from fu7ur3pr00f.agents.specialists.blackboard_factory import BlackboardFactory
+            from fu7ur3pr00f.agents.specialists.blackboard_factory import (
+                BlackboardFactory,
+            )
 
             self._blackboard_factory = BlackboardFactory()
         return self._blackboard_factory

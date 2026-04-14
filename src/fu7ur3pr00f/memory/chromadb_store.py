@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fu7ur3pr00f.container import container
+
 from .embeddings import get_embedding_function
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,9 @@ class ChromaDBStore:
             try:
                 import chromadb
 
-                self._client = cast(Any, chromadb.PersistentClient(path=str(self.persist_dir)))
+                self._client = cast(
+                    Any, chromadb.PersistentClient(path=str(self.persist_dir))
+                )
                 logger.info("ChromaDB initialized at %s", self.persist_dir)
             except ImportError:
                 logger.warning("ChromaDB not installed.")

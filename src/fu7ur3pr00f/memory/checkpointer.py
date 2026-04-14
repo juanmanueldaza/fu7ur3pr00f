@@ -19,9 +19,9 @@ Usage:
 
 import threading
 from pathlib import Path
-from typing import Any
 
 from langgraph.checkpoint.sqlite import SqliteSaver
+
 from fu7ur3pr00f.container import container
 
 # Cached singleton to avoid creating new connections on every call
@@ -114,7 +114,11 @@ def list_threads() -> list[str]:
         cursor.execute(
             "SELECT DISTINCT thread_id FROM checkpoints UNION SELECT DISTINCT thread_id FROM writes"
         )
-        return [row[0] for row in cursor.fetchall() if row[0] and not is_internal_thread(row[0])]
+        return [
+            row[0]
+            for row in cursor.fetchall()
+            if row[0] and not is_internal_thread(row[0])
+        ]
     except sqlite3.OperationalError:
         # Table doesn't exist yet
         return []

@@ -3,9 +3,13 @@
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from fu7ur3pr00f.agents.blackboard.blackboard import CareerBlackboard, SpecialistFinding
 from fu7ur3pr00f.agents.specialists.coach import CoachAgent
 from fu7ur3pr00f.container import container
+
+pytestmark = pytest.mark.integration
 
 
 class TestBlackboardIntegration:

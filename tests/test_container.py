@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.container import Container
+
+pytestmark = pytest.mark.unit
 
 
 class TestContainer:

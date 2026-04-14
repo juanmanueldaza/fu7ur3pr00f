@@ -7,6 +7,8 @@ from fu7ur3pr00f.gatherers.portfolio.html_extractor import (
     HTMLExtractor,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestHTMLExtractor:
     """Test HTMLExtractor class."""

@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, Mock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.blackboard.blackboard import make_initial_blackboard
 from fu7ur3pr00f.agents.blackboard.graph import (
     _increment_iteration_node,
@@ -12,6 +14,8 @@ from fu7ur3pr00f.agents.blackboard.graph import (
 )
 from fu7ur3pr00f.agents.blackboard.scheduler import BlackboardScheduler
 from fu7ur3pr00f.container import container
+
+pytestmark = pytest.mark.unit
 
 
 class TestSpecialistNode:

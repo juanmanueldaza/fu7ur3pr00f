@@ -9,14 +9,20 @@ from fu7ur3pr00f.agents.blackboard.turn_classifier import classify
 from fu7ur3pr00f.container import container
 from fu7ur3pr00f.services.exceptions import AnalysisError
 
+pytestmark = pytest.mark.unit
+
 
 class TestTurnClassifierHeuristics:
     def test_classifies_identity_question_as_factual_without_history(self):
-        result = classify("you know who am I?", conversation_history=None, active_goals=None)
+        result = classify(
+            "you know who am I?", conversation_history=None, active_goals=None
+        )
         assert result == "factual"
 
     def test_classifies_role_question_as_factual_without_history(self):
-        result = classify("what is my current role?", conversation_history=None, active_goals=None)
+        result = classify(
+            "what is my current role?", conversation_history=None, active_goals=None
+        )
         assert result == "factual"
 
 
@@ -95,7 +101,8 @@ class TestFactualQueryReachesCoach:
                 container,
                 "load_prompt",
                 return_value=(
-                    "{query}{findings_text}{gaps}{action_items}{open_questions}{profile_status}"
+                    "{query}{findings_text}{gaps}"
+                    "{action_items}{open_questions}{profile_status}"
                 ),
             ),
             patch(
@@ -129,7 +136,8 @@ class TestSuggestNextNode:
                 container,
                 "load_prompt",
                 return_value=(
-                    "{query}{findings_text}{gaps}{action_items}{open_questions}{profile_status}"
+                    "{query}{findings_text}{gaps}"
+                    "{action_items}{open_questions}{profile_status}"
                 ),
             ),
             patch(
@@ -143,7 +151,9 @@ class TestSuggestNextNode:
 
     def test_suggest_next_returns_suggestions_on_success(self):
         mock_response = MagicMock()
-        mock_response.content = "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
+        mock_response.content = (
+            "- Update your LinkedIn\n- Apply to senior roles\n- Get AWS cert"
+        )
         mock_model = MagicMock()
         mock_model.invoke.return_value = mock_response
 
@@ -157,7 +167,8 @@ class TestSuggestNextNode:
                 container,
                 "load_prompt",
                 return_value=(
-                    "{query}{findings_text}{gaps}{action_items}{open_questions}{profile_status}"
+                    "{query}{findings_text}{gaps}"
+                    "{action_items}{open_questions}{profile_status}"
                 ),
             ),
             patch(

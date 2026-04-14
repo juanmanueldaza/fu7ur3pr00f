@@ -7,6 +7,8 @@ from fu7ur3pr00f.gatherers.portfolio.js_extractor import JSContent
 from fu7ur3pr00f.gatherers.portfolio.markdown_writer import PortfolioMarkdownWriter
 from fu7ur3pr00f.memory.chunker import Section
 
+pytestmark = pytest.mark.unit
+
 
 def _find(sections: list[Section], name: str) -> Section | None:
     """Find a section by name."""

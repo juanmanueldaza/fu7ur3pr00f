@@ -2,12 +2,16 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.knowledge import (
     clear_career_knowledge,
     get_knowledge_stats,
     index_career_knowledge,
     search_career_knowledge,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestSearchCareerKnowledge:

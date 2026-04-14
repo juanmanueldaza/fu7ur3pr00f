@@ -384,7 +384,8 @@ class TestValuesFilter:
 # =============================================================================
 
 
-class TestIntegration:
+@pytest.mark.integration
+class TestSpecialistIntegration:
     def test_coach_routing_and_tools_present(self):
         """Coach agent has tools needed for a promotion query."""
         from fu7ur3pr00f.agents.tools.analysis import get_career_advice

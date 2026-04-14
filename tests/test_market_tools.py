@@ -2,8 +2,12 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.market import get_salary_insights
 from fu7ur3pr00f.gatherers.market.source_registry import _build_jobicy_args
+
+pytestmark = pytest.mark.unit
 
 
 class TestJobicyArgs:

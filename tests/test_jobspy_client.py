@@ -5,6 +5,8 @@ import pytest
 
 from fu7ur3pr00f.mcp.jobspy_client import JobSpyMCPClient
 
+pytestmark = pytest.mark.unit
+
 
 class TestJobSpyClient:
     @pytest.mark.asyncio

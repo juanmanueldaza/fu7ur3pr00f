@@ -15,6 +15,8 @@ from fu7ur3pr00f.llm.model_selection import (
     reset_model_selection_manager,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestBuildDefaultChain:
     """Test dynamic model-chain construction."""

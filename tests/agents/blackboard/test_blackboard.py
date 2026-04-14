@@ -221,9 +221,10 @@ class TestBlackboardScheduler:
         assert len(plan) == 5
 
 
-class TestBlackboardIntegration:
+class TestBlackboardPatternIntegration:
     """Integration tests for blackboard pattern."""
 
+    @pytest.mark.integration
     def test_specialist_contributions_accumulate(self):
         """Test that multiple specialist contributions accumulate properly."""
         blackboard = make_initial_blackboard(

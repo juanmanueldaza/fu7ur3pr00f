@@ -7,6 +7,8 @@ import pytest
 from fu7ur3pr00f.mcp.base import MCPToolResult
 from fu7ur3pr00f.mcp.factory import MCPClientFactory
 
+pytestmark = pytest.mark.unit
+
 # =============================================================================
 # Factory Tests
 # =============================================================================

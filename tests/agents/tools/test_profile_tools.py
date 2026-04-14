@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.profile import (
     get_user_profile,
     set_target_roles,
@@ -11,6 +13,8 @@ from fu7ur3pr00f.agents.tools.profile import (
     update_user_name,
     update_user_skills,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestGetUserProfile:

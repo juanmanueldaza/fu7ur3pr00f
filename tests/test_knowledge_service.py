@@ -4,9 +4,13 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.memory.chunker import Section
 from fu7ur3pr00f.memory.knowledge import KnowledgeSource
 from fu7ur3pr00f.services.knowledge_service import KnowledgeService
+
+pytestmark = pytest.mark.unit
 
 
 class TestKnowledgeService:

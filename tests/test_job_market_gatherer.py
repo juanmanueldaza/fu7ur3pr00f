@@ -4,6 +4,8 @@ import pytest
 
 from fu7ur3pr00f.gatherers.market.job_market_gatherer import JobMarketGatherer
 
+pytestmark = pytest.mark.unit
+
 
 class TestJobMarketGatherer:
     @pytest.mark.asyncio

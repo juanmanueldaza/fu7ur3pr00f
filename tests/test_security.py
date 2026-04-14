@@ -3,12 +3,16 @@
 import stat
 from pathlib import Path
 
+import pytest
+
 from fu7ur3pr00f.utils.security import (
     anonymize_career_data,
     sanitize_for_prompt,
     secure_mkdir,
     secure_open,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestSecureOpen:

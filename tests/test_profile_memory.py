@@ -1,8 +1,12 @@
 """Tests for profile persistence and cache behavior."""
 
+import pytest
+
 from fu7ur3pr00f.container import container
 from fu7ur3pr00f.memory.profile import edit_profile
 from fu7ur3pr00f.utils.services import get_profile, reload_profile
+
+pytestmark = pytest.mark.unit
 
 
 class TestProfileCache:

@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.generation import generate_cv, generate_cv_draft
+
+pytestmark = pytest.mark.unit
 
 
 class TestGenerateCv:

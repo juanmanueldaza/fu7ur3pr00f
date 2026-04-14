@@ -4,6 +4,8 @@ import pytest
 
 from fu7ur3pr00f.prompts.loader import load_prompt
 
+pytestmark = pytest.mark.unit
+
 # All prompt file stems that must exist
 ALL_PROMPTS = [
     "system",

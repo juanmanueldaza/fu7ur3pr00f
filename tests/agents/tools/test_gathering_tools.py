@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.gathering import (
     _resolve_home_path,
     gather_all_career_data,
@@ -10,6 +12,8 @@ from fu7ur3pr00f.agents.tools.gathering import (
     gather_linkedin_data,
     gather_portfolio_data,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestResolveHomePath:

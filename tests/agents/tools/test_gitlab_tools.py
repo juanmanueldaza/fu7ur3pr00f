@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.gitlab import (
     _RE_PROJECT_PATH,
     _glab,
@@ -10,6 +12,8 @@ from fu7ur3pr00f.agents.tools.gitlab import (
     get_gitlab_project,
     search_gitlab_projects,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestValidateGitlabInput:

@@ -7,7 +7,11 @@ reset_model_selection_manager, and the get_current_config / update_setting tools
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from fu7ur3pr00f.config import Settings
+
+pytestmark = pytest.mark.unit
 
 # ── Helpers ─────────────────────────────────────────────────────────────
 

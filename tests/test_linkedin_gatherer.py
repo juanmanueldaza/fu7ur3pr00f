@@ -31,6 +31,8 @@ from fu7ur3pr00f.gatherers.linkedin import (
     _read_csv_variants,
 )
 
+pytestmark = pytest.mark.unit
+
 
 def _make_zip(files: dict[str, list[dict[str, str]]]) -> io.BytesIO:
     """Create an in-memory ZIP with CSV files."""

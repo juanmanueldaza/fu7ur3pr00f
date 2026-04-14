@@ -78,3 +78,12 @@ select = ["E", "F", "I", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["--strict-markers", "--strict-config", "--verbose", "--tb=short"]
+markers = [
+    "integration: marks tests as integration tests (DAG: multiple components wired together)",
+    "unit: marks tests as unit tests (mocked external services, single component)",
+    "slow: marks tests as slow (benchmarks, large iterations)",
+]

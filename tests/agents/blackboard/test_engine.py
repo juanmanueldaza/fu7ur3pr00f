@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock, PropertyMock, patch
 
+import pytest
+
 from fu7ur3pr00f.container import container
+
+pytestmark = pytest.mark.unit
 
 _MOCK_PROFILE = MagicMock(
     name="Juan",

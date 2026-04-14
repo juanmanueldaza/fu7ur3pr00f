@@ -6,6 +6,8 @@ import pytest
 
 from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
 
+pytestmark = pytest.mark.slow
+
 TEST_QUERIES = [
     "How can I get promoted?",
     "Learn Python",

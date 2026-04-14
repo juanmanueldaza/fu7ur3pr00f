@@ -2,9 +2,12 @@
 
 import re
 
+import pytest
 from typer.testing import CliRunner
 
 from fu7ur3pr00f.cli import app
+
+pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

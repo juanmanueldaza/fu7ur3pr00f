@@ -2,7 +2,11 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.financial import compare_salary_ppp, convert_currency
+
+pytestmark = pytest.mark.unit
 
 
 class TestConvertCurrency:

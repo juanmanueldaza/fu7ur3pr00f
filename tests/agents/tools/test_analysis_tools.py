@@ -2,12 +2,16 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.analysis import (
     analyze_career_alignment,
     analyze_skill_gaps,
     get_career_advice,
 )
 from fu7ur3pr00f.container import container
+
+pytestmark = pytest.mark.unit
 
 
 class TestAnalyzeSkillGaps:

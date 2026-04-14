@@ -4,8 +4,12 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from unittest.mock import MagicMock, PropertyMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.blackboard.streaming import synthesis_token_callback
 from fu7ur3pr00f.container import container
+
+pytestmark = pytest.mark.unit
 
 
 class TestSynthesisTokenCallback:

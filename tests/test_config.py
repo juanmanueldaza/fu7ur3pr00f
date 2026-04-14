@@ -1,6 +1,10 @@
 """Tests for configuration management."""
 
+import pytest
+
 from fu7ur3pr00f.config import Settings
+
+pytestmark = pytest.mark.unit
 
 
 def make_settings(**overrides) -> Settings:

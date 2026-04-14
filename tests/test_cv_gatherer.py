@@ -1,4 +1,5 @@
 """Tests for CVGatherer — PDF and Markdown CV parsing."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,6 +7,8 @@ import pytest
 from fu7ur3pr00f.gatherers.cv import CVGatherer
 from fu7ur3pr00f.memory.chunker import Section
 from fu7ur3pr00f.services.exceptions import NoDataError, ServiceError
+
+pytestmark = pytest.mark.unit
 
 # ---------------------------------------------------------------------------
 # Fixtures

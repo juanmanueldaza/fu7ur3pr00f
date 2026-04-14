@@ -12,6 +12,8 @@ from fu7ur3pr00f.chat.widgets import (
     _animations_enabled,
 )
 
+pytestmark = pytest.mark.unit
+
 
 class TestAnimationsEnabled:
     def test_enabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:

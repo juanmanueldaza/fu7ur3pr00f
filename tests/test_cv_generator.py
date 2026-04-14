@@ -1,5 +1,9 @@
 """Tests for CV generator."""
 
+import pytest
+
+pytestmark = pytest.mark.unit
+
 
 class TestCVGenerator:
     def test_import(self):

@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.market import (
     _is_location_relevant,
     _normalize_location_tokens,
@@ -12,6 +14,8 @@ from fu7ur3pr00f.agents.tools.market import (
     get_tech_trends,
     search_jobs,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestNormalizeLocationTokens:

@@ -2,12 +2,16 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.utils.data_loader import (
     combine_career_data,
     load_career_data,
     load_career_data_for_analysis,
     load_career_data_for_cv,
 )
+
+pytestmark = pytest.mark.unit
 
 _PATCH_TARGET = "fu7ur3pr00f.utils.data_loader.get_knowledge_service"
 

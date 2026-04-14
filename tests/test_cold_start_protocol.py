@@ -3,7 +3,11 @@
 Day 0 blueprint generation when no GitHub/repos exist.
 """
 
+import pytest
+
 from fu7ur3pr00f.prompts.loader import load_prompt
+
+pytestmark = pytest.mark.unit
 
 
 class TestColdStartProtocol:

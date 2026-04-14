@@ -3,12 +3,16 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from fu7ur3pr00f.agents.tools.memory import (
     get_memory_stats,
     recall_memories,
     remember_decision,
     remember_job_application,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestRememberDecision:

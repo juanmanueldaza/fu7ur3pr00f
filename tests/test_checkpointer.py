@@ -2,7 +2,11 @@
 
 import sqlite3
 
+import pytest
+
 from fu7ur3pr00f.memory.checkpointer import list_threads
+
+pytestmark = pytest.mark.unit
 
 
 class TestListThreads:

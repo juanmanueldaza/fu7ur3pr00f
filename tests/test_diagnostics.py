@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from fu7ur3pr00f import diagnostics
+
+pytestmark = pytest.mark.unit
 
 
 def _set_async_results(monkeypatch, results: dict[str, object]) -> None:

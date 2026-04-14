@@ -17,7 +17,8 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from fu7ur3pr00f.agents.specialists.routing import RoutingResult
+    from fu7ur3pr00f.agents.specialists.routing import RoutingResult, RoutingService
+    from fu7ur3pr00f.agents.specialists.blackboard_factory import BlackboardFactory
 
 from fu7ur3pr00f.agents.blackboard.executor import BlackboardExecutor
 from fu7ur3pr00f.agents.specialists.base import BaseAgent
@@ -39,8 +40,15 @@ class OrchestratorAgent:
     """
 
     def __init__(self) -> None:
-        self._routing = container.routing_service
-        self._factory = container.blackboard_factory
+        pass
+
+    @property
+    def routing(self) -> "RoutingService":
+        return container.routing_service
+
+    @property
+    def factory(self) -> "BlackboardFactory":
+        return container.blackboard_factory
 
     def route(
         self,
@@ -61,7 +69,7 @@ class OrchestratorAgent:
         Returns:
             List of specialist names to handle the query
         """
-        result = self._routing.route(query, conversation_history, turn_type)
+        result = self.routing.route(query, conversation_history, turn_type)
         return result.specialists
 
     def route_with_result(
@@ -82,7 +90,7 @@ class OrchestratorAgent:
         Returns:
             RoutingResult with specialists, method, and confidence
         """
-        return self._routing.route(query, conversation_history, turn_type)
+        return self.routing.route(query, conversation_history, turn_type)
 
     def get_executor(
         self,
@@ -101,7 +109,7 @@ class OrchestratorAgent:
         Returns:
             Executor ready to run blackboard-based analysis
         """
-        return self._factory.create_executor(
+        return self.factory.create_executor(
             specialist_names=specialist_names,
             max_iterations=max_iterations,
             strategy=strategy,
@@ -109,11 +117,11 @@ class OrchestratorAgent:
 
     def get_specialist(self, name: str) -> BaseAgent:
         """Return the specialist agent object by name."""
-        return self._routing.get_specialist(name)
+        return self.routing.get_specialist(name)
 
     def list_agents(self) -> list[dict[str, str]]:
         """List all available specialists."""
-        return self._routing.list_agents()
+        return self.routing.list_agents()
 
     def get_model_name(self, specialist_name: str | None = None) -> str | None:
         """Return the model description used by specialists."""
@@ -130,7 +138,7 @@ class OrchestratorAgent:
 
     def reset(self) -> None:
         """Reset orchestrator state (delegates to routing and factory)."""
-        self._routing.reset()
+        self.routing.reset()
         logger.debug("Orchestrator.reset() called")
 
 

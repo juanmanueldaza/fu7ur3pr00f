@@ -35,6 +35,10 @@ class BlackboardFactory:
     def __init__(self) -> None:
         self._specialists: dict[str, BaseAgent] = {}
 
+    @property
+    def routing_service(self) -> Any:
+        return container.routing_service
+
     def register_specialist(self, name: str, agent: BaseAgent) -> None:
         """Register a specialist agent.
 

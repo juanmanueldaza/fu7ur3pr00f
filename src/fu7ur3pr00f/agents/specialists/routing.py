@@ -71,6 +71,12 @@ _SPECIALIST_KEYWORDS: dict[str, tuple[str, ...]] = {
         "fundraising",
         "venture",
     ),
+    "prea_proxy": (
+        "prea",
+        "external agent",
+        "interop",
+        "a2a",
+    ),
 }
 _MULTI_SPECIALIST_KEYWORDS = tuple(load_config("routing_keywords"))
 
@@ -97,6 +103,14 @@ class RoutingService:
     """
 
     def __init__(self) -> None:
+        self._specialists: dict[str, BaseAgent] = {}
+        self._initialized = False
+
+    def _ensure_specialists(self) -> None:
+        """Deferred initialization of specialist agents to break circular "
+        "dependencies."""
+        if self._initialized:
+            return
         from fu7ur3pr00f.agents.specialists import (
             CoachAgent,
             CodeAgent,
@@ -105,13 +119,26 @@ class RoutingService:
             LearningAgent,
         )
 
-        self._specialists: dict[str, BaseAgent] = {
+        # Default specialists
+        self._specialists = {
             "coach": CoachAgent(),
             "learning": LearningAgent(),
             "jobs": JobsAgent(),
             "code": CodeAgent(),
             "founder": FounderAgent(),
         }
+
+        # Register PREA proxy only when an A2A agent key is configured. This
+        # keeps tests deterministic when A2A integration isn't enabled.
+        try:
+            if getattr(container.settings, "a2a_agent_key", ""):
+                from fu7ur3pr00f.agents.specialists import A2AProxyAgent
+
+                self._specialists["prea_proxy"] = A2AProxyAgent()
+        except (ImportError, AttributeError) as exc:
+            # Log and continue — routing should remain usable without A2A
+            logger.debug("A2A proxy not registered: %s", exc)
+        self._initialized = True
 
     def route(
         self,
@@ -129,6 +156,7 @@ class RoutingService:
         Returns:
             RoutingResult with specialist names and routing method used
         """
+        self._ensure_specialists()
         # Context-aware routing: reuse previous specialists for follow-ups
         if turn_type == "follow_up" and conversation_history:
             last_turn = conversation_history[-1]
@@ -173,6 +201,7 @@ class RoutingService:
         Parses specialist descriptions and selects 1-4 specialists via
         structured output (Pydantic model).
         """
+        self._ensure_specialists()
         from langchain_core.messages import HumanMessage
 
         from fu7ur3pr00f.agents.specialists.routing_schema import RoutingDecision
@@ -227,10 +256,12 @@ class RoutingService:
 
     def get_specialist(self, name: str) -> BaseAgent:
         """Return the specialist agent object by name."""
+        self._ensure_specialists()
         return self._specialists.get(name, self._specialists["coach"])
 
     def list_agents(self) -> list[dict[str, str]]:
         """List all available specialists."""
+        self._ensure_specialists()
         return [
             {"name": a.name, "description": a.description}
             for a in self._specialists.values()

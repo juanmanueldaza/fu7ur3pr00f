@@ -37,16 +37,34 @@ class Container:
     _lock = threading.Lock()
 
     def __init__(self) -> None:
-        """Initialize container with empty service caches."""
+        """Initialize container with empty service caches.
+
+        Services are organized in layers to prevent circular dependencies:
+        Layer 1: Config -> Layer 2: Memory -> Layer 3: Services ->
+        Layer 4: Agents -> Layer 5: Graph
+        """
+        # Layer 1: Config
         self._settings: Settings | None = None
+        self._security_utils: Any | None = None
+
+        # Layer 2: Memory/Data
+        self._profile: UserProfile | None = None
+        self._knowledge_store: Any | None = None
+        self._checkpointer: Any | None = None
+        self._embedding_function: Any | None = None
+
+        # Layer 3: Services
         self._model_manager: ModelSelectionManager | None = None
         self._knowledge_service: KnowledgeService | None = None
-        self._profile: UserProfile | None = None
-        self._conversation_graph: Any | None = None
-        self._orchestrator: OrchestratorAgent | None = None
-        self._blackboard_factory: BlackboardFactory | None = None
+        self._gather_service: Any | None = None
+
+        # Layer 4: Agents
         self._routing_service: RoutingService | None = None
-        self._security_utils: Any | None = None
+        self._blackboard_factory: BlackboardFactory | None = None
+        self._orchestrator: OrchestratorAgent | None = None
+
+        # Layer 5: Graph
+        self._conversation_graph: Any | None = None
 
     @classmethod
     def get(cls) -> Container:
@@ -65,9 +83,8 @@ class Container:
 
     @property
     def settings(self) -> Settings:
-        """Get application settings (singleton from config module)."""
+        """Get application settings (Layer 1)."""
         if self._settings is None:
-            # Import here to avoid circular dependency
             from fu7ur3pr00f.config import settings
 
             self._settings = settings
@@ -75,7 +92,7 @@ class Container:
 
     @property
     def model_manager(self) -> ModelSelectionManager:
-        """Get model selection manager (lazy singleton)."""
+        """Get model selection manager (Layer 3)."""
         if self._model_manager is None:
             from fu7ur3pr00f.llm.model_selection import ModelSelectionManager
 
@@ -92,7 +109,6 @@ class Container:
         Returns:
             Tuple of (BaseChatModel, ModelConfig)
         """
-        # Import here to avoid circular dependency
         from fu7ur3pr00f.llm.model_selection import get_model
 
         return get_model(temperature=temperature, purpose=purpose)
@@ -108,7 +124,7 @@ class Container:
 
     @property
     def knowledge_service(self) -> KnowledgeService:
-        """Get knowledge service (lazy singleton)."""
+        """Get knowledge service (Layer 3)."""
         if self._knowledge_service is None:
             from fu7ur3pr00f.services.knowledge_service import KnowledgeService
 
@@ -117,7 +133,7 @@ class Container:
 
     @property
     def profile(self) -> UserProfile:
-        """Get user profile (lazy singleton)."""
+        """Get user profile (Layer 2)."""
         if self._profile is None:
             from fu7ur3pr00f.memory.profile import load_profile
 
@@ -132,16 +148,29 @@ class Container:
         return self._profile
 
     def reset_services(self) -> None:
-        """Reset all cached services (for testing and settings reload)."""
+        """Reset cached services (Layers 2, 3, 4, and 5)."""
+        # Layer 2: Memory
+        self._profile = None
+        self._knowledge_store = None
+        self._checkpointer = None
+        self._embedding_function = None
+
+        # Layer 3: Services
         self._model_manager = None
         self._knowledge_service = None
-        self._profile = None
-        self._conversation_graph = None
-        self._orchestrator = None
-        self._blackboard_factory = None
+        self._gather_service = None
+
+        # Layer 4: Agents
         self._routing_service = None
-        self._security_utils = None
-        # Note: settings is a module-level singleton, not reset here
+        self._blackboard_factory = None
+        self._orchestrator = None
+
+        # Layer 5: Graph
+        self._conversation_graph = None
+
+    def reset_all(self) -> None:
+        """Full reset of all cached services (excluding config)."""
+        self.reset_services()
 
     def reset_orchestrator(self) -> None:
         """Reset the orchestrator singleton."""
@@ -157,7 +186,7 @@ class Container:
 
     @property
     def conversation_graph(self) -> Any:
-        """Get the compiled conversation graph (lazy singleton)."""
+        """Get the compiled conversation graph (Layer 5)."""
         if self._conversation_graph is None:
             from fu7ur3pr00f.agents.blackboard.conversation_graph import (
                 build_conversation_graph,
@@ -168,7 +197,7 @@ class Container:
 
     @property
     def orchestrator(self) -> OrchestratorAgent:
-        """Get the orchestrator agent (lazy singleton)."""
+        """Get the orchestrator agent (Layer 4)."""
         if self._orchestrator is None:
             from fu7ur3pr00f.agents.specialists.orchestrator import OrchestratorAgent
 
@@ -177,7 +206,7 @@ class Container:
 
     @property
     def blackboard_factory(self) -> BlackboardFactory:
-        """Get the blackboard factory (lazy singleton)."""
+        """Get the blackboard factory (Layer 4)."""
         if self._blackboard_factory is None:
             from fu7ur3pr00f.agents.specialists.blackboard_factory import (
                 BlackboardFactory,
@@ -188,7 +217,7 @@ class Container:
 
     @property
     def routing_service(self) -> RoutingService:
-        """Get the routing service (lazy singleton)."""
+        """Get the routing service (Layer 4)."""
         if self._routing_service is None:
             from fu7ur3pr00f.agents.specialists.routing import RoutingService
 
@@ -197,12 +226,39 @@ class Container:
 
     @property
     def security_utils(self) -> Any:
-        """Get security utility functions."""
+        """Get security utility functions (Layer 1)."""
         if self._security_utils is None:
             from fu7ur3pr00f.utils import security
 
             self._security_utils = security
         return self._security_utils
+
+    @property
+    def embedding_function(self) -> Any:
+        """Get the configured embedding function (Layer 2)."""
+        if self._embedding_function is None:
+            from fu7ur3pr00f.memory.embeddings import get_embedding_function
+
+            self._embedding_function = get_embedding_function()
+        return self._embedding_function
+
+    @property
+    def knowledge_store(self) -> Any:
+        """Get the career knowledge store (Layer 2)."""
+        if self._knowledge_store is None:
+            from fu7ur3pr00f.memory.knowledge import get_knowledge_store
+
+            self._knowledge_store = get_knowledge_store()
+        return self._knowledge_store
+
+    @property
+    def checkpointer(self) -> Any:
+        """Get the session checkpointer (Layer 2)."""
+        if self._checkpointer is None:
+            from fu7ur3pr00f.memory.checkpointer import get_checkpointer
+
+            self._checkpointer = get_checkpointer()
+        return self._checkpointer
 
     def get_specialist(self, name: str) -> Any:
         """Get a specific specialist agent by name via the factory."""

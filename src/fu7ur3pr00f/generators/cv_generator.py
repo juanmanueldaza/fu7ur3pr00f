@@ -61,6 +61,13 @@ def _render_pdf(markdown_path: Path) -> Path:
         logger.warning("PDF deps not installed — skipping PDF generation")
         return markdown_path
 
+    assert _markdown is not None
+    assert _nh3 is not None
+    assert _WEASY_HTML is not None
+    assert _WEASY_DEFAULT_URL_FETCHER is not None
+
+    wdf = _WEASY_DEFAULT_URL_FETCHER
+
     md_content = markdown_path.read_text()
     html_content = _markdown.markdown(md_content, extensions=["tables", "fenced_code"])
     html_content = _nh3.clean(
@@ -114,7 +121,7 @@ a {{ color: #1b4f72; text-decoration: none; }}
 
     def _deny_url_fetcher(url, timeout=10, ssl_context=None):
         if url.startswith("data:"):
-            return _WEASY_DEFAULT_URL_FETCHER(url, timeout, ssl_context)
+            return wdf(url, timeout, ssl_context)
         raise ValueError(f"External resource fetch blocked: {url}")
 
     pdf_path = markdown_path.with_suffix(".pdf")

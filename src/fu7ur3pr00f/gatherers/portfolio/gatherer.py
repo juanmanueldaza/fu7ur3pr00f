@@ -47,7 +47,9 @@ class PortfolioGatherer:
         Returns:
             List of Section(name, content) tuples
         """
-        target_url = url or settings.portfolio_url
+        target_url = url or getattr(settings, "portfolio_url", None)
+        if not target_url:
+            raise ValueError("No portfolio URL provided")
 
         logger.info("Gathering portfolio from %s", target_url)
 

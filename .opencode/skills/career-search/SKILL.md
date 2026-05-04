@@ -5,6 +5,14 @@ compatibility: opencode
 when_to_use: "When the user wants to search for jobs or track applications."
 model: medium
 user-invocable: false
+hub-skill-ids:
+  - career-intelligence
+  - search
+allowed-tools:
+  - Bash
+  - WebFetch
+  - mcp__nerv-memory__memory_search
+  - mcp__nerv-memory__memory_save
 ---
 
 # Skill: Career Search

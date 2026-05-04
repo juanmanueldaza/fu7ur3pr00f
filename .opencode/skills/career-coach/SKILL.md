@@ -5,6 +5,15 @@ compatibility: opencode
 when_to_use: "When the user asks for career advice, coaching, or decision guidance."
 model: medium
 user-invocable: false
+hub-skill-ids:
+  - career-intelligence
+  - coaching
+allowed-tools:
+  - Bash
+  - Read
+  - mcp__nerv-memory__memory_search
+  - mcp__nerv-memory__memory_save
+  - mcp__nerv-memory__memory_recall
 ---
 
 # Skill: Career Coach

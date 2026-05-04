@@ -5,6 +5,15 @@ compatibility: opencode
 when_to_use: "When the user wants to collect career data from external sources."
 model: medium
 user-invocable: false
+hub-skill-ids:
+  - career-intelligence
+  - data-gathering
+allowed-tools:
+  - Bash
+  - Read
+  - Glob
+  - mcp__nerv-memory__memory_search
+  - mcp__nerv-memory__memory_get
 ---
 
 # Skill: Career Gather

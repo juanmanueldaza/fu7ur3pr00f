@@ -5,6 +5,13 @@ compatibility: opencode
 when_to_use: "When the user wants to view or edit their career profile."
 model: low
 user-invocable: false
+hub-skill-ids:
+  - career-intelligence
+  - configuration
+allowed-tools:
+  - Bash
+  - Read
+  - Edit
 ---
 
 # Skill: Career Profile

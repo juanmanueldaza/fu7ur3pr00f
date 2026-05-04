@@ -5,6 +5,15 @@ compatibility: opencode
 when_to_use: "When the user wants to create or update their CV/resume."
 model: high
 user-invocable: false
+hub-skill-ids:
+  - career-intelligence
+  - generation
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - mcp__nerv-memory__memory_search
+  - mcp__nerv-memory__memory_recall
 ---
 
 # Skill: Career CV

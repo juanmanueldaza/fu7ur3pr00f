@@ -4,12 +4,12 @@
 
 | Name | Description | When to Use | Model | Hub Skill IDs |
 |------|-------------|-------------|-------|---------------|
-| `career-analyze` | Analyze skill gaps, career alignment, and market fit using C… | When the user wants career analysis, skill gap assessment, o… | high | — |
-| `career-coach` | Provide career advice, remember decisions, and guide career … | When the user asks for career advice, coaching, or decision … | medium | — |
-| `career-cv` | Generate ATS-optimized CVs in Markdown and PDF format. | When the user wants to create or update their CV/resume. | high | — |
-| `career-gather` | Gather professional data: LinkedIn, GitHub, CliftonStrengths… | When the user wants to collect career data from external sou… | medium | — |
-| `career-profile` | View and manage career profile, goals, and preferences. | When the user wants to view or edit their career profile. | low | — |
-| `career-search` | Search job boards, scan company portals, and track applicati… | When the user wants to search for jobs or track applications… | medium | — |
+| `career-analyze` | Analyze skill gaps, career alignment, and market fit using C… | When the user wants career analysis, skill gap assessment, o… | high | career-intelligence, analysis |
+| `career-coach` | Provide career advice, remember decisions, and guide career … | When the user asks for career advice, coaching, or decision … | medium | career-intelligence, coaching |
+| `career-cv` | Generate ATS-optimized CVs in Markdown and PDF format. | When the user wants to create or update their CV/resume. | high | career-intelligence, generation |
+| `career-gather` | Gather professional data: LinkedIn, GitHub, CliftonStrengths… | When the user wants to collect career data from external sou… | medium | career-intelligence, data-gathering |
+| `career-profile` | View and manage career profile, goals, and preferences. | When the user wants to view or edit their career profile. | low | career-intelligence, configuration |
+| `career-search` | Search job boards, scan company portals, and track applicati… | When the user wants to search for jobs or track applications… | medium | career-intelligence, search |
 | `code` | Python language standards: type hints, error handling, loggi… | When writing or reviewing *.py source files. | medium | implementation, review, refactoring |
 | `commits` | Conventional commit format: type(scope): description. Rules … | Any commit creation, PR preparation, or branch cleanup. | medium | — |
 | `git-ops` | Git operations: status, diff, log, branch, add, commit follo… |  | medium | — |

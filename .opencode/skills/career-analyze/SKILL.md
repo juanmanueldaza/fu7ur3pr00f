@@ -5,6 +5,16 @@ compatibility: opencode
 when_to_use: "When the user wants career analysis, skill gap assessment, or market positioning."
 model: high
 user-invocable: false
+hub-skill-ids:
+  - career-intelligence
+  - analysis
+allowed-tools:
+  - Bash
+  - Read
+  - WebFetch
+  - mcp__nerv-memory__memory_search
+  - mcp__nerv-memory__memory_recall
+  - mcp__nerv-memory__memory_save
 ---
 
 # Skill: Career Analyze

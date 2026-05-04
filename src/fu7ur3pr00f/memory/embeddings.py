@@ -85,7 +85,7 @@ class AzureOpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
     def client(self) -> Any:
         """Lazy-load the Azure OpenAI client."""
         if self._client is None:
-            from openai import AzureOpenAI
+            from openai import AzureOpenAI  # pyright: ignore[reportMissingImports]
 
             self._client = AzureOpenAI(
                 api_key=self._api_key,
@@ -118,7 +118,7 @@ class OpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
     def client(self) -> Any:
         """Lazy-load the OpenAI client."""
         if self._client is None:
-            from openai import OpenAI
+            from openai import OpenAI  # pyright: ignore[reportMissingImports]
 
             kwargs: dict[str, Any] = {"api_key": self._api_key}
             if self._base_url:

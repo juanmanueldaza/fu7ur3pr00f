@@ -105,3 +105,9 @@ uv.lock
 
 .zed/
 /vagrant/.vagrant/
+
+# NERV runtime data (config files like a2a-config.yaml ARE committed)
+.nerv/memory/
+.nerv/hub-state/
+.nerv/logs/
+.nerv/hub.pid

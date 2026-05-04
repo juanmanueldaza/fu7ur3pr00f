@@ -15,7 +15,6 @@ ALL_PROMPTS = [
     "strategic_advice",
     "market_fit",
     "market_skill_gap",
-    "trending_skills",
 ]
 
 

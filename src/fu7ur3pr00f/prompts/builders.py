@@ -14,8 +14,8 @@ from .loader import load_prompt
 class PromptBuilder:
     """Centralized prompt construction service.
 
-    Consolidates prompt building logic previously scattered across
-    orchestrator.py and provides a single point for prompt customization.
+    Consolidates prompt building logic into a single point for
+    prompt customization, load, and format.
     """
 
     # Maps action names to prompt file stems in md/

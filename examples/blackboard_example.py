@@ -15,10 +15,7 @@ def example_blackboard_execution():
     orchestrator = get_orchestrator()
 
     # User's query and profile
-    query = (
-        "I'm a Senior Engineer with 5 years of experience. "
-        "What should my 5-year plan be?"
-    )
+    query = "I'm a Senior Engineer with 5 years of experience. What should my 5-year plan be?"
     user_profile = {
         "role": "Senior Engineer",
         "company": "Tech Startup",
@@ -35,9 +32,7 @@ def example_blackboard_execution():
     print("BLACKBOARD PATTERN: Multi-Specialist Career Analysis")
     print("=" * 70)
     print(f"Query: {query}")
-    print(
-        f"Profile: {user_profile['role']} with {user_profile['years_experience']} years"
-    )
+    print(f"Profile: {user_profile['role']} with {user_profile['years_experience']} years")
     print("=" * 70)
     print()
 
@@ -48,10 +43,7 @@ def example_blackboard_execution():
     def on_start(specialist_name: str):
         """Callback when a specialist starts."""
         specialist_count["count"] += 1
-        print(
-            f"[{specialist_count['count']:2d}] {specialist_name.upper():10s} "
-            f"analyzing..."
-        )
+        print(f"[{specialist_count['count']:2d}] {specialist_name.upper():10s} analyzing...")
 
     def on_complete(specialist_name: str, finding: dict):
         """Callback when a specialist finishes."""

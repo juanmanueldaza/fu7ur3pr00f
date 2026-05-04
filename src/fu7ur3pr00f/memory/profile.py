@@ -16,9 +16,8 @@ from typing import Any
 
 import yaml
 
-from fu7ur3pr00f.container import container
-from fu7ur3pr00f.services.exceptions import ServiceError
 from fu7ur3pr00f.utils.logging import get_logger
+from fu7ur3pr00f.utils.security import secure_open
 
 # Serialize concurrent profile reads/writes (parallel tool calls)
 _profile_lock = threading.Lock()
@@ -191,7 +190,7 @@ class UserProfile:
 
 def get_profile_path() -> Path:
     """Get the path to the user profile YAML file."""
-    return container.get_data_dir() / "profile.yaml"
+    return Path.home() / ".fu7ur3pr00f" / "profile.yaml"
 
 
 def load_profile() -> UserProfile:
@@ -213,10 +212,10 @@ def load_profile() -> UserProfile:
         with path.open(encoding="utf-8") as f:
             data = yaml.safe_load(f)
         if data is None:
-            raise ServiceError(f"Profile file is empty or corrupt: {path}")
+            raise ValueError(f"Profile file is empty or corrupt: {path}")
         return UserProfile.from_dict(data)
     except (yaml.YAMLError, OSError) as e:
-        raise ServiceError(f"Could not load profile: {path}") from e
+        raise ValueError(f"Could not load profile: {path}") from e
 
 
 def save_profile(profile: UserProfile) -> None:
@@ -233,7 +232,7 @@ def save_profile(profile: UserProfile) -> None:
     profile.last_updated = datetime.now().isoformat()
 
     # Write with restricted permissions (owner read/write only, no TOCTOU)
-    with container.security_utils.secure_open(path) as f:
+    with secure_open(path) as f:
         yaml.dump(
             profile.to_dict(),
             f,
@@ -258,9 +257,4 @@ def edit_profile(modifier: Callable[["UserProfile"], None]) -> "UserProfile":
         profile = load_profile()
         modifier(profile)
         save_profile(profile)
-        try:
-            # Invalidate container cache
-            container.reload_profile()
-        except Exception:
-            pass
         return profile

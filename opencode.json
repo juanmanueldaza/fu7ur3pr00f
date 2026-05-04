@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "mcp": {
+    "nerv-memory": {
+      "type": "local",
+      "command": ["uv", "run", "nerv-memory"]
+    },
+    "nerv-hub": {
+      "type": "local",
+      "command": ["uv", "run", "nerv-hub"]
+    }
+  }
+}

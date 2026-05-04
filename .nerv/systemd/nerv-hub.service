@@ -1,0 +1,15 @@
+[Unit]
+Description=NERV A2A Hub for fu7ur3pr00f
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ultravietnamita/Projects/fu7ur3pr00f
+ExecStart=/home/ultravietnamita/.local/bin/nerv hub start
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/ultravietnamita/Projects/fu7ur3pr00f/.nerv/logs/hub.log
+StandardError=append:/home/ultravietnamita/Projects/fu7ur3pr00f/.nerv/logs/hub.log
+
+[Install]
+WantedBy=default.target

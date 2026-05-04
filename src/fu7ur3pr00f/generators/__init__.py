@@ -1,5 +1,5 @@
-"""CV and report generators."""
+"""CV generators — markdown cleaning and PDF rendering."""
 
-from .cv_generator import create_cv
+from .cv_generator import render_cv_pdf, save_cv_markdown
 
-__all__ = ["create_cv"]
+__all__ = ["render_cv_pdf", "save_cv_markdown"]

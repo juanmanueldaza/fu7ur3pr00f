@@ -1,6 +1,5 @@
-"""Memory subsystem — ChromaDB stores, chunking, profile, checkpointing."""
+"""Memory subsystem — ChromaDB stores, chunking, profile."""
 
-from .checkpointer import get_checkpointer, get_data_dir
 from .chunker import Section
 
-__all__ = ["Section", "get_checkpointer", "get_data_dir"]
+__all__ = ["Section"]

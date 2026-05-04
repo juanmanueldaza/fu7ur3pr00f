@@ -1,391 +1,79 @@
-"""Configuration management using pydantic-settings.
+"""Minimal configuration — path management and essential settings.
 
-Architecture:
-- ``LLMProviderMixin``  — provider keys, model selection, temperatures
-- ``IntegrationMixin``  — MCP servers, market data, caching
-- ``KnowledgeMixin``    — RAG / knowledge base settings
-- ``PathManager``       — directory path computation and creation
-- ``Settings``          — composes all mixins; single env-loaded instance
+After the opencode-first redesign, fu7ur3pr00f defers LLM provider selection
+and model orchestration to opencode. This module handles only filesystem paths
+and a few essential constants.
 """
 
-from collections.abc import Callable
+import os
 from pathlib import Path
-
-from dotenv import set_key
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .utils.security import secure_mkdir
 
-# User-level config lives alongside profile and memory data.
-_USER_ENV_PATH = Path.home() / ".fu7ur3pr00f" / ".env"
-
-
-# ── Path management (extracted from Settings for SRP) ────────────────────────
-
 
 class PathManager:
-    """Manages application directory paths under ~/.fu7ur3pr00f/.
-
-    Separated from Settings so path logic doesn't bloat the config class.
-    """
+    """Manages application directory paths under ~/.fu7ur3pr00f/."""
 
     @property
     def data_dir(self) -> Path:
-        """Get the data directory (~/.fu7ur3pr00f/data/)."""
-        return Path.home() / ".fu7ur3pr00f" / "data"
+        return Path.home() / ".fu7ur3pr00f"
 
     @property
     def raw_dir(self) -> Path:
-        """Get the raw data directory."""
-        return self.data_dir / "raw"
+        return self.data_dir / "data" / "raw"
 
     @property
     def processed_dir(self) -> Path:
-        """Get the processed data directory."""
-        return self.data_dir / "processed"
+        return self.data_dir / "data" / "processed"
 
     @property
     def output_dir(self) -> Path:
-        """Get the output directory."""
-        return self.data_dir / "output"
+        return self.data_dir / "data" / "output"
 
     @property
     def market_cache_dir(self) -> Path:
-        """Get the market cache directory."""
-        return self.data_dir / "market_cache"
+        return self.data_dir / "data" / "market_cache"
 
     def ensure_directories(self) -> None:
-        """Create all required directories with restrictive permissions."""
         secure_mkdir(self.data_dir)
-        for dir_path in [
-            self.raw_dir,
-            self.processed_dir,
-            self.output_dir,
-            self.market_cache_dir,
-        ]:
-            secure_mkdir(dir_path)
-
-    def factory_reset(self) -> int:
-        """Delete generated data and config, returning the number of items cleared.
-
-        Preserves data/raw/ (LinkedIn ZIPs, PDFs).
-        """
-        import shutil
-
-        home_dir = self.data_dir.parent
-
-        targets = [
-            ("Conversations & checkpoints", home_dir / "memory.db"),
-            ("User profile", home_dir / "profile.yaml"),
-            ("Knowledge base & episodic memory", home_dir / "episodic"),
-            ("Log file", home_dir / "fu7ur3pr00f.log"),
-            ("Generated CVs", self.output_dir),
-            ("Processed data", self.processed_dir),
-            ("Market cache", self.market_cache_dir),
-        ]
-
-        deleted = 0
-        for _label, path in targets:
-            if not path.exists():
-                continue
-            if path.is_dir():
-                if path.name in ("output", "processed"):
-                    for item in path.iterdir():
-                        if item.name == ".gitkeep":
-                            continue
-                        if item.is_dir():
-                            shutil.rmtree(item, ignore_errors=True)
-                        else:
-                            item.unlink()
-                else:
-                    shutil.rmtree(path, ignore_errors=True)
-            else:
-                path.unlink()
-            deleted += 1
-
-        self.ensure_directories()
-        return deleted
+        for d in [self.raw_dir, self.processed_dir, self.output_dir, self.market_cache_dir]:
+            secure_mkdir(d)
 
 
-# ── Mixin: LLM provider keys, models, temperatures ───────────────────────────
+class Settings(PathManager):
+    """Minimal settings — paths plus a few env-driven constants."""
 
+    knowledge_chunk_max_tokens: int = int(os.getenv("KNOWLEDGE_CHUNK_MAX_TOKENS", "500"))
+    knowledge_chunk_min_tokens: int = int(os.getenv("KNOWLEDGE_CHUNK_MIN_TOKENS", "50"))
+    knowledge_auto_index: bool = os.getenv("KNOWLEDGE_AUTO_INDEX", "1") == "1"
 
-class LLMProviderMixin(BaseSettings):
-    """LLM provider configuration — keys, models, temperatures."""
-
-    model_config = SettingsConfigDict(extra="ignore")
-
-    # Provider selection (auto-detected from available keys if empty)
-    llm_provider: str = (
-        ""  # "fu7ur3pr00f", "openai", "anthropic", "google", "azure", "ollama"
+    # Embedding provider: "openai", "azure", "ollama", or "" (local fallback)
+    embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "")
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "")
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    azure_openai_api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")
+    azure_openai_endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+    azure_openai_api_version: str = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+    azure_embedding_deployment: str = os.getenv(
+        "AZURE_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
     )
-
-    # fu7ur3pr00f Proxy (zero-config with starter tokens)
-    fu7ur3pr00f_proxy_url: str = "https://llm.fu7ur3pr00f.dev"
-    fu7ur3pr00f_proxy_key: str = Field(default="", repr=False)
-
-    # OpenAI
-    openai_api_key: str = Field(default="", repr=False)
-
-    # Anthropic
-    anthropic_api_key: str = Field(default="", repr=False)
-
-    # Google Gemini
-    google_api_key: str = Field(default="", repr=False)
-
-    # Azure OpenAI / AI Foundry
-    azure_openai_api_key: str = Field(default="", repr=False)
-    azure_openai_endpoint: str = ""
-    azure_openai_api_version: str = "2024-12-01-preview"
-    azure_embedding_deployment: str = "text-embedding-3-small"
-    azure_agent_deployment: str = "gpt-5-mini"
-    azure_analysis_deployment: str = "gpt-4.1"
-    azure_summary_deployment: str = "gpt-4o-mini"
-    azure_synthesis_deployment: str = "o4-mini"
-
-    @field_validator("azure_openai_endpoint")
-    @classmethod
-    def _clean_azure_endpoint(cls, v: str) -> str:
-        """Strip AI Foundry project path and validate URL format."""
-        if not v:
-            return v
-        idx = v.find("/api/projects/")
-        if idx != -1:
-            v = v[:idx]
-        v = v.rstrip("/")
-        if not v.startswith(("https://", "http://")):
-            raise ValueError(
-                "Endpoint must be a URL starting with https:// "
-                "(e.g. https://myresource.openai.azure.com). "
-                "Run /setup to fix."
-            )
-        return v
-
-    # Ollama (local models)
-    ollama_base_url: str = ""
-
-    # Purpose-specific models (provider-agnostic, optional)
-    agent_model: str = ""
-    analysis_model: str = ""
-    summary_model: str = ""
-    synthesis_model: str = ""
-    embedding_model: str = ""
-
-    # Temperatures
-    llm_temperature: float = 0.3
-    cv_temperature: float = 0.2
-
-    # ── Provider detection properties ─────────────────────────────────────
-
-    @property
-    def has_proxy(self) -> bool:
-        """Check if fu7ur3pr00f proxy is configured."""
-        return bool(self.fu7ur3pr00f_proxy_key)
-
-    @property
-    def has_openai(self) -> bool:
-        """Check if OpenAI is configured (key must start with sk-)."""
-        return bool(self.openai_api_key and self.openai_api_key.startswith("sk-"))
-
-    @property
-    def has_anthropic(self) -> bool:
-        """Check if Anthropic is configured."""
-        return bool(self.anthropic_api_key)
-
-    @property
-    def has_google(self) -> bool:
-        """Check if Google Gemini is configured."""
-        return bool(self.google_api_key)
-
-    @property
-    def has_azure(self) -> bool:
-        """Check if Azure OpenAI is configured."""
-        return bool(self.azure_openai_api_key and self.azure_openai_endpoint)
-
-    @property
-    def has_ollama(self) -> bool:
-        """Check if Ollama is configured."""
-        return bool(self.ollama_base_url)
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    fu7ur3pr00f_proxy_key: str = os.getenv("FUTUREPROOF_PROXY_KEY", "")
+    fu7ur3pr00f_proxy_url: str = os.getenv("FUTUREPROOF_PROXY_URL", "https://llm.fu7ur3pr00f.dev")
 
     @property
     def active_provider(self) -> str:
-        """Determine the active LLM provider.
-
-        Priority: explicit setting > proxy > Azure > OpenAI >
-        Anthropic > Google > Ollama.
-        """
-        if self.llm_provider:
-            return self.llm_provider
-        if self.has_proxy:
-            return "fu7ur3pr00f"
-        if self.has_azure:
+        if self.embedding_provider:
+            return self.embedding_provider
+        if self.azure_openai_api_key and self.azure_openai_endpoint:
             return "azure"
-        if self.has_openai:
+        if self.openai_api_key:
             return "openai"
-        if self.has_anthropic:
-            return "anthropic"
-        if self.has_google:
-            return "google"
-        if self.has_ollama:
+        if self.fu7ur3pr00f_proxy_key:
+            return "fu7ur3pr00f"
+        if self.ollama_base_url:
             return "ollama"
         return ""
 
-    def is_provider_configured(self, provider: str) -> bool:
-        """Check if an LLM provider is configured."""
-        provider_checks = {
-            "fu7ur3pr00f": self.has_proxy,
-            "openai": self.has_openai,
-            "anthropic": self.has_anthropic,
-            "google": self.has_google,
-            "azure": self.has_azure,
-            "ollama": self.has_ollama,
-        }
-        return provider_checks.get(provider, False)
 
-
-# ── Mixin: Integrations (MCP, market, caching) ──────────────────────────────
-
-
-class IntegrationMixin(BaseSettings):
-    """Integration configuration — MCP servers, market data, caching."""
-
-    model_config = SettingsConfigDict(extra="ignore")
-
-    # GitHub MCP Server
-    github_personal_access_token: str = Field(default="", repr=False)
-    github_mcp_token: str = Field(default="", repr=False)
-    github_mcp_command: str = "github-mcp-server"
-
-    # Market Intelligence MCP
-    tavily_api_key: str = Field(default="", repr=False)
-
-    # JobSpy (no auth required, MIT licensed)
-    jobspy_enabled: bool = True
-
-    # Hacker News (no auth required, uses Algolia API)
-    hn_mcp_enabled: bool = True
-
-    # Market data caching (hours)
-    market_cache_hours: int = 24
-    job_cache_hours: int = 12
-    content_cache_hours: int = 12
-    forex_cache_hours: int = 4
-
-    # Values filter (ethical opportunity scoring)
-    values_filter_enabled: bool = False
-
-    # ── Integration properties ────────────────────────────────────────────
-
-    @property
-    def github_mcp_token_resolved(self) -> str:
-        """Get GitHub MCP token from various sources."""
-        if self.github_mcp_token:
-            return self.github_mcp_token
-        if self.github_personal_access_token:
-            return self.github_personal_access_token
-        return ""
-
-    @property
-    def has_github_mcp(self) -> bool:
-        """Check if GitHub MCP is configured."""
-        return bool(self.github_mcp_token_resolved)
-
-    @property
-    def has_tavily_mcp(self) -> bool:
-        """Check if Tavily MCP is configured."""
-        return bool(self.tavily_api_key)
-
-    def is_integration_configured(self, integration_id: str) -> bool:
-        """Check if an integration has its required keys configured."""
-        checks = {
-            "github": self.has_github_mcp,
-            "tavily": self.has_tavily_mcp,
-        }
-        return checks.get(integration_id, False)
-
-
-# ── Mixin: Knowledge base (RAG) ──────────────────────────────────────────────
-
-
-class KnowledgeMixin(BaseSettings):
-    """Knowledge base / RAG configuration."""
-
-    model_config = SettingsConfigDict(extra="ignore")
-
-    knowledge_auto_index: bool = True
-    knowledge_chunk_max_tokens: int = 500
-    knowledge_chunk_min_tokens: int = 50
-
-
-# ── Main Settings class (composes all mixins + PathManager) ──────────────────
-
-
-class Settings(LLMProviderMixin, IntegrationMixin, KnowledgeMixin, PathManager):
-    """Application settings loaded from environment variables.
-
-    Composes:
-    - ``LLMProviderMixin`` — provider keys, models, temperatures
-    - ``IntegrationMixin`` — MCP servers, market data, caching
-    - ``KnowledgeMixin``   — RAG / knowledge base settings
-    - ``PathManager``      — directory path computation and creation
-    """
-
-    model_config = SettingsConfigDict(
-        env_file=(".env", str(_USER_ENV_PATH)),
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-    # User profiles
-    portfolio_url: str = "https://daza.ar"
-
-
-# Global settings instance
 settings = Settings()
-
-
-def get_user_env_path() -> Path:
-    """Path to the user-level .env file (~/.fu7ur3pr00f/.env)."""
-    return _USER_ENV_PATH
-
-
-def _clean_endpoint_value(value: str) -> str:
-    """Strip AI Foundry project path and trailing slash from endpoint URL."""
-    idx = value.find("/api/projects/")
-    if idx != -1:
-        value = value[:idx]
-    return value.rstrip("/")
-
-
-_SETTING_CLEANERS: dict[str, Callable[[str], str]] = {
-    "AZURE_OPENAI_ENDPOINT": _clean_endpoint_value,
-}
-
-
-def write_user_setting(key: str, value: str) -> None:
-    """Write a key=value pair to the user-level .env file.
-
-    Creates the file with 0o600 permissions if it doesn't exist.
-    Uses python-dotenv's set_key() for safe read-modify-write.
-    """
-    cleaner = _SETTING_CLEANERS.get(key)
-    if cleaner:
-        value = cleaner(value)
-    env_path = get_user_env_path()
-    secure_mkdir(env_path.parent)
-    if not env_path.exists():
-        env_path.touch(mode=0o600)
-    set_key(str(env_path), key, value)
-    env_path.chmod(0o600)
-
-
-def reload_settings() -> None:
-    """Reload settings from env files, updating the global singleton in-place.
-
-    All modules that imported ``settings`` by name keep their reference to
-    the same object, so mutating it ensures everyone sees the new values.
-    """
-    new = Settings()
-    for field_name in Settings.model_fields:
-        setattr(settings, field_name, getattr(new, field_name))

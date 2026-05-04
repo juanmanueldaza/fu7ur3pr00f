@@ -1,7 +1,7 @@
 [project]
 name = "fu7ur3pr00f"
 version = "0.2.0"
-description = "Career intelligence system - gather professional data, generate CVs, analyze career alignment"
+description = "Career intelligence opencode workspace — skills, commands, and scripts for gathering, analyzing, and generating career data"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "GPL-2.0-only"
@@ -20,46 +20,30 @@ classifiers = [
 dependencies = [
     # Core
     "typer>=0.15",
-    # click<8.3 required: cli.py patches make_metavar() for Typer 0.24 compat.
-    # Remove upper bound once Typer supports Click 8.3+ natively.
-    "click>=8.1,<8.3",
+    "click>=8.1",
     "pydantic-settings>=2",
     "pyyaml>=6",
     "rich>=14",
-    # AI/LLM
-    "langchain>=0.3",
-    "langgraph>=0.3",
-    "langchain-openai>=0.3",
-    "langchain-anthropic>=0.3",
-    "langchain-google-genai>=2",
-    "langchain-ollama>=0.3",
     # Data gathering
     "httpx>=0.28",
     "beautifulsoup4>=4",
     "defusedxml>=0.7",
-    "nh3>=0.2",  # HTML sanitization
+    "nh3>=0.2",
     # MCP (Model Context Protocol)
     "mcp>=1.26",
     # Generation
     "weasyprint>=62",
     "markdown>=3.10.1",
     "python-jobspy>=1.1.82",
-    "langgraph-checkpoint-sqlite>=3.0.3",
-    "textual>=0.80.0",
-    "terminaltexteffects>=0.14",
     "chromadb>=1.4.1",
     # Testing
     "pytest-asyncio>=0.23",
-    "pytest-textual-snapshot",
 ]
 
 [project.urls]
 Homepage = "https://github.com/juanmanueldaza/fu7ur3pr00f"
 Repository = "https://github.com/juanmanueldaza/fu7ur3pr00f"
 "Bug Tracker" = "https://github.com/juanmanueldaza/fu7ur3pr00f/issues"
-
-[project.scripts]
-fu7ur3pr00f = "fu7ur3pr00f.cli:app"
 
 [build-system]
 requires = ["hatchling"]

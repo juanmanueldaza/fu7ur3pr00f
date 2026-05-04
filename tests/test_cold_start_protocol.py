@@ -73,11 +73,7 @@ class TestColdStartProtocol:
     def test_cold_start_in_analyze_gaps(self):
         """Cold Start Protocol should also be referenced in analyze_gaps prompt."""
         content = load_prompt("analyze_gaps")
-        assert (
-            "Cold Start" in content
-            or "Day 0" in content
-            or "blueprint" in content.lower()
-        )
+        assert "Cold Start" in content or "Day 0" in content or "blueprint" in content.lower()
 
     def test_cold_start_provides_timeline(self):
         """Cold Start Protocol must include concrete timelines."""
@@ -208,8 +204,7 @@ class TestSubstanceOverSyntax:
         assert "Action Verb" in content
         # Should list strong verbs
         assert any(
-            verb in content
-            for verb in ["Architected", "Shipped", "Drove", "Migrated", "Pioneered"]
+            verb in content for verb in ["Architected", "Shipped", "Drove", "Migrated", "Pioneered"]
         )
 
 
@@ -238,10 +233,7 @@ class TestDataFidelity:
         """Specialist guidance must require GitHub fetch before repo claims."""
         content = load_prompt("specialist_guidance")
         content_lower = content.lower()
-        assert (
-            "github data fetch" in content_lower
-            or "get_github_profile" in content_lower
-        )
+        assert "github data fetch" in content_lower or "get_github_profile" in content_lower
         assert (
             "cannot make claims about specific repos" in content_lower
             or "critical" in content_lower

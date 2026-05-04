@@ -1,0 +1,35 @@
+# Career Profile Template
+# Copy to config/profile.yml and edit with your details
+
+identity:
+  name: ""
+  email: ""
+  location: ""
+  github_username: ""
+  gitlab_username: ""
+
+professional:
+  current_role: ""
+  years_experience: 0
+  industries: []
+
+skills:
+  technical: []
+  soft: []
+  languages: []
+  certifications: []
+
+career:
+  goals:
+    - description: ""
+      target_date: ""
+      priority: medium  # low | medium | high
+      status: active     # active | completed | abandoned
+      notes: []
+  target_roles: []
+  target_companies: []
+  deal_breakers: []
+
+preferences:
+  work_style: ""    # remote | hybrid | onsite
+  salary_expectations: ""

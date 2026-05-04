@@ -76,9 +76,7 @@ class AzureOpenAIEmbeddingFunction(_TruncatingEmbeddingFunction):
         self._api_key = api_key or settings.azure_openai_api_key
         self._endpoint = endpoint or settings.azure_openai_endpoint
         self._deployment = (
-            deployment
-            or settings.azure_embedding_deployment
-            or "text-embedding-3-small"
+            deployment or settings.azure_embedding_deployment or "text-embedding-3-small"
         )
         self._api_version = api_version or settings.azure_openai_api_version
         self._client: Any = None
@@ -152,9 +150,7 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
         if self._client is None:
             import httpx
 
-            self._client = httpx.Client(
-                base_url=self._base_url, timeout=HTTP_TIMEOUT_LONG
-            )
+            self._client = httpx.Client(base_url=self._base_url, timeout=HTTP_TIMEOUT_LONG)
             logger.debug("Ollama embedding client initialized")
         return self._client
 
@@ -215,9 +211,7 @@ class CachedEmbeddingFunction(EmbeddingFunction[Documents]):
             new_embeddings = self._base(uncached_docs)
 
             # Update results and cache
-            for idx, doc, emb in zip(
-                uncached_indices, uncached_docs, new_embeddings, strict=True
-            ):  # noqa: E501
+            for idx, doc, emb in zip(uncached_indices, uncached_docs, new_embeddings, strict=True):  # noqa: E501
                 results[idx] = emb
 
                 # Add to cache (evict oldest if full)
@@ -265,9 +259,7 @@ def get_embedding_function() -> EmbeddingFunction[Documents] | None:
                 if provider == "fu7ur3pr00f"
                 else settings.openai_api_key
             )
-            base_url = (
-                settings.fu7ur3pr00f_proxy_url if provider == "fu7ur3pr00f" else None
-            )
+            base_url = settings.fu7ur3pr00f_proxy_url if provider == "fu7ur3pr00f" else None
             logger.info("Using %s embeddings", provider)
             base = OpenAIEmbeddingFunction(
                 api_key=api_key,

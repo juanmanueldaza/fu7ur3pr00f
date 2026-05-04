@@ -64,9 +64,7 @@ class PortfolioMarkdownWriter:
         """Generate document header."""
         title = content.title or "Personal Portfolio"
         text = (
-            f"**Title:** {title}\n"
-            f"**URL:** {content.url}\n"
-            f"**Scraped:** {datetime.now().isoformat()}"
+            f"**Title:** {title}\n**URL:** {content.url}\n**Scraped:** {datetime.now().isoformat()}"
         )
         return Section("Header", text)
 

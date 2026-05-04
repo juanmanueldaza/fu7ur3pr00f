@@ -3,9 +3,19 @@
 [![Python Version](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](LICENSE)
 
-Career intelligence opencode workspace — skills, commands, and scripts for gathering professional data, analyzing career trajectories, generating ATS-optimized CVs, and searching job boards.
+Invisible infrastructure that harnesses AI agents for career intelligence.
 
-Powered by [opencode](https://opencode.ai) with [nerv](https://github.com/juanmanueldaza/nerv) for memory and agent orchestration.
+[Concept map](FUTUREPROOF.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Coexisting with NERV](docs/COEXISTENCE.md) · [Contributing](CONTRIBUTING.md)
+
+Powered by [opencode](https://opencode.ai). Pattern-aligned with [nerv](https://github.com/juanmanueldaza/nerv) — same architecture philosophy, different domain.
+
+## Why fu7ur3pr00f?
+
+Career management is broken. Your professional data is scattered across LinkedIn ZIP exports, PDF assessments, plain-text CVs, and portfolio websites. None of it talks to each other. Job searches are manual and repetitive. CV generation is tedious and rarely ATS-optimized. There's no memory of past decisions or applications.
+
+fu7ur3pr00f fixes this with the same approach nerv uses for software engineering: **harness engineering** — invisible infrastructure that gives AI agents the tools, data, and context to operate intelligently on your behalf.
+
+It collects your professional data, indexes it into a vector database, and provides AI-powered analysis, CV generation, job search, and career coaching — all through opencode, the open source AI agent runtime.
 
 ## Quick Start
 
@@ -20,11 +30,11 @@ opencode
 ```
 
 In opencode, use slash commands:
-- `/gather` — Import LinkedIn, GitHub, CliftonStrengths, CV
-- `/analyze` — Get skill gap analysis
+- `/gather` — Import LinkedIn, CliftonStrengths, CV, portfolio
+- `/analyze` — Skill gap analysis, career alignment, market fit
+- `/generate` — ATS-optimized CV (Markdown + PDF)
 - `/search` — Search job boards, track applications
-- `/generate` — Create ATS-optimized CV (Markdown + PDF)
-- `/profile` — View/edit career profile
+- `/profile` — View/edit career identity, goals, preferences
 
 ## Architecture
 
@@ -32,23 +42,25 @@ In opencode, use slash commands:
 opencode CLI
     │
     ▼
-.opencode/skills/career-*/SKILL.md     ← Instructions for AI
-.opencode/commands/*.md                 ← User slash commands
+.opencode/skills/career-*/SKILL.md     ← AI instructions (Compass, Forge, Observatory)
+.opencode/commands/*.md                 ← Slash commands
     │
     ▼
-scripts/gather/*.py                     ← Data gathering entry points
-scripts/generate/*.py                   ← PDF rendering
+scripts/gather/*.py                     ← Data ingestion (Chronograph, Repository)
+scripts/generate/*.py                   ← PDF rendering (Forge)
     │
     ▼
 src/fu7ur3pr00f/
-  ├── gatherers/    ← LinkedIn, GitHub, CliftonStrengths, CV parsers
+  ├── gatherers/    ← LinkedIn, CliftonStrengths, CV, portfolio parsers
   ├── generators/   ← Markdown → PDF (WeasyPrint)
-  ├── memory/       ← ChromaDB knowledge + episodic memory
+  ├── memory/       ← ChromaDB knowledge + episodic memory (Repository)
   └── utils/        ← Security, data loading
     │
     ▼
-ChromaDB (via nerv-memory MCP)
+ChromaDB (~/.fu7ur3pr00f/)              ← Vector search, semantic recall
 ```
+
+See [FUTUREPROOF.md](FUTUREPROOF.md) for the full concept map and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the component breakdown.
 
 ## Career Commands
 
@@ -60,9 +72,18 @@ ChromaDB (via nerv-memory MCP)
 | `/search` | Search job boards, track applications |
 | `/generate` | Generate ATS-optimized CV (Markdown + PDF) |
 
+## Coexisting with NERV
+
+fu7ur3pr00f and [nerv](https://github.com/juanmanueldaza/nerv) coexist cleanly. They share a runtime (opencode) and an architectural philosophy but operate on entirely separate data:
+
+- nerv: `.nerv/` directory, engineering knowledge, A2A hub for agent task delegation
+- fu7ur3pr00f: `~/.fu7ur3pr00f/` directory, career knowledge, no daemons or hub
+
+See [docs/COEXISTENCE.md](docs/COEXISTENCE.md) for the full breakdown.
+
 ## Configuration
 
-Create a profile at `config/profile.yml`:
+Create or edit your profile at `~/.fu7ur3pr00f/profile.yaml`:
 
 ```yaml
 identity:
@@ -76,8 +97,8 @@ professional:
   years_experience: 8
 
 skills:
-  technical: [Python, TypeScript, Kubernetes, ...]
-  soft: [Leadership, Communication, ...]
+  technical: [Python, TypeScript, Kubernetes]
+  soft: [Leadership, Communication]
 
 career:
   target_roles: [Staff Engineer, Engineering Manager]
@@ -110,7 +131,7 @@ uv run python scripts/generate/render_cv.py ~/.fu7ur3pr00f/data/output/cv.md
 
 ## Tech Stack
 
-Python 3.13 · opencode · ChromaDB · nerv (memory + hub) · WeasyPrint · MCP
+Python 3.13 · opencode · ChromaDB · WeasyPrint · MCP · pattern-aligned with nerv
 
 ## Development
 

@@ -2,14 +2,16 @@
 
 ## Project Stack
 
-**Stack**: python — opencode-native workspace (like career-ops).
+**Stack**: python — opencode-native workspace. Harness engineering for career intelligence.
 
 fu7ur3pr00f is NOT a standalone application. It is an opencode workspace: a set of skills, commands, and Python utility scripts. opencode is the agent runtime.
+
+See [FUTUREPROOF.md](FUTUREPROOF.md) for the concept map and vision statement.
 
 ## Architecture
 
 ```
-opencode CLI → .opencode/skills/*.md → Python scripts (heavy lifting) → ChromaDB (nerv-memory)
+opencode CLI → .opencode/skills/*.md → Python scripts (heavy lifting) → ChromaDB (career knowledge + episodic memories)
 ```
 
 - **Skills** (`.opencode/skills/career-*/SKILL.md`): Instructions for opencode on HOW to perform career operations

@@ -1,7 +1,7 @@
 [project]
 name = "fu7ur3pr00f"
-version = "0.2.0"
-description = "Career intelligence opencode workspace — skills, commands, and scripts for gathering, analyzing, and generating career data"
+version = "0.3.0"
+description = "Harness engineering for career intelligence — invisible infrastructure that gives AI agents the tools, data, and context to operate on your career"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "GPL-2.0-only"

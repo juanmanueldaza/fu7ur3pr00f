@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/home/ultravietnamita/Projects/fu7ur3pr00f
-ExecStart=/home/ultravietnamita/.local/bin/nerv hub start
+ExecStart=/home/ultravietnamita/.cache/uv/archive-v0/z4LWZHRDPJn4cXCCtUw3e/bin/nerv hub start
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/home/ultravietnamita/Projects/fu7ur3pr00f/.nerv/logs/hub.log

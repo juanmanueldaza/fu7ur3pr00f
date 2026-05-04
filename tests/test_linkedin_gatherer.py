@@ -380,9 +380,7 @@ class TestConnections:
         result = _parse_connections(rows)
         assert result is not None
         assert "###" not in result.content
-        assert (
-            "**Alice Wong** | Company: Accenture | Position: Manager" in result.content
-        )
+        assert "**Alice Wong** | Company: Accenture | Position: Manager" in result.content
 
     def test_parse_connections_partial_fields(self):
         rows = [
@@ -509,8 +507,7 @@ class TestMessages:
                 "FROM": "Recruiter",
                 "DATE": "2024-01-01",
                 "CONTENT": (
-                    '<p class="spinmail">Hi Juan,</p>'
-                    "<p><strong>Great profile!</strong></p>"
+                    '<p class="spinmail">Hi Juan,</p><p><strong>Great profile!</strong></p>'
                 ),
             },
         ]

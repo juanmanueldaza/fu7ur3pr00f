@@ -1,393 +1,139 @@
-"""CV generator using LLM."""
+"""CV generator — markdown-to-PDF rendering.
+
+LLM content generation is handled by opencode via the career-cv skill.
+This module provides the PDF rendering (WeasyPrint) and output management.
+"""
 
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Literal
 
 from ..config import settings
-from ..llm.model_selection import get_model
-from ..prompts import GENERATE_CV_PROMPT
-from ..utils.console import console
-from ..utils.data_loader import load_career_data_for_cv
-from ..utils.security import (
-    anonymize_career_data,
-    sanitize_for_prompt,
-    secure_open,
-    validate_file_size,
-)
+from ..utils.security import secure_open, validate_file_size
 
-markdown: Any = None
-nh3: Any = None
-_WEASY_HTML: Any = None
-_WEASY_DEFAULT_URL_FETCHER: Any = None
-_PDF_SUPPORT: bool = False
+logger = logging.getLogger(__name__)
+
+_PDF_SUPPORT = False
+_WEASY_HTML = None
+_WEASY_DEFAULT_URL_FETCHER = None
+_markdown = None
+_nh3 = None
 
 try:
-    import markdown
-    import nh3
-    from weasyprint import HTML as _weasy_html_local
-    from weasyprint.urls import default_url_fetcher as _weasy_default_url_fetcher_local
+    import markdown as _md
+    import nh3 as _nh3_mod
+    from weasyprint import HTML as _WH
+    from weasyprint.urls import default_url_fetcher as _WDF
 
-    # Assign the imported symbols to the module-level names we use below.
-    _WEASY_HTML = _weasy_html_local
-    _WEASY_DEFAULT_URL_FETCHER = _weasy_default_url_fetcher_local
-
+    _markdown = _md
+    _nh3 = _nh3_mod
+    _WEASY_HTML = _WH
+    _WEASY_DEFAULT_URL_FETCHER = _WDF
     _PDF_SUPPORT = True
 except ImportError:
     pass
 
-logger = logging.getLogger(__name__)
-
-# Security limits
-_MAX_MD_SIZE = 1024 * 1024  # 1MB max markdown file size
-
-# Language and format instructions (DRY: extracted to constants)
-LANGUAGE_INSTRUCTIONS = {
-    "en": "Generate the CV in English.",
-    "es": "Generate the CV in Spanish (Español). All content should be in Spanish.",
-}
-
-FORMAT_INSTRUCTIONS = {
-    "ats": """Focus on ATS optimization:
-- Use standard section headers
-- Include keywords naturally
-- Simple, clean formatting
-- No tables or columns""",
-    "creative": """Use a more creative format:
-- Compelling narrative in summary
-- Highlight unique achievements
-- Show personality while remaining professional""",
-}
+_MAX_MD_SIZE = 1024 * 1024
 
 
 def _clean_llm_output(text: str) -> str:
-    """Clean LLM-generated CV content for PDF rendering.
-
-    Strips code fences and trailing disclaimers that LLMs add on their own.
-    """
+    """Strip code fences and trailing disclaimers from LLM output."""
     stripped = text.strip()
-
-    # Strip wrapping code fences (```markdown ... ```)
     if stripped.startswith("```"):
         if "\n" not in stripped:
-            return stripped  # No newline, can't strip code fence
+            return stripped
         first_newline = stripped.index("\n")
         stripped = stripped[first_newline + 1 :]
         if stripped.rstrip().endswith("```"):
             stripped = stripped.rstrip()[:-3].rstrip()
 
-    # Remove trailing LLM disclaimers (italic or plain text about accuracy/assumptions)
-    stripped = re.sub(
-        r"\n+\*?This CV[^*\n]*\*?\s*$",
-        "",
-        stripped,
-        flags=re.IGNORECASE,
-    )
-
-    # Remove stray trailing code fences (``` on its own line near end)
+    stripped = re.sub(r"\n+\*?This CV[^*\n]*\*?\s*$", "", stripped, flags=re.IGNORECASE)
     stripped = re.sub(r"\n```\s*$", "", stripped)
-
     return stripped.rstrip()
 
 
 def _render_pdf(markdown_path: Path) -> Path:
-    """Convert markdown to styled PDF.
-
-    Args:
-        markdown_path: Path to the markdown file to convert
-
-    Returns:
-        Path to the generated PDF, or markdown_path if PDF is unavailable.
-
-    Raises:
-        ValueError: If markdown file exceeds maximum size limit.
-    """
-    # Security: Validate file size (also checks existence)
+    """Convert markdown to styled PDF via WeasyPrint."""
     validate_file_size(markdown_path, _MAX_MD_SIZE, "Markdown file")
 
     if not _PDF_SUPPORT:
-        console.print(
-            "  [yellow]PDF generation skipped: dependencies not installed[/yellow]"
-        )
+        logger.warning("PDF deps not installed — skipping PDF generation")
         return markdown_path
 
-    assert markdown is not None
-    assert nh3 is not None
-    assert _WEASY_HTML is not None
-    assert _WEASY_DEFAULT_URL_FETCHER is not None
-
-    try:
-        md_content = markdown_path.read_text()
-
-        html_content = markdown.markdown(
-            md_content,
-            extensions=["tables", "fenced_code"],
-        )
-
-        # Sanitize HTML to prevent script injection and malicious content
-        html_content = nh3.clean(
-            html_content,
-            tags={
-                "p",
-                "ul",
-                "ol",
-                "li",
-                "strong",
-                "em",
-                "h1",
-                "h2",
-                "h3",
-                "h4",
-                "h5",
-                "h6",
-                "table",
-                "thead",
-                "tbody",
-                "tr",
-                "th",
-                "td",
-                "a",
-                "br",
-                "hr",
-                "blockquote",
-                "code",
-                "pre",
-            },
-            attributes={"a": {"href"}},
-            strip_comments=True,
-        )
-
-        styled_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        @page {{
-            size: A4;
-            margin: 1.8cm 2.2cm;
-        }}
-        body {{
-            font-family: Georgia, 'Times New Roman', 'DejaVu Serif', serif;
-            font-size: 11pt;
-            line-height: 1.5;
-            color: #2c2416;
-            margin: 0;
-            padding: 0;
-        }}
-        h1 {{
-            font-size: 24pt;
-            font-weight: 700;
-            color: #0d1b2a;
-            margin: 0 0 4px 0;
-            letter-spacing: -0.5px;
-        }}
-        h1 + p {{
-            color: #415a77;
-            font-size: 11pt;
-            margin-top: 0;
-            margin-bottom: 2px;
-        }}
-        h1 + p + p {{
-            color: #6b5c4c;
-            font-size: 9.5pt;
-            margin-top: 0;
-        }}
-        hr {{
-            border: none;
-            border-top: 1.5px solid #b8860b;
-            margin: 14px 0;
-        }}
-        h2 {{
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            font-size: 9.5pt;
-            font-weight: 700;
-            color: #0d1b2a;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            border-bottom: 1.5px solid #b8860b;
-            padding-bottom: 3px;
-            margin-top: 16px;
-            margin-bottom: 8px;
-        }}
-        h3 {{
-            font-size: 11.5pt;
-            font-weight: 600;
-            color: #1b263b;
-            margin-bottom: 1px;
-            margin-top: 10px;
-        }}
-        h3 + p {{
-            margin-top: 0;
-            margin-bottom: 0;
-        }}
-        p {{
-            margin: 4px 0;
-        }}
-        em {{
-            font-style: italic;
-            color: #6b5c4c;
-            font-size: 9.5pt;
-        }}
-        strong {{
-            font-weight: 600;
-            color: #1b263b;
-        }}
-        ul {{
-            padding-left: 16px;
-            margin: 4px 0 8px 0;
-        }}
-        li {{
-            margin-bottom: 2px;
-            color: #3d3428;
-            font-size: 10pt;
-            line-height: 1.45;
-        }}
-        a {{
-            color: #1b4f72;
-            text-decoration: none;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 8px 0;
-            font-size: 10pt;
-        }}
-        th {{
-            text-align: left;
-            font-weight: 600;
-            border-bottom: 1.5px solid #b8860b;
-            padding: 4px 8px;
-            color: #0d1b2a;
-        }}
-        td {{
-            padding: 3px 8px;
-            border-bottom: 1px solid #d4c5a9;
-            color: #3d3428;
-        }}
-    </style>
-</head>
-<body>
-{html_content}
-</body>
-</html>
-"""
-
-        def _deny_url_fetcher(url, timeout=10, ssl_context=None):
-            """Block all external resource fetches from LLM-generated HTML."""
-            if url.startswith("data:"):
-                assert _WEASY_DEFAULT_URL_FETCHER is not None
-                return _WEASY_DEFAULT_URL_FETCHER(url, timeout, ssl_context)
-            raise ValueError(f"External resource fetch blocked: {url}")
-
-        pdf_path = markdown_path.with_suffix(".pdf")
-        _WEASY_HTML(string=styled_html, url_fetcher=_deny_url_fetcher).write_pdf(
-            pdf_path
-        )
-        os.chmod(pdf_path, 0o600)  # Owner read/write only
-        console.print(f"  [dim]PDF generated: {pdf_path}[/dim]")
-        return pdf_path
-
-    except ImportError as e:
-        console.print(f"  [yellow]PDF generation skipped: {e}[/yellow]")
-        return markdown_path
-    except Exception as e:
-        console.print(f"  [yellow]PDF generation failed: {e}[/yellow]")
-        return markdown_path
-
-
-def _generate_with_llm(
-    career_data: str,
-    language: Literal["en", "es"],
-    format: Literal["ats", "creative"],
-    target_role: str | None = None,
-) -> str:
-    """Generate CV content using LLM.
-
-    Security: Anonymizes PII and sanitizes content before sending to LLM
-    to prevent prompt injection attacks.
-    """
-    model, _config = get_model(temperature=settings.cv_temperature, purpose="analysis")
-
-    # Anonymize PII before sending to external LLM
-    # For CV generation, we preserve professional email domains for context
-    anonymized_data = anonymize_career_data(
-        career_data, preserve_professional_emails=True
+    md_content = markdown_path.read_text()
+    html_content = _markdown.markdown(md_content, extensions=["tables", "fenced_code"])
+    html_content = _nh3.clean(
+        html_content,
+        tags={
+            "p",
+            "ul",
+            "ol",
+            "li",
+            "strong",
+            "em",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "a",
+            "br",
+            "hr",
+            "blockquote",
+            "code",
+            "pre",
+        },
+        attributes={"a": {"href"}},
+        strip_comments=True,
     )
 
-    # Security: Sanitize to prevent prompt injection
-    safe_career_data = sanitize_for_prompt(anonymized_data)
+    styled_html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+@page {{ size: A4; margin: 1.8cm 2.2cm; }}
+body {{ font-family: Georgia, serif; font-size: 11pt; line-height: 1.5; color: #2c2416; }}
+h1 {{ font-size: 24pt; font-weight: 700; color: #0d1b2a; margin: 0 0 4px 0; }}
+h2 {{
+    font-family: Arial, sans-serif; font-size: 9.5pt; font-weight: 700;
+    color: #0d1b2a; text-transform: uppercase; letter-spacing: 2px;
+    border-bottom: 1.5px solid #b8860b; padding-bottom: 3px; margin: 16px 0 8px 0;
+}}
+h3 {{ font-size: 11.5pt; font-weight: 600; color: #1b263b; margin: 10px 0 1px 0; }}
+p {{ margin: 4px 0; }}
+ul {{ padding-left: 16px; margin: 4px 0 8px 0; }}
+li {{ margin-bottom: 2px; color: #3d3428; font-size: 10pt; }}
+a {{ color: #1b4f72; text-decoration: none; }}
+</style></head><body>{html_content}</body></html>"""
 
-    # Build target role instruction if provided
-    target_role_instruction = ""
-    if target_role:
-        target_role_instruction = f"""
+    def _deny_url_fetcher(url, timeout=10, ssl_context=None):
+        if url.startswith("data:"):
+            return _WEASY_DEFAULT_URL_FETCHER(url, timeout, ssl_context)
+        raise ValueError(f"External resource fetch blocked: {url}")
 
-TARGET ROLE: {target_role}
-Tailor the CV content, summary, and emphasis to align with this specific role."""
-
-    prompt = f"""{GENERATE_CV_PROMPT}
-
-{LANGUAGE_INSTRUCTIONS[language]}
-
-{FORMAT_INSTRUCTIONS[format]}
-
-CAREER DATA:
-{safe_career_data}{target_role_instruction}
-
-Generate a complete, professional CV in Markdown format."""
-
-    try:
-        response = model.invoke(prompt)
-        return str(response.content)
-    except Exception:
-        # Log full error, show sanitized message to user
-        logger.exception("LLM invocation failed")
-        console.print("[red]CV generation failed. Check logs for details.[/red]")
-        raise
+    pdf_path = markdown_path.with_suffix(".pdf")
+    _WEASY_HTML(string=styled_html, url_fetcher=_deny_url_fetcher).write_pdf(pdf_path)
+    os.chmod(pdf_path, 0o600)
+    return pdf_path
 
 
-def create_cv(
-    language: Literal["en", "es"] = "en",
-    format: Literal["ats", "creative"] = "ats",
-    target_role: str | None = None,
-) -> Path:
-    """Generate CV in specified language and format.
-
-    Args:
-        language: Output language (en or es)
-        format: CV format (ats or creative)
-        target_role: Optional target role to tailor CV content
-
-    Returns:
-        Path to generated CV file
-    """
+def save_cv_markdown(content: str, filename: str) -> Path:
+    """Save markdown CV content to file. Returns path."""
     output_dir = settings.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
+    cleaned = _clean_llm_output(content)
+    path = output_dir / filename
+    with secure_open(path) as f:
+        f.write(cleaned)
+    return path
 
-    career_data = load_career_data_for_cv()
 
-    if not career_data:
-        console.print("[yellow]No career data found. Run 'gather' first.[/yellow]")
-        return Path()
-
-    role_str = f" for {target_role}" if target_role else ""
-    console.print(f"  Generating {language}/{format} CV{role_str}...")
-
-    # Generate content and strip code fences if LLM wrapped the output
-    cv_content = _generate_with_llm(career_data, language, format, target_role)
-    cv_content = _clean_llm_output(cv_content)
-
-    # Save markdown with secure permissions
-    filename = f"cv_{language}_{format}.md"
-    output_path = output_dir / filename
-    with secure_open(output_path) as f:
-        f.write(cv_content)
-    console.print(f"  [dim]Markdown saved: {output_path}[/dim]")
-
-    # Convert to PDF
-    _render_pdf(output_path)
-
-    return output_path
+def render_cv_pdf(markdown_path: Path) -> Path:
+    """Render a markdown CV file to PDF. Returns PDF path."""
+    return _render_pdf(markdown_path)

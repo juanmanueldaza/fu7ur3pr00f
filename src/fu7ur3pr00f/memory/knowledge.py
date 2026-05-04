@@ -141,8 +141,7 @@ class CareerKnowledgeStore(ChromaDBStore):
                 for doc, meta in pairs
                 if str(meta.get("section", "")) not in excluded_sections
                 and not (
-                    excluded_prefixes
-                    and str(meta.get("section", "")).startswith(excluded_prefixes)
+                    excluded_prefixes and str(meta.get("section", "")).startswith(excluded_prefixes)
                 )
             ]
             if not pairs:

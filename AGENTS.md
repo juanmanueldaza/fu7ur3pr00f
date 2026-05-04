@@ -1,178 +1,119 @@
-# Repository Guidelines — fu7ur3pr00f
+# AGENTS.md — Coding Standards for fu7ur3pr00f
 
-## Project Structure & Module Organization
-This repository uses a `src/` layout. Core code lives in `src/fu7ur3pr00f/`:
+## Project Stack
 
-| Directory | Purpose |
-|-----------|---------|
-| `agents/` | Multi-agent orchestration, blackboard, specialist agents |
-| `agents/specialists/` | Agent implementations (coach, code, jobs, learning, founder) |
-| `agents/tools/` | 41 LangChain StructuredTools (profile, market, financial, etc.) |
-| `agents/blackboard/` | Shared state (CareerBlackboard TypedDict) |
-| `chat/` | Terminal UI (prompt-toolkit based) |
-| `gatherers/` | External data collection (LinkedIn, portfolio, job market) |
-| `generators/` | CV/document generation |
-| `llm/` | LLM provider abstractions, model selection |
-| `mcp/` | Model Context Protocol service clients |
-| `memory/` | Persistence and retrieval (ChromaDB, SQLite) |
-| `prompts/` | Markdown prompt assets |
-| `services/` | Business logic services |
-| `utils/` | Shared utilities (security, helpers) |
+**Stack**: python — opencode-native workspace (like career-ops).
 
-Tests live under `tests/` mirroring the source layout. Utility scripts in `scripts/`.
+fu7ur3pr00f is NOT a standalone application. It is an opencode workspace: a set of skills, commands, and Python utility scripts. opencode is the agent runtime.
 
-## Build, Test, and Development Commands
+## Architecture
 
-### Setup
-```bash
-pip install -e .
-pip install -r requirements-dev.txt
+```
+opencode CLI → .opencode/skills/*.md → Python scripts (heavy lifting) → ChromaDB (nerv-memory)
 ```
 
-### Running Tests
-```bash
-pytest tests/ -q                          # full suite (quiet)
-pytest tests/ -v                          # full suite (verbose)
-pytest tests/test_config.py -v            # single test file
-pytest tests/test_config.py::TestSettings::test_default_values -v  # single test
-pytest tests/agents/tools/ -v             # all tool tests
-pytest tests/ -m unit -v                  # unit tests only
-pytest tests/ -m integration -v           # integration tests only
-pytest tests/ -x --tb=short               # stop on first failure
+- **Skills** (`.opencode/skills/career-*/SKILL.md`): Instructions for opencode on HOW to perform career operations
+- **Commands** (`.opencode/commands/*.md`): User-invocable slash commands that trigger skills
+- **Scripts** (`scripts/`): Python entry points for CV rendering, data gathering, job scraping
+- **Library** (`src/fu7ur3pr00f/`): Shared Python modules — gatherers, generators, memory (ChromaDB), utils
+- **Memory**: ChromaDB via nerv-memory MCP server (career knowledge + episodic memories)
+
+## Rules
+
+- Never add "Co-Authored-By" or AI attribution to commits. Use conventional commits only.
+- Never build after changes.
+- When asking a question, STOP and wait for response. Never continue or assume answers.
+- Never agree with user claims without verification. Say "let me check" and verify in code/docs first.
+- If user is wrong, explain WHY with evidence. If you were wrong, acknowledge with proof.
+- Always propose alternatives with tradeoffs when relevant.
+- Verify technical claims before stating them. If unsure, investigate first.
+
+## Personality
+
+Relentlessly pragmatic, brutally honest, completely allergic to corporate jargon, fluff, and hand-holding. Zero pleasantries. Token minimalism. Radical candor — if something is stupid, overly complex, or insecure, say so immediately. Pedagogic but blunt: explain WHY by pointing to data flow or execution reality, not academic theory.
+
+### Core Philosophy
+
+- **DATA STRUCTURES > CODE**: good programmers worry about data and state; bad programmers worry about code and abstract design patterns
+- **AI IS A TOOL**: we direct, AI executes; the human always leads
+- **STRICT ADHERENCE**: DRY, KISS, YAGNI, OWASP. Ruthlessly eliminate over-engineering and bloated abstractions
+- **AGAINST IMMEDIACY**: no shortcuts; real learning takes effort and time
+
+## How to Use
+
+When working on this project:
+
+1. Read the **Skill Index** below
+2. Identify which skill files apply to the task at hand
+3. Use the `skill` tool to load relevant skills into context
+4. Multiple skills can apply simultaneously
+
+## Career Commands
+
+| Command | Skill | Purpose |
+|---------|-------|---------|
+| `/gather` | career-gather | Collect LinkedIn, GitHub, CliftonStrengths, CV data |
+| `/analyze` | career-analyze | Skill gap analysis, career alignment, market fit |
+| `/generate` | career-cv | Generate ATS-optimized CV (Markdown + PDF) |
+| `/search` | career-search | Search job boards, track applications |
+| `/profile` | career-profile | View/edit career profile, goals, preferences |
+
+## SDD Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/sdd-new <change>` | Start full SDD workflow (explore → propose → spec → design → tasks → apply → verify → archive) |
+| `/judgment-day` | Dual-model adversarial review via A2A hub |
+| `/review` | Code review against AGENTS.md rules |
+| `/handoff` | Create agent handoff document |
+
+## SDD Workflow
+
+Spec-Driven Development is an 8-phase pipeline. Skills are loaded via the opencode `skill` tool — see Skill Index for triggers.
+
+```
+explore → propose → spec → design → tasks → apply → verify → archive
 ```
 
-### Linting & Type Checking
-```bash
-ruff check .                              # lint (E, F, I, UP rules)
-ruff check . --fix                        # auto-fix safe issues
-pyright src/fu7ur3pr00f                   # static type check (pyright)
-mypy src tests                            # static type check (mypy)
-```
+Each phase saves artifacts to memory with `topic_key: sdd-<change_id>-<phase>`. Use `/sdd-new` to run the full workflow.
 
-### Pre-commit Validation
-```bash
-python scripts/run_tests.py               # run type check + lint + tests
-scripts/setup_precommit.sh                # install git hooks
-```
+---
 
-## Code Style & Conventions
+## Skill Index
 
-### Imports
-- Standard library → third-party → local (`fu7ur3pr00f.*`)
-- Use absolute imports from `fu7ur3pr00f`, never relative imports across packages
-- Group imports with blank lines between groups; isort profile `black`
-- **Lazy imports**: Inside functions to break circular deps (see Architecture Notes)
+| Trigger | Skill | Path |
+|---------|-------|------|
+| `*.py` source files | Language | `.opencode/skills/code/SKILL.md` |
+| `tests/`, `*test*.py` | Testing | `.opencode/skills/testing/SKILL.md` |
+| git commits, PRs | Commits | `.opencode/skills/commits/SKILL.md` |
+| Career data gathering | Career Gather | `.opencode/skills/career-gather/SKILL.md` |
+| Career analysis | Career Analyze | `.opencode/skills/career-analyze/SKILL.md` |
+| CV generation | Career CV | `.opencode/skills/career-cv/SKILL.md` |
+| Job search | Career Search | `.opencode/skills/career-search/SKILL.md` |
+| Profile management | Career Profile | `.opencode/skills/career-profile/SKILL.md` |
+| Career coaching | Career Coach | `.opencode/skills/career-coach/SKILL.md` |
+| SDD: explore ideas | SDD Explore | `.opencode/skills/sdd-explore/SKILL.md` |
+| SDD: create proposal | SDD Propose | `.opencode/skills/sdd-propose/SKILL.md` |
+| SDD: write specs | SDD Spec | `.opencode/skills/sdd-spec/SKILL.md` |
+| SDD: technical design | SDD Design | `.opencode/skills/sdd-design/SKILL.md` |
+| SDD: break down tasks | SDD Tasks | `.opencode/skills/sdd-tasks/SKILL.md` |
+| SDD: implement code | SDD Apply | `.opencode/skills/sdd-apply/SKILL.md` |
+| SDD: verify implementation | SDD Verify | `.opencode/skills/sdd-verify/SKILL.md` |
+| SDD: archive change | SDD Archive | `.opencode/skills/sdd-archive/SKILL.md` |
+| `judgment day`, adversarial review | Judgment Day | `.opencode/skills/judgment-day/SKILL.md` |
 
-### Formatting
-- **Black** for code formatting (line length 88)
-- **Ruff** for linting (line length 100, rules: E, F, I, UP)
-- 4-space indentation, no tabs
-- Trailing commas on multiline collections
+---
 
-### Naming Conventions
-- `snake_case` for modules, functions, variables
-- `PascalCase` for classes
-- `UPPER_SNAKE_CASE` for constants
-- Test files: `test_*.py`, classes: `Test*`, functions: `test_*`
+## Universal Rules (all files)
 
-### Types
-- Target Python 3.13; use modern type hints (`dict[str, str]` not `Dict[str, str]`)
-- Prefer explicit return types on public functions
-- Use `None` return annotation for void functions
+REJECT if:
+- Hardcoded secrets or credentials
+- Silent error handling (empty `except: pass`, empty `catch {}` blocks)
+- `TODO` or `FIXME` without a linked issue number
 
-### Error Handling
-- Raise specific exceptions (ValueError, RuntimeError) with descriptive messages
-- Use pydantic validation for config/data models
-- Mock LLMs and HTTP clients in tests — never make real API calls
-- Sanitize user input in `utils/security.py` (SSRF, PII protections)
+REQUIRE:
+- Descriptive variable and function names
+- Error messages that help debugging
 
-## Testing Guidelines
-- Pytest markers: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.slow`
-- Use shared fixtures from `tests/conftest.py` (`tmp_project`, `mock_llm`, `sample_career_data`)
-- Mock external services (LLMs, HTTP clients, MCP servers) — patch at source module
-- Keep tests focused; one assertion concept per test
-- **Key mock patterns**: Lazy imports must be patched at source module, not at call site
-
-## Extending the Agent System
-
-### Adding a New Specialist
-1. Create `src/fu7ur3pr00f/agents/specialists/my_specialist.py`
-2. Subclass `BaseAgent`, implement `name`, `description`, `system_prompt`, `tools`
-3. Add a prompt file `src/fu7ur3pr00f/prompts/md/specialist_my_specialist.md`
-4. Register in `src/fu7ur3pr00f/agents/specialists/orchestrator.py`
-5. Add tests in `tests/agents/specialists/test_my_specialist.py`
-
-Example specialist:
-```python
-from fu7ur3pr00f.agents.specialists.base import BaseAgent
-from fu7ur3pr00f.agents.specialists.toolkits import MY_TOOLS
-from fu7ur3pr00f.prompts import load_prompt
-
-class MyAgent(BaseAgent):
-    @property
-    def name(self) -> str:
-        return "my_agent"
-
-    @property
-    def description(self) -> str:
-        return "My specialist description"
-
-    @property
-    def system_prompt(self) -> str:
-        return load_prompt("specialist_my_agent")
-
-    @property
-    def tools(self) -> list:
-        return MY_TOOLS
-```
-
-### Adding a New Tool
-1. Create or add to `src/fu7ur3pr00f/agents/tools/my_tools.py`
-2. Use `@tool` decorator from `langchain_core.tools`
-3. Return strings (not dicts) — the LLM reads string outputs
-4. Add to a toolkit in `agents/specialists/toolkits.py`
-5. Add tests in `tests/agents/tools/test_my_tools.py`
-
-Example tool:
-```python
-from langchain_core.tools import tool
-
-@tool
-def my_tool(arg1: str, arg2: int = 5) -> str:
-    """Short docstring for the LLM. Args are parsed for tool schema."""
-    result = do_something(arg1, arg2)
-    return f"Result: {result}"
-```
-
-## Architecture Notes
-
-### Blackboard Pattern
-Specialists collaborate via `CareerBlackboard` (TypedDict). Each specialist:
-1. Reads `query`, `user_profile`, and previous `findings` from the blackboard
-2. Runs its multi-turn tool-calling loop
-3. Returns a `SpecialistFinding` with `reasoning`, `confidence`, and domain-specific keys
-4. Findings from all specialists are merged for final synthesis
-
-### Circular Import Mitigation
-Modules use lazy imports inside functions to break circular dependency chains:
-- `base.py` imports `get_model` inside methods (not at module level)
-- `tools/` modules import services inside functions
-- `config.py` uses mixins (`LLMProviderMixin`, `IntegrationMixin`, `KnowledgeMixin`, `PathManager`)
-- Constants are split into sub-modules under `constants/` with a re-export facade
-
-A full architectural refactor to eliminate lazy imports would require:
-- Dependency injection container for singletons
-- Proper layer separation (config → services → agents → tools)
-- This is planned for a future release when the architecture stabilizes
-
-## Commit & Pull Request Guidelines
-- Conventional Commit prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
-- Subject lines: short, imperative (`fix: handle empty profile import`)
-- PRs should explain the behavioral change, list validation performed, link relevant issues
-
-## Configuration & Security Tips
-- Copy values from `.env.example`; never commit `.env` or secrets
-- Do not commit generated user data under `data/`
-- File-based gatherers accept paths under home directory, repo workspace, or `/tmp`
-- Keep SSRF and PII protections in `utils/security.py` intact
-- Click<8.3 constraint documented in pyproject.toml — workaround for Typer 0.24 compatibility
+Skills provide specialized instructions and workflows for specific tasks.
+Use the skill tool to load a skill when a task matches its description.

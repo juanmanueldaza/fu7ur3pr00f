@@ -4,23 +4,23 @@ Parses CV and resume files (PDF or Markdown) into labeled sections
 for indexing into the career knowledge base.
 """
 
-import json
 import logging
 import re
 import shutil
 import subprocess  # nosec B404 — required for pdftotext CLI
 from pathlib import Path
 
-from langchain_core.messages import HumanMessage
-
-from fu7ur3pr00f.llm.model_selection import get_model
-
 from ..memory.chunker import Section
-from ..utils.security import (
-    anonymize_career_data,
-    sanitize_for_prompt,
-    validate_file_size,
-)
+from ..utils.security import validate_file_size
+
+
+class ServiceError(Exception):
+    """Service-level error (e.g. missing dependency)."""
+
+
+class NoDataError(Exception):
+    """No data could be extracted."""
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,7 @@ logger = logging.getLogger(__name__)
 _MAX_CV_SIZE = 10 * 1024 * 1024  # 10MB max CV file size
 
 _pdf_text_cache: dict[tuple[str, float, int], str] = {}
-_SECTION_HEADING_RE = re.compile(
-    r"^\s{0,3}(?:#{1,6}\s+)?([A-Z][A-Za-z &/+()-]{1,60})\s*$"
-)
+_SECTION_HEADING_RE = re.compile(r"^\s{0,3}(?:#{1,6}\s+)?([A-Z][A-Za-z &/+()-]{1,60})\s*$")
 
 
 def _file_cache_key(path: Path) -> tuple[str, float, int]:
@@ -64,8 +62,6 @@ class CVGatherer:
             NoDataError: if the file is empty or yields no extractable text.
             ValueError: if the file exceeds maximum size limit.
         """
-        from ..services.exceptions import NoDataError
-
         path = Path(file_path)
 
         # Security: Validate file size (also checks existence)
@@ -84,9 +80,7 @@ class CVGatherer:
                 "Is it a scanned/image PDF or an empty file?"
             )
 
-        sections = self._parse_sections_with_llm(raw_text)
-        if not sections:
-            sections = self._parse_sections_locally(raw_text)
+        sections = self._parse_sections_locally(raw_text)
         if not sections:
             logger.debug(
                 "Structured section parsing failed for '%s', using fallback section.",
@@ -110,8 +104,6 @@ class CVGatherer:
 
     def _extract_text_pdf_uncached(self, path: Path) -> str:
         """Run pdftotext -layout and return stdout (uncached)."""
-        from ..services.exceptions import ServiceError
-
         pdftotext_path = shutil.which("pdftotext")
         if not pdftotext_path:
             raise ServiceError(
@@ -149,63 +141,10 @@ class CVGatherer:
         Raises:
             NoDataError: if the file is empty after stripping whitespace.
         """
-        from ..services.exceptions import NoDataError
-
         content = path.read_text(encoding="utf-8")
         if not content.strip():
             raise NoDataError(f"File {path.name!r} is empty — no content to import.")
         return content
-
-    def _parse_sections_with_llm(self, text: str) -> list[Section]:
-        """Use LLM to extract labeled sections from CV text.
-
-        Sends the raw text to the LLM and asks for a structured JSON list
-        of section title + content pairs. Falls back to empty list on failure
-        (caller returns a single fallback section).
-
-        Security: Anonymizes PII and sanitizes content before sending to LLM
-        to prevent prompt injection attacks.
-        """
-
-        # Security: Anonymize PII before sending to external LLM
-        anonymized_text = anonymize_career_data(
-            text,
-            preserve_professional_emails=True,
-        )
-
-        # Security: Sanitize to prevent prompt injection
-        sanitized_text = sanitize_for_prompt(anonymized_text[:8000])
-
-        prompt = (
-            "Extract all sections from this CV/resume text.\n"
-            "Return a JSON array where each element has:\n"
-            '  "title": the section heading '
-            '(e.g. "Experience", "Education", "Skills")\n'
-            '  "content": the full text body of that section\n'
-            "Only include sections with meaningful content (at least 2 lines).\n\n"
-            f"CV text:\n{sanitized_text}\n\n"
-            "Respond with valid JSON only — no markdown, no explanation:\n"
-            '[{"title": "...", "content": "..."}, ...]'
-        )
-
-        try:
-            model, _ = get_model(purpose="summary")
-            result = model.invoke([HumanMessage(content=prompt)])
-            raw = result.content
-            content = (raw if isinstance(raw, str) else str(raw)).strip()
-            start = content.find("[")
-            end = content.rfind("]") + 1
-            sections_data = json.loads(content[start:end])
-            return [
-                Section(s["title"], s["content"])
-                for s in sections_data
-                if s.get("title") and s.get("content")
-            ]
-        except Exception:
-            logger.warning(
-                "LLM section extraction failed, using fallback", exc_info=True
-            )
-            return []
 
     def _parse_sections_locally(self, text: str) -> list[Section]:
         """Parse common Markdown/plain-text CV headings without an LLM.

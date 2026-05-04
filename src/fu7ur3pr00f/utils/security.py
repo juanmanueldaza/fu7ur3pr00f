@@ -58,14 +58,13 @@ def validate_file_size(
         )
     return file_size
 
+
 # =============================================================================
 # PII Detection Patterns
 # =============================================================================
 
 # Email patterns
-_EMAIL_PATTERN = re.compile(
-    r"\b([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b"
-)
+_EMAIL_PATTERN = re.compile(r"\b([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b")
 
 # Phone patterns - comprehensive international coverage
 # US/Canada: +1 (555) 123-4567, 555-123-4567, 5551234567

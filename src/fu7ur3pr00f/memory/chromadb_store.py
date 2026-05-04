@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 from typing import Any, cast
 
-from fu7ur3pr00f.container import container
+from fu7ur3pr00f.utils.security import secure_mkdir
 
 from .embeddings import get_embedding_function
 
@@ -29,9 +29,9 @@ class ChromaDBStore:
 
     def __init__(self, persist_dir: Path | None = None) -> None:
         if persist_dir is None:
-            persist_dir = container.get_data_dir() / "episodic"
+            persist_dir = Path.home() / ".fu7ur3pr00f" / "episodic"
 
-        container.security_utils.secure_mkdir(persist_dir)
+        secure_mkdir(persist_dir)
         self.persist_dir = persist_dir
         self._client = None
         self._collection = None
@@ -48,9 +48,7 @@ class ChromaDBStore:
             try:
                 import chromadb
 
-                self._client = cast(
-                    Any, chromadb.PersistentClient(path=str(self.persist_dir))
-                )
+                self._client = cast(Any, chromadb.PersistentClient(path=str(self.persist_dir)))
                 logger.info("ChromaDB initialized at %s", self.persist_dir)
             except ImportError:
                 logger.warning("ChromaDB not installed.")

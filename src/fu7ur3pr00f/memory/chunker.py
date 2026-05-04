@@ -33,9 +33,7 @@ class MarkdownChunker:
     2. Split sections that exceed max_tokens by paragraphs
     """
 
-    def __init__(
-        self, max_tokens: int = CHUNK_MAX_TOKENS, min_tokens: int = CHUNK_MIN_TOKENS
-    ):
+    def __init__(self, max_tokens: int = CHUNK_MAX_TOKENS, min_tokens: int = CHUNK_MIN_TOKENS):
         self.max_tokens = max_tokens
         self.min_tokens = min_tokens
 
@@ -80,10 +78,7 @@ class MarkdownChunker:
                 for para in paragraphs:
                     para_tokens = self._estimate_tokens(para)
 
-                    if (
-                        current_tokens + para_tokens > self.max_tokens
-                        and current_content
-                    ):
+                    if current_tokens + para_tokens > self.max_tokens and current_content:
                         result.append(
                             MarkdownChunk(
                                 content="\n\n".join(current_content),

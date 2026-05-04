@@ -29,11 +29,13 @@ logger = get_logger(__name__)
 # Security limits
 MAX_JSON_FILES = 5  # Maximum JSON files to fetch per page
 MAX_JSON_SIZE = 1024 * 1024  # 1MB limit for JSON parsing
-ALLOWED_CONTENT_TYPES = frozenset({
-    "application/json",
-    "application/ld+json",
-    "text/json",
-})
+ALLOWED_CONTENT_TYPES = frozenset(
+    {
+        "application/json",
+        "application/ld+json",
+        "text/json",
+    }
+)
 
 
 @dataclass
@@ -160,9 +162,7 @@ class JSExtractor:
                 "email": item.get("email", ""),
             }
             if "sameAs" in item:
-                content.socials = [
-                    {"name": "Profile", "url": url} for url in item["sameAs"]
-                ]
+                content.socials = [{"name": "Profile", "url": url} for url in item["sameAs"]]
 
         # Extract CreativeWork or Project for projects
         elif item_type in ("CreativeWork", "Project", "SoftwareApplication"):
@@ -209,19 +209,13 @@ class JSExtractor:
 
             # Extract projects
             if "projects" in data and isinstance(data["projects"], list):
-                content.projects = [
-                    p for p in data["projects"] if isinstance(p, dict)
-                ]
+                content.projects = [p for p in data["projects"] if isinstance(p, dict)]
 
             # Extract socials
             if "socials" in data and isinstance(data["socials"], list):
-                content.socials = [
-                    s for s in data["socials"] if isinstance(s, dict)
-                ]
+                content.socials = [s for s in data["socials"] if isinstance(s, dict)]
             elif "social" in data and isinstance(data["social"], list):
-                content.socials = [
-                    s for s in data["social"] if isinstance(s, dict)
-                ]
+                content.socials = [s for s in data["social"] if isinstance(s, dict)]
 
         elif isinstance(data, list):
             # Array of items - try to categorize

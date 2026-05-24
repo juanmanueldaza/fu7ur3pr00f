@@ -24,6 +24,7 @@ dependencies = [
     "pydantic-settings>=2",
     "pyyaml>=6",
     "rich>=14",
+    "networkx>=3.0",
     # Data gathering
     "httpx>=0.28",
     "beautifulsoup4>=4",
@@ -38,6 +39,12 @@ dependencies = [
     "chromadb>=1.4.1",
     # Testing
     "pytest-asyncio>=0.23",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
 ]
 
 [project.urls]

@@ -16,8 +16,8 @@ from typing import Any
 
 def main() -> None:
     try:
-        from fu7ur3pr00f.memory.knowledge import get_knowledge_store
         from fu7ur3pr00f.memory.episodic import get_episodic_store
+        from fu7ur3pr00f.memory.knowledge import get_knowledge_store
 
         knowledge_store = get_knowledge_store()
         episodic_store = get_episodic_store()

@@ -68,7 +68,9 @@ def _save_application(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Store episodic memories (decisions and applications)")
+    parser = argparse.ArgumentParser(
+        description="Store episodic memories (decisions and applications)"
+    )
     parser.add_argument(
         "--action",
         required=True,
@@ -76,11 +78,21 @@ def main() -> None:
         help="Type of memory to store",
     )
     parser.add_argument("--context", default=None, help="Context for decision or application")
-    parser.add_argument("--decision", default=None, help="The decision that was made (required for --action decision)")
+    parser.add_argument(
+        "--decision",
+        default=None,
+        help="The decision that was made (required for --action decision)",
+    )
     parser.add_argument("--outcome", default=None, help="Optional outcome of the decision")
-    parser.add_argument("--company", default=None, help="Company name (required for --action application)")
-    parser.add_argument("--role", default=None, help="Role applied for (required for --action application)")
-    parser.add_argument("--status", default=None, help="Application status (applied, interviewing, rejected, offer)")
+    parser.add_argument(
+        "--company", default=None, help="Company name (required for --action application)"
+    )
+    parser.add_argument(
+        "--role", default=None, help="Role applied for (required for --action application)"
+    )
+    parser.add_argument(
+        "--status", default=None, help="Application status (applied, interviewing, rejected, offer)"
+    )
     parser.add_argument("--notes", default=None, help="Additional notes about the application")
 
     args = parser.parse_args()

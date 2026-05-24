@@ -1,6 +1,6 @@
 ---
 description: Review code changes against project standards
-agent: build
+agent: nerv
 subtask: true
 ---
 Review the code changes in: $ARGUMENTS

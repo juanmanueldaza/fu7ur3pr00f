@@ -11,9 +11,6 @@ hub-skill-ids:
 allowed-tools:
   - Bash
   - Read
-  - mcp__nerv-memory__memory_search
-  - mcp__nerv-memory__memory_save
-  - mcp__nerv-memory__memory_recall
 ---
 
 # Skill: Career Coach

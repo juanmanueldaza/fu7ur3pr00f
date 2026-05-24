@@ -12,9 +12,6 @@ allowed-tools:
   - Bash
   - Read
   - WebFetch
-  - mcp__nerv-memory__memory_search
-  - mcp__nerv-memory__memory_recall
-  - mcp__nerv-memory__memory_save
 ---
 
 # Skill: Career Analyze

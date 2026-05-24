@@ -30,3 +30,4 @@ PREFER:
 - `pytest.mark.parametrize` over repeated similar test functions
 - Factory fixtures over inline setup in each test
 - `conftest.py` for shared fixtures within a package
+

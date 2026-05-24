@@ -12,8 +12,6 @@ allowed-tools:
   - Bash
   - Read
   - Glob
-  - mcp__nerv-memory__memory_search
-  - mcp__nerv-memory__memory_get
 ---
 
 # Skill: Career Gather

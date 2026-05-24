@@ -26,3 +26,4 @@ PREFER:
 - Early returns over deeply nested conditionals
 - `pathlib.Path` over `os.path` for filesystem operations
 - Dataclasses or Pydantic over raw dicts for structured data
+

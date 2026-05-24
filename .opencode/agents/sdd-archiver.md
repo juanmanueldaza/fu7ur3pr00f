@@ -1,7 +1,7 @@
 ---
 description: Archive all SDD artifacts into a single completed record in memory.
 mode: subagent
-model: opencode/nemotron-3-super-free
+model: opencode-go/qwen3.5-plus
 hidden: true
 permission:
   edit: deny

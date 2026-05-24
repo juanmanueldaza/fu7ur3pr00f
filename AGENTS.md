@@ -4,21 +4,51 @@
 
 **Stack**: python — opencode-native workspace. Harness engineering for career intelligence.
 
-fu7ur3pr00f is NOT a standalone application. It is an opencode workspace: a set of skills, commands, and Python utility scripts. opencode is the agent runtime.
+fu7ur3pr00f is an opencode workspace: a set of skills, commands, and Python utility scripts. opencode is the agent runtime. Powered by [NERV](https://github.com/juanmanueldaza/nerv) for SDD workflow, A2A hub, and memory.
 
-See [FUTUREPROOF.md](FUTUREPROOF.md) for the concept map and vision statement.
+## Project Structure
+
+- `src/` — Source code
+- `tests/` — Test suite
+- `docs/` — Documentation
+- `scripts/` — Utility scripts
+
+### Additional Directories
+
+- `config/`
+- `data/`
+- `openspec/`
+- `public/`
 
 ## Architecture
 
 ```
-opencode CLI → .opencode/skills/*.md → Python scripts (heavy lifting) → ChromaDB (career knowledge + episodic memories)
+opencode CLI → .opencode/skills/*.md → Python scripts → ChromaDB (career knowledge + episodic memories)
 ```
 
 - **Skills** (`.opencode/skills/career-*/SKILL.md`): Instructions for opencode on HOW to perform career operations
 - **Commands** (`.opencode/commands/*.md`): User-invocable slash commands that trigger skills
-- **Scripts** (`scripts/`): Python entry points for CV rendering, data gathering, job scraping
 - **Library** (`src/fu7ur3pr00f/`): Shared Python modules — gatherers, generators, memory (ChromaDB), utils
 - **Memory**: ChromaDB via nerv-memory MCP server (career knowledge + episodic memories)
+
+## NERV Integration
+
+This project uses [NERV](https://github.com/juanmanueldaza/nerv) for agent-native development:
+- **SDD Workflow**: `/sdd-new` for the full 8-phase Spec-Driven Development pipeline
+- **A2A Hub**: Agent-to-agent task delegation via JSON-RPC 2.0
+- **Memory**: Persistent semantic memory (ChromaDB + SQLite)
+- **Commands**: `/judgment-day`, `/review`, `/handoff` — see `.opencode/agents/nerv.md`
+
+## Career Commands
+
+| Command | Skill | Purpose |
+|---------|-------|---------|
+| `/gather` | career-gather | Collect LinkedIn, GitHub, CliftonStrengths, CV data |
+| `/analyze` | career-analyze | Skill gap analysis, career alignment, market fit |
+| `/generate` | career-cv | Generate ATS-optimized CV (Markdown + PDF) |
+| `/search` | career-search | Search job boards, track applications |
+| `/profile` | career-profile | View/edit career profile, goals, preferences |
+
 
 ## Rules
 
@@ -49,37 +79,6 @@ When working on this project:
 2. Identify which skill files apply to the task at hand
 3. Use the `skill` tool to load relevant skills into context
 4. Multiple skills can apply simultaneously
-
-## Career Commands
-
-| Command | Skill | Purpose |
-|---------|-------|---------|
-| `/gather` | career-gather | Collect LinkedIn, GitHub, CliftonStrengths, CV data |
-| `/analyze` | career-analyze | Skill gap analysis, career alignment, market fit |
-| `/generate` | career-cv | Generate ATS-optimized CV (Markdown + PDF) |
-| `/search` | career-search | Search job boards, track applications |
-| `/profile` | career-profile | View/edit career profile, goals, preferences |
-
-## SDD Commands
-
-| Command | Purpose |
-|---------|---------|
-| `/sdd-new <change>` | Start full SDD workflow (explore → propose → spec → design → tasks → apply → verify → archive) |
-| `/judgment-day` | Dual-model adversarial review via A2A hub |
-| `/review` | Code review against AGENTS.md rules |
-| `/handoff` | Create agent handoff document |
-
-## SDD Workflow
-
-Spec-Driven Development is an 8-phase pipeline. Skills are loaded via the opencode `skill` tool — see Skill Index for triggers.
-
-```
-explore → propose → spec → design → tasks → apply → verify → archive
-```
-
-Each phase saves artifacts to memory with `topic_key: sdd-<change_id>-<phase>`. Use `/sdd-new` to run the full workflow.
-
----
 
 ## Skill Index
 
@@ -116,6 +115,3 @@ REJECT if:
 REQUIRE:
 - Descriptive variable and function names
 - Error messages that help debugging
-
-Skills provide specialized instructions and workflows for specific tasks.
-Use the skill tool to load a skill when a task matches its description.

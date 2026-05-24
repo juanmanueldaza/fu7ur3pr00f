@@ -1,6 +1,6 @@
 ---
 description: Run dual-model adversarial code review
-agent: build
+agent: nerv
 subtask: true
 model: opencode-go/deepseek-v4-pro
 ---

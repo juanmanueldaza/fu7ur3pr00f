@@ -1,7 +1,7 @@
 # QWEN.md — Project Context
 
 **Project**: fu7ur3pr00f — Career intelligence opencode workspace
-**Stack**: Python 3.13, opencode, ChromaDB (nerv-memory), WeasyPrint
+**Stack**: Python 3.13, opencode, ChromaDB, WeasyPrint
 
 ## Architecture
 

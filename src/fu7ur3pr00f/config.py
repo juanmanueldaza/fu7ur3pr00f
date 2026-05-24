@@ -57,7 +57,7 @@ class Settings(PathManager):
     azure_embedding_deployment: str = os.getenv(
         "AZURE_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
     )
-    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url: str | None = os.getenv("OLLAMA_BASE_URL")
     fu7ur3pr00f_proxy_key: str = os.getenv("FUTUREPROOF_PROXY_KEY", "")
     fu7ur3pr00f_proxy_url: str = os.getenv("FUTUREPROOF_PROXY_URL", "https://llm.fu7ur3pr00f.dev")
 

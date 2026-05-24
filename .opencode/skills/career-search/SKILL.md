@@ -11,8 +11,6 @@ hub-skill-ids:
 allowed-tools:
   - Bash
   - WebFetch
-  - mcp__nerv-memory__memory_search
-  - mcp__nerv-memory__memory_save
 ---
 
 # Skill: Career Search

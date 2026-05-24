@@ -1,6 +1,6 @@
 ---
 description: Start a full SDD workflow for a change
-agent: build
+agent: nerv
 subtask: true
 model: opencode-go/qwen3.5-plus
 ---

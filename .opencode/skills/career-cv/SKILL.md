@@ -12,8 +12,6 @@ allowed-tools:
   - Bash
   - Read
   - Write
-  - mcp__nerv-memory__memory_search
-  - mcp__nerv-memory__memory_recall
 ---
 
 # Skill: Career CV

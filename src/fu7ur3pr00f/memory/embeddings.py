@@ -165,7 +165,7 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
             for doc in docs:
                 response = self.client.post(
                     "/api/embed",
-                    json={"model": self._model, "input": doc},
+                    json={"model": self._model, "input": [doc]},
                 )
                 response.raise_for_status()
                 data = response.json()

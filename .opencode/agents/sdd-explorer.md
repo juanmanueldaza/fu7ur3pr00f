@@ -1,7 +1,7 @@
 ---
 description: Explore codebase to build context for a planned SDD change. Read-only investigation.
 mode: subagent
-model: opencode/nemotron-3-super-free
+model: opencode-go/deepseek-v4-pro
 hidden: true
 permission:
   edit: deny

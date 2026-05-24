@@ -4,8 +4,10 @@
 Replaces MCP memory_save tool calls. All output is JSON to stdout. Errors to stderr.
 
 Usage:
-    python scripts/memory/save.py --action decision --context "Chose remote over hybrid" --decision "Remote-first preference"
-    python scripts/memory/save.py --action application --context "Interview stage" --company "Acme" --role "Staff Engineer" --status "interviewing"
+    python scripts/memory/save.py --action decision \
+        --context "Chose remote over hybrid" --decision "Remote-first preference"
+    python scripts/memory/save.py --action application \
+        --context "Interview stage" --company "Acme" --role "Staff Engineer" --status "interviewing"
 """
 
 from __future__ import annotations

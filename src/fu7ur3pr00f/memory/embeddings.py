@@ -137,10 +137,10 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
 
     def __init__(
         self,
-        base_url: str = "http://localhost:11434",
+        base_url: str | None = None,
         model: str = "nomic-embed-text",
     ) -> None:
-        self._base_url = base_url
+        self._base_url = base_url or "http://localhost:11434"
         self._model = model
         self._client: Any = None
 

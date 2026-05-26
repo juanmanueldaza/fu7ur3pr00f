@@ -1,0 +1,12 @@
+area:api:
+  - src/api/**/*
+  - src/**/api/**/*
+area:frontend:
+  - app/**/*
+area:infra:
+  - .github/**/*
+  - pyproject.toml
+python:
+  - "**/*.py"
+documentation:
+  - "**/*.md"

@@ -1,6 +1,6 @@
 area:api:
-  - src/api/**/*
-  - src/**/api/**/*
+  - changed-files:
+    - any-glob-to-any-file: 'src/fu7ur3pr00f/api/**/*'
 area:frontend:
   - app/**/*
 area:infra:

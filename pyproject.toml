@@ -3,7 +3,7 @@ name = "fu7ur3pr00f"
 version = "0.3.0"
 description = "Harness engineering for career intelligence — invisible infrastructure that gives AI agents the tools, data, and context to operate on your career"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 license = "GPL-2.0-only"
 authors = [
     {name = "Juan Manuel Daza"},
@@ -24,7 +24,6 @@ dependencies = [
     "pydantic-settings>=2",
     "pyyaml>=6",
     "rich>=14",
-    "networkx>=3.0",
     # Data gathering
     "httpx>=0.28",
     "beautifulsoup4>=4",

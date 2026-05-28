@@ -1,6 +1,7 @@
 """Singleton pattern helper for memory stores."""
 
 from __future__ import annotations
+
 import threading
 from collections.abc import Callable
 from typing import TypeVar

@@ -1,12 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from fu7ur3pr00f.api.config import settings
-
-from fu7ur3pr00f.memory.knowledge import get_knowledge_store
 from fu7ur3pr00f.memory.episodic import get_episodic_store
+from fu7ur3pr00f.memory.knowledge import get_knowledge_store
 from fu7ur3pr00f.memory.profile import load_profile
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))

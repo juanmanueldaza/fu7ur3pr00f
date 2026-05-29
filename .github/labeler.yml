@@ -1,12 +1,17 @@
 area:api:
-  - src/api/**/*
-  - src/**/api/**/*
+  - any:
+    - src/api/**/*
+    - src/**/api/**/*
 area:frontend:
-  - app/**/*
+  - any:
+    - app/**/*
 area:infra:
-  - .github/**/*
-  - pyproject.toml
+  - any:
+    - .github/**/*
+    - pyproject.toml
 python:
-  - "**/*.py"
+  - any:
+    - "**/*.py"
 documentation:
-  - "**/*.md"
+  - any:
+    - "**/*.md"

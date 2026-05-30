@@ -1,19 +1,20 @@
 area:api:
-  - changed-files:
-    - any-glob-to-any-file: ['src/fu7ur3pr00f/api/**/*']
+  - any:
+    - src/fu7ur3pr00f/api/**/*
 
 area:frontend:
-  - changed-files:
-    - any-glob-to-any-file: ['app/**/*']
+  - any:
+    - app/**/*
 
 area:infra:
-  - changed-files:
-    - any-glob-to-any-file: ['.github/**/*', 'pyproject.toml']
+  - any:
+    - .github/**/*
+    - pyproject.toml
 
 python:
-  - changed-files:
-    - any-glob-to-any-file: ['**/*.py']
+  - any:
+    - "**/*.py"
 
 documentation:
-  - changed-files:
-    - any-glob-to-any-file: ['**/*.md']
+  - any:
+    - "**/*.md"

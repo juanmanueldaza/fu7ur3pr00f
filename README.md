@@ -1,8 +1,11 @@
 # fu7ur3pr00f
 
+[![PyPI version](https://img.shields.io/pypi/v/fu7ur3pr00f)](https://pypi.org/project/fu7ur3pr00f/)
 [![Python Version](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](LICENSE)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![CI](https://github.com/juanmanueldaza/fu7ur3pr00f/actions/workflows/ci.yml/badge.svg)](https://github.com/juanmanueldaza/fu7ur3pr00f/actions/workflows/ci.yml)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat-square)](https://github.com/juanmanueldaza/fu7ur3pr00f/issues)
+[![Good First Issues](https://img.shields.io/github/issues/juanmanueldaza/fu7ur3pr00f/good%20first%20issue?style=flat-square&label=good%20first%20issues)](https://github.com/juanmanueldaza/fu7ur3pr00f/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
 Invisible infrastructure that harnesses AI agents for career intelligence.
 

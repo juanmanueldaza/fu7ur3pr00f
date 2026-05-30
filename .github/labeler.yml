@@ -1,5 +1,7 @@
 area:api:
   - any:
+    - src/api/**/*
+    - src/**/api/**/*
     - src/fu7ur3pr00f/api/**/*
 
 area:frontend:

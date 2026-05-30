@@ -14,4 +14,4 @@ python:
     - "**/*.py"
 documentation:
   - any:
-    - "**/*.md"
+  - "**/*.md"

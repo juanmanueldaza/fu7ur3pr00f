@@ -16,6 +16,12 @@ nerv init
 
 See `.opencode/agents/nerv.md` for available commands, skills, and SDD agents.
 
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code.
+Please report unacceptable behavior according to the instructions in the Code of Conduct.
+
 ## Dev Setup
 
 See `AGENTS.md` for coding standards, rules, and the skill index.

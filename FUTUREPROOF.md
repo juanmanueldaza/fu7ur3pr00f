@@ -28,9 +28,9 @@ Invisible infrastructure that harnesses AI agents for career intelligence.
 
 No anime universes. No borrowed mythologies. The name provides the metaphor.
 
-## Relationship with NERV
+## Relationship with N3RV
 
-[nerv](https://github.com/juanmanueldaza/nerv) is **invisible infrastructure for AI agents doing software engineering**. fu7ur3pr00f is **invisible infrastructure for AI agents doing career intelligence**. Same architecture philosophy — MCP servers, opencode-native skills, ChromaDB memory, SDD workflow. Different domains. Complementary, not dependent.
+[n3rv](https://github.com/juanmanueldaza/n3rv) is **invisible infrastructure for AI agents doing software engineering**. fu7ur3pr00f is **invisible infrastructure for AI agents doing career intelligence**. Same architecture philosophy — MCP servers, opencode-native skills, ChromaDB memory, SDD workflow. Different domains. Complementary, not dependent.
 
 See [docs/COEXISTENCE.md](docs/COEXISTENCE.md) for the full breakdown.
 
@@ -69,4 +69,4 @@ Capabilities on the roadmap — infrastructure that doesn't exist yet but follow
 
 ---
 
-Powered by [opencode](https://opencode.ai). Pattern-aligned with [nerv](https://github.com/juanmanueldaza/nerv).
+Powered by [opencode](https://opencode.ai). Pattern-aligned with [n3rv](https://github.com/juanmanueldaza/n3rv).

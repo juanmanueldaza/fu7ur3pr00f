@@ -4,7 +4,7 @@
 
 **Stack**: python — opencode-native workspace. Harness engineering for career intelligence.
 
-fu7ur3pr00f is an opencode workspace: a set of skills, commands, and Python utility scripts. opencode is the agent runtime. Powered by [NERV](https://github.com/juanmanueldaza/nerv) for SDD workflow, A2A hub, and memory.
+fu7ur3pr00f is an opencode workspace: a set of skills, commands, and Python utility scripts. opencode is the agent runtime. Powered by [N3RV](https://github.com/juanmanueldaza/n3rv) for SDD workflow, A2A hub, and memory.
 
 ## Project Structure
 
@@ -29,15 +29,15 @@ opencode CLI → .opencode/skills/*.md → Python scripts → ChromaDB (career k
 - **Skills** (`.opencode/skills/career-*/SKILL.md`): Instructions for opencode on HOW to perform career operations
 - **Commands** (`.opencode/commands/*.md`): User-invocable slash commands that trigger skills
 - **Library** (`src/fu7ur3pr00f/`): Shared Python modules — gatherers, generators, memory (ChromaDB), utils
-- **Memory**: ChromaDB via nerv-memory MCP server (career knowledge + episodic memories)
+- **Memory**: ChromaDB via n3rv-memory MCP server (career knowledge + episodic memories)
 
-## NERV Integration
+## N3RV Integration
 
-This project uses [NERV](https://github.com/juanmanueldaza/nerv) for agent-native development:
+This project uses [N3RV](https://github.com/juanmanueldaza/n3rv) for agent-native development:
 - **SDD Workflow**: `/sdd-new` for the full 8-phase Spec-Driven Development pipeline
 - **A2A Hub**: Agent-to-agent task delegation via JSON-RPC 2.0
 - **Memory**: Persistent semantic memory (ChromaDB + SQLite)
-- **Commands**: `/judgment-day`, `/review`, `/handoff` — see `.opencode/agents/nerv.md`
+- **Commands**: `/judgment-day`, `/review`, `/handoff` — see `.opencode/agents/n3rv.md`
 
 ## Career Commands
 

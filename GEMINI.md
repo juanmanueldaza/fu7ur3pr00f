@@ -4,7 +4,7 @@ fu7ur3pr00f is an opencode-native workspace for career intelligence. It provides
 
 ## Architecture
 
-opencode is the agent runtime. Skills (`.opencode/skills/career-*/SKILL.md`) define HOW to perform operations. Python scripts (`scripts/`) handle heavy lifting (data gathering, PDF rendering). ChromaDB via nerv-memory stores career knowledge and episodic memories.
+opencode is the agent runtime. Skills (`.opencode/skills/career-*/SKILL.md`) define HOW to perform operations. Python scripts (`scripts/`) handle heavy lifting (data gathering, PDF rendering). ChromaDB via n3rv-memory stores career knowledge and episodic memories.
 
 ## Running
 

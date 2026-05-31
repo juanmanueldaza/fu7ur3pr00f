@@ -9,15 +9,15 @@
 
 Invisible infrastructure that harnesses AI agents for career intelligence.
 
-[Concept map](FUTUREPROOF.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Coexisting with NERV](docs/COEXISTENCE.md) · [Contributing](CONTRIBUTING.md)
+[Concept map](FUTUREPROOF.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Coexisting with N3RV](docs/COEXISTENCE.md) · [Contributing](CONTRIBUTING.md)
 
-Powered by [opencode](https://opencode.ai). Pattern-aligned with [nerv](https://github.com/juanmanueldaza/nerv) — same architecture philosophy, different domain.
+Powered by [opencode](https://opencode.ai). Pattern-aligned with [n3rv](https://github.com/juanmanueldaza/n3rv) — same architecture philosophy, different domain.
 
 ## Why fu7ur3pr00f?
 
 Career management is broken. Your professional data is scattered across LinkedIn ZIP exports, PDF assessments, plain-text CVs, and portfolio websites. None of it talks to each other. Job searches are manual and repetitive. CV generation is tedious and rarely ATS-optimized. There's no memory of past decisions or applications.
 
-fu7ur3pr00f fixes this with the same approach nerv uses for software engineering: **harness engineering** — invisible infrastructure that gives AI agents the tools, data, and context to operate intelligently on your behalf.
+fu7ur3pr00f fixes this with the same approach n3rv uses for software engineering: **harness engineering** — invisible infrastructure that gives AI agents the tools, data, and context to operate intelligently on your behalf.
 
 It collects your professional data, indexes it into a vector database, and provides AI-powered analysis, CV generation, job search, and career coaching — all through opencode, the open source AI agent runtime.
 
@@ -76,11 +76,11 @@ See [FUTUREPROOF.md](FUTUREPROOF.md) for the full concept map and [docs/ARCHITEC
 | `/search` | Search job boards, track applications |
 | `/generate` | Generate ATS-optimized CV (Markdown + PDF) |
 
-## Coexisting with NERV
+## Coexisting with N3RV
 
-fu7ur3pr00f and [nerv](https://github.com/juanmanueldaza/nerv) coexist cleanly. They share a runtime (opencode) and an architectural philosophy but operate on entirely separate data:
+fu7ur3pr00f and [n3rv](https://github.com/juanmanueldaza/n3rv) coexist cleanly. They share a runtime (opencode) and an architectural philosophy but operate on entirely separate data:
 
-- nerv: `.nerv/` directory, engineering knowledge, A2A hub for agent task delegation
+- nerv: `.n3rv/` directory, engineering knowledge, A2A hub for agent task delegation
 - fu7ur3pr00f: `~/.fu7ur3pr00f/` directory, career knowledge, no daemons or hub
 
 See [docs/COEXISTENCE.md](docs/COEXISTENCE.md) for the full breakdown.
@@ -135,7 +135,7 @@ uv run python scripts/generate/render_cv.py ~/.fu7ur3pr00f/data/output/cv.md
 
 ## Tech Stack
 
-Python 3.13 · opencode · ChromaDB · WeasyPrint · MCP · pattern-aligned with nerv
+Python 3.13 · opencode · ChromaDB · WeasyPrint · MCP · pattern-aligned with n3rv
 
 ## Development
 

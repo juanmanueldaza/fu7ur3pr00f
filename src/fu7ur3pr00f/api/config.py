@@ -1,6 +1,8 @@
 from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class APISettings(BaseSettings):
     """API configuration settings populated via environment variables."""

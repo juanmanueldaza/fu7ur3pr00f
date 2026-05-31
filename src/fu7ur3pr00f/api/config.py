@@ -3,7 +3,6 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class APISettings(BaseSettings):
     """API configuration settings populated via environment variables."""
     
@@ -12,8 +11,9 @@ class APISettings(BaseSettings):
     reload: bool = Field(default=False, description="Enable or disable hot-reloading")
     cors_origins: list[str] = Field(default=["*"], description="Allowed CORS origins list")
     
-    chroma_dir: Path = Field(default=Path.home() / ".fu7ur3pr00f" / "chroma")
-    profile_path: Path = Field(default=Path.home() / ".fu7ur3pr00f" / "profiles" / "default.json")
+    # Use default_factory with lambda for dynamic runtime path evaluation
+    chroma_dir: Path = Field(default_factory=lambda: Path.home() / ".fu7ur3pr00f" / "chroma")
+    profile_path: Path = Field(default_factory=lambda: Path.home() / ".fu7ur3pr00f" / "profiles" / "default.json")
     
     log_level: str = Field(default="INFO", description="Application logger severity level")
 

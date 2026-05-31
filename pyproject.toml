@@ -40,6 +40,12 @@ dependencies = [
     "pytest-asyncio>=0.23",
 ]
 
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/juanmanueldaza/fu7ur3pr00f"
 Repository = "https://github.com/juanmanueldaza/fu7ur3pr00f"

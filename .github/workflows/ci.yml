@@ -34,7 +34,7 @@ jobs:
 
       - name: Install project
         run: |
-          pip install -e .
+          pip install -e ".[api]"
           pip install pytest pytest-asyncio pytest-cov pyright ruff
 
       - name: Lint (ruff)

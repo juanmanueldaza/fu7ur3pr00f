@@ -48,7 +48,9 @@ class ChromaDBStore:
             try:
                 import chromadb
 
-                self._client = cast(Any, chromadb.PersistentClient(path=str(self.persist_dir)))
+                self._client = cast(
+                    Any, chromadb.PersistentClient(path=str(self.persist_dir))
+                )
                 logger.info("ChromaDB initialized at %s", self.persist_dir)
             except ImportError:
                 logger.warning("ChromaDB not installed.")

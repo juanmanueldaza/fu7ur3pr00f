@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 _MAX_CV_SIZE = 10 * 1024 * 1024  # 10MB max CV file size
 
 _pdf_text_cache: dict[tuple[str, float, int], str] = {}
-_SECTION_HEADING_RE = re.compile(r"^\s{0,3}(?:#{1,6}\s+)?([A-Z][A-Za-z &/+()-]{1,60})\s*$")
+_SECTION_HEADING_RE = re.compile(
+    r"^\s{0,3}(?:#{1,6}\s+)?([A-Z][A-Za-z &/+()-]{1,60})\s*$"
+)
 
 
 def _file_cache_key(path: Path) -> tuple[str, float, int]:

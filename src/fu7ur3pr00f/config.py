@@ -36,14 +36,21 @@ class PathManager:
 
     def ensure_directories(self) -> None:
         secure_mkdir(self.data_dir)
-        for d in [self.raw_dir, self.processed_dir, self.output_dir, self.market_cache_dir]:
+        for d in [
+            self.raw_dir,
+            self.processed_dir,
+            self.output_dir,
+            self.market_cache_dir,
+        ]:
             secure_mkdir(d)
 
 
 class Settings(PathManager):
     """Minimal settings — paths plus a few env-driven constants."""
 
-    knowledge_chunk_max_tokens: int = int(os.getenv("KNOWLEDGE_CHUNK_MAX_TOKENS", "500"))
+    knowledge_chunk_max_tokens: int = int(
+        os.getenv("KNOWLEDGE_CHUNK_MAX_TOKENS", "500")
+    )
     knowledge_chunk_min_tokens: int = int(os.getenv("KNOWLEDGE_CHUNK_MIN_TOKENS", "50"))
     knowledge_auto_index: bool = os.getenv("KNOWLEDGE_AUTO_INDEX", "1") == "1"
 
@@ -53,13 +60,17 @@ class Settings(PathManager):
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     azure_openai_api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")
     azure_openai_endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
-    azure_openai_api_version: str = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+    azure_openai_api_version: str = os.getenv(
+        "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"
+    )
     azure_embedding_deployment: str = os.getenv(
         "AZURE_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
     )
     ollama_base_url: str | None = os.getenv("OLLAMA_BASE_URL")
     fu7ur3pr00f_proxy_key: str = os.getenv("FUTUREPROOF_PROXY_KEY", "")
-    fu7ur3pr00f_proxy_url: str = os.getenv("FUTUREPROOF_PROXY_URL", "https://llm.fu7ur3pr00f.dev")
+    fu7ur3pr00f_proxy_url: str = os.getenv(
+        "FUTUREPROOF_PROXY_URL", "https://llm.fu7ur3pr00f.dev"
+    )
 
     @property
     def active_provider(self) -> str:

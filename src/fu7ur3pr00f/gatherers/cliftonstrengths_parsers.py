@@ -85,7 +85,9 @@ class ActionPlanningParser(ReportTypeParser):
         self._parse_action_ideas(text, data)
         self._parse_sounds_like(text, data)
 
-    def _parse_personalized_insights(self, text: str, data: "CliftonStrengthsData") -> None:
+    def _parse_personalized_insights(
+        self, text: str, data: "CliftonStrengthsData"
+    ) -> None:
         """Parse Section I — personalized insights."""
         section_text = self.extractor.extract_section(
             r"Section I:\s*Awareness", r"Section II:\s*Application"
@@ -138,7 +140,9 @@ class ActionPlanningParser(ReportTypeParser):
 
     def _parse_sounds_like(self, text: str, data: "CliftonStrengthsData") -> None:
         """Parse Section III — 'Sounds Like This' quotes."""
-        section_text = self.extractor.extract_section(r"Section III:\s*Achievement", r"QUESTIONS")
+        section_text = self.extractor.extract_section(
+            r"Section III:\s*Achievement", r"QUESTIONS"
+        )
         if not section_text:
             return
 
@@ -188,7 +192,11 @@ class LeadershipInsightParser(ReportTypeParser):
             return
 
         for i, insight in enumerate(data.top_10):
-            next_name = data.top_10[i + 1].name.upper() if i + 1 < len(data.top_10) else "COPYRIGHT"
+            next_name = (
+                data.top_10[i + 1].name.upper()
+                if i + 1 < len(data.top_10)
+                else "COPYRIGHT"
+            )
             raw = self.extractor.extract_strength_block(
                 section_text,
                 insight,

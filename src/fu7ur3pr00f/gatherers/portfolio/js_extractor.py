@@ -162,7 +162,9 @@ class JSExtractor:
                 "email": item.get("email", ""),
             }
             if "sameAs" in item:
-                content.socials = [{"name": "Profile", "url": url} for url in item["sameAs"]]
+                content.socials = [
+                    {"name": "Profile", "url": url} for url in item["sameAs"]
+                ]
 
         # Extract CreativeWork or Project for projects
         elif item_type in ("CreativeWork", "Project", "SoftwareApplication"):

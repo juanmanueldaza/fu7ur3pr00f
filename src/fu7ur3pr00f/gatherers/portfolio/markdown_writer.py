@@ -63,8 +63,11 @@ class PortfolioMarkdownWriter:
     def _header(self, content: "ExtractedContent") -> Section:
         """Generate document header."""
         title = content.title or "Personal Portfolio"
+        scraped = datetime.now().isoformat()
         text = (
-            f"**Title:** {title}\n**URL:** {content.url}\n**Scraped:** {datetime.now().isoformat()}"
+            f"**Title:** {title}\n"
+            f"**URL:** {content.url}\n"
+            f"**Scraped:** {scraped}"
         )
         return Section("Header", text)
 

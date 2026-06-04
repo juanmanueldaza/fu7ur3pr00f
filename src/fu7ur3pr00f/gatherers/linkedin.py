@@ -45,7 +45,9 @@ def _read_csv(zf: zipfile.ZipFile, name: str) -> list[dict[str, str]]:
 
         # Check for path traversal in actual entry
         if ".." in zip_info.filename or zip_info.filename.startswith("/"):
-            logger.warning("Blocked ZIP entry with path traversal: %s", zip_info.filename)
+            logger.warning(
+                "Blocked ZIP entry with path traversal: %s", zip_info.filename
+            )
             return []
 
         with zf.open(name) as f:
@@ -537,7 +539,9 @@ def _parse_messages(rows: list[dict[str, str]]) -> Section | None:
 
     for conv_id, messages in conversations.items():
         title = _get(messages[0], "CONVERSATION TITLE", "Conversation Title")
-        header = f"### Conversation: {title}" if title else f"### Conversation {conv_id}"
+        header = (
+            f"### Conversation: {title}" if title else f"### Conversation {conv_id}"
+        )
         msg_lines = [header]
 
         for msg in messages:
@@ -645,10 +649,16 @@ class LinkedInGatherer:
             # Security: Validate all ZIP entries for path traversal
             for info in zf.infolist():
                 if ".." in info.filename or info.filename.startswith("/"):
-                    raise ValueError(f"Blocked ZIP entry with path traversal: {info.filename}")
+                    raise ValueError(
+                        f"Blocked ZIP entry with path traversal: {info.filename}"
+                    )
 
             for tier, csv_name, parser, use_variants in _CSV_PARSERS:
-                rows = _read_csv_variants(zf, csv_name) if use_variants else _read_csv(zf, csv_name)
+                rows = (
+                    _read_csv_variants(zf, csv_name)
+                    if use_variants
+                    else _read_csv(zf, csv_name)
+                )
                 result = parser(rows)
                 if result is None:
                     continue

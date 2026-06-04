@@ -126,7 +126,9 @@ class PortfolioFetcher:
         """
         # Security: Check URL length
         if len(url) > _MAX_URL_LENGTH:
-            raise ValueError(f"URL exceeds maximum length of {_MAX_URL_LENGTH} characters")
+            raise ValueError(
+                f"URL exceeds maximum length of {_MAX_URL_LENGTH} characters"
+            )
 
         parsed = urlparse(url)
 
@@ -165,7 +167,9 @@ class PortfolioFetcher:
         except socket_module.gaierror as exc:
             raise ValueError(f"DNS resolution failed for {hostname}") from exc
         except TimeoutError as exc:
-            raise ValueError(f"DNS resolution timeout for {hostname} (>{_DNS_TIMEOUT}s)") from exc
+            raise ValueError(
+                f"DNS resolution timeout for {hostname} (>{_DNS_TIMEOUT}s)"
+            ) from exc
 
         for _family, _type, _proto, _canonname, sockaddr in addrinfo:
             addr = str(sockaddr[0])
@@ -176,7 +180,9 @@ class PortfolioFetcher:
 
         return addrinfo
 
-    def _get_with_pinning(self, url: str, addrinfo: list[tuple] | None) -> httpx.Response:
+    def _get_with_pinning(
+        self, url: str, addrinfo: list[tuple] | None
+    ) -> httpx.Response:
         """Send GET request with optional DNS pinning."""
         assert self._client is not None
         if addrinfo:

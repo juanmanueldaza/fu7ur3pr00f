@@ -38,7 +38,9 @@ class MarkdownChunker:
     # Hard char limit to prevent Ollama API errors (model context limits)
     MAX_CHARS = 4000
 
-    def __init__(self, max_tokens: int = CHUNK_MAX_TOKENS, min_tokens: int = CHUNK_MIN_TOKENS):
+    def __init__(
+        self, max_tokens: int = CHUNK_MAX_TOKENS, min_tokens: int = CHUNK_MIN_TOKENS
+    ):
         self.max_tokens = max_tokens
         self.min_tokens = min_tokens
 

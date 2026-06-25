@@ -242,7 +242,7 @@ class JSExtractor:
         content = JSContent()
 
         # Extract project data from data attributes
-        for elem in soup.find_all(attrs={"data-project": True}):
+        for elem in soup.select("[data-project]"):
             try:
                 project_data = elem.get("data-project")
                 if project_data and isinstance(project_data, str):
@@ -253,7 +253,7 @@ class JSExtractor:
                 continue
 
         # Extract social links from data attributes
-        for elem in soup.find_all(attrs={"data-social": True}):
+        for elem in soup.select("[data-social]"):
             try:
                 social_data = elem.get("data-social")
                 if social_data and isinstance(social_data, str):
@@ -264,7 +264,7 @@ class JSExtractor:
                 continue
 
         # Extract bio from data attributes
-        for elem in soup.find_all(attrs={"data-bio": True}):
+        for elem in soup.select("[data-bio]"):
             try:
                 bio_data = elem.get("data-bio")
                 if bio_data and isinstance(bio_data, str):

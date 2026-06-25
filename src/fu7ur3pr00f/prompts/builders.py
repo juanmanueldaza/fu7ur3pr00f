@@ -77,7 +77,9 @@ class PromptBuilder:
 
         return "\n\n".join(parts)
 
-    def build_market_analysis_prompt(self, action: str, career_data: str, market_data: str) -> str:
+    def build_market_analysis_prompt(
+        self, action: str, career_data: str, market_data: str
+    ) -> str:
         """Build market analysis prompt.
 
         Args:
@@ -123,7 +125,9 @@ CAREER DATA:
 
 Provide strategic, actionable advice for achieving the target goal."""
 
-    def enrich_with_market_context(self, career_data: str, state: dict[str, Any]) -> str:
+    def enrich_with_market_context(
+        self, career_data: str, state: dict[str, Any]
+    ) -> str:
         """Add market context to career data if available.
 
         Args:

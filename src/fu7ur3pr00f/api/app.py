@@ -12,6 +12,7 @@ from fu7ur3pr00f.memory.profile import load_profile
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 logger = logging.getLogger("fu7ur3pr00f.api")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing persistent state stores...")
@@ -27,6 +28,7 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Tearing down API layer instances and releasing resources...")
 
+
 app = FastAPI(title="fu7ur3pr00f API", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
@@ -36,6 +38,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get("/api/health", tags=["Monitoring"])
 async def get_health():

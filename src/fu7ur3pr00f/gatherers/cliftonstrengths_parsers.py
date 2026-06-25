@@ -16,7 +16,7 @@ class ReportTypeParser(ABC):
     """Abstract base for report type parsers."""
 
     @abstractmethod
-    def parse(self, text: str, data: "CliftonStrengthsData") -> None:
+    def parse(self, text: str, data: CliftonStrengthsData) -> None:
         """Parse text and populate data object."""
         pass
 
@@ -42,7 +42,7 @@ class SectionExtractor:
     def extract_strength_block(
         self,
         section_text: str,
-        insight: "StrengthInsight",
+        insight: StrengthInsight,
         header_pattern: str,
         end_marker: str = "QUESTIONS",
     ) -> str:
@@ -79,14 +79,14 @@ class ActionPlanningParser(ReportTypeParser):
     def __init__(self, extractor: SectionExtractor):
         self.extractor = extractor
 
-    def parse(self, text: str, data: "CliftonStrengthsData") -> None:
+    def parse(self, text: str, data: CliftonStrengthsData) -> None:
         """Parse Action Planning report."""
         self._parse_personalized_insights(text, data)
         self._parse_action_ideas(text, data)
         self._parse_sounds_like(text, data)
 
     def _parse_personalized_insights(
-        self, text: str, data: "CliftonStrengthsData"
+        self, text: str, data: CliftonStrengthsData
     ) -> None:
         """Parse Section I — personalized insights."""
         section_text = self.extractor.extract_section(
@@ -113,7 +113,7 @@ class ActionPlanningParser(ReportTypeParser):
             if paragraphs:
                 insight.unique_insights = [self._clean_text(p) for p in paragraphs]
 
-    def _parse_action_ideas(self, text: str, data: "CliftonStrengthsData") -> None:
+    def _parse_action_ideas(self, text: str, data: CliftonStrengthsData) -> None:
         """Parse Section II — Ideas for Action."""
         section_text = self.extractor.extract_section(
             r"Section II:\s*Application", r"Section III:\s*Achievement"
@@ -138,7 +138,7 @@ class ActionPlanningParser(ReportTypeParser):
             if items:
                 insight.action_items = items
 
-    def _parse_sounds_like(self, text: str, data: "CliftonStrengthsData") -> None:
+    def _parse_sounds_like(self, text: str, data: CliftonStrengthsData) -> None:
         """Parse Section III — 'Sounds Like This' quotes."""
         section_text = self.extractor.extract_section(
             r"Section III:\s*Achievement", r"QUESTIONS"
@@ -179,7 +179,7 @@ class LeadershipInsightParser(ReportTypeParser):
     def __init__(self, extractor: SectionExtractor):
         self.extractor = extractor
 
-    def parse(self, text: str, data: "CliftonStrengthsData") -> None:
+    def parse(self, text: str, data: CliftonStrengthsData) -> None:
         """Parse Leadership Insight report."""
         # Skip if insights already populated
         if any(s.unique_insights for s in data.top_10):
@@ -226,7 +226,7 @@ class DiscoveryDevelopmentParser(ReportTypeParser):
     def __init__(self, extractor: SectionExtractor):
         self.extractor = extractor
 
-    def parse(self, text: str, data: "CliftonStrengthsData") -> None:
+    def parse(self, text: str, data: CliftonStrengthsData) -> None:
         """Parse Discovery Development report."""
         # Skip if action items already rich
         if any(len(s.action_items) > 5 for s in data.top_5):

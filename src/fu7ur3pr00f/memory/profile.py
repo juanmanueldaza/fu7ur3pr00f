@@ -121,7 +121,7 @@ class UserProfile:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> UserProfile:
+    def from_dict(cls, data: dict[str, Any]) -> "UserProfile":
         """Create profile from dictionary (loaded from YAML)."""
         identity = data.get("identity", {})
         professional = data.get("professional", {})
@@ -244,7 +244,7 @@ def save_profile(profile: UserProfile) -> None:
         )
 
 
-def edit_profile(modifier: Callable[[UserProfile], None]) -> UserProfile:
+def edit_profile(modifier: Callable[["UserProfile"], None]) -> "UserProfile":
     """Atomically load, modify, and save the profile.
 
     Holds a lock so that parallel tool calls don't clobber each other.

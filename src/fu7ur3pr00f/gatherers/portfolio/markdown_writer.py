@@ -23,8 +23,8 @@ class PortfolioMarkdownWriter:
 
     def generate(
         self,
-        content: ExtractedContent,
-        js_content: JSContent,
+        content: "ExtractedContent",
+        js_content: "JSContent",
     ) -> list[Section]:
         """Generate sections from extracted content.
 
@@ -60,7 +60,7 @@ class PortfolioMarkdownWriter:
                 sections.append(result)
         return sections
 
-    def _header(self, content: ExtractedContent) -> Section:
+    def _header(self, content: "ExtractedContent") -> Section:
         """Generate document header."""
         title = content.title or "Personal Portfolio"
         scraped = datetime.now().isoformat()
@@ -71,13 +71,13 @@ class PortfolioMarkdownWriter:
         )
         return Section("Header", text)
 
-    def _description(self, content: ExtractedContent) -> Section | None:
+    def _description(self, content: "ExtractedContent") -> Section | None:
         """Generate description section."""
         if not content.meta_description:
             return None
         return Section("Description", content.meta_description)
 
-    def _json_ld_profile(self, content: ExtractedContent) -> Section | None:
+    def _json_ld_profile(self, content: "ExtractedContent") -> Section | None:
         """Generate professional profile from JSON-LD Person data."""
         lines: list[str] = []
         for ld in content.json_ld:
@@ -99,11 +99,11 @@ class PortfolioMarkdownWriter:
             return None
         return Section("Professional Profile", "\n".join(lines))
 
-    def _open_graph(self, content: ExtractedContent) -> Section | None:
+    def _open_graph(self, content: "ExtractedContent") -> Section | None:
         """Generate Open Graph data section."""
         return self._dict_section("Open Graph Data", content.open_graph)
 
-    def _meta_info(self, content: ExtractedContent) -> Section | None:
+    def _meta_info(self, content: "ExtractedContent") -> Section | None:
         """Generate meta information section."""
         return self._dict_section("Meta Information", content.meta_tags)
 
@@ -114,7 +114,7 @@ class PortfolioMarkdownWriter:
         lines = [f"- **{key}:** {value}" for key, value in data.items()]
         return Section(title, "\n".join(lines))
 
-    def _js_projects(self, js_content: JSContent) -> Section | None:
+    def _js_projects(self, js_content: "JSContent") -> Section | None:
         """Generate featured projects section from JS data."""
         if not js_content.projects:
             return None
@@ -129,7 +129,7 @@ class PortfolioMarkdownWriter:
             lines.append("")
         return Section("Featured Projects", "\n".join(lines).rstrip())
 
-    def _js_socials(self, js_content: JSContent) -> Section | None:
+    def _js_socials(self, js_content: "JSContent") -> Section | None:
         """Generate social links section from JS data."""
         if not js_content.socials:
             return None
@@ -143,7 +143,7 @@ class PortfolioMarkdownWriter:
             return None
         return Section("Social Links", "\n".join(lines))
 
-    def _js_bio(self, js_content: JSContent) -> Section | None:
+    def _js_bio(self, js_content: "JSContent") -> Section | None:
         """Generate about section from JS content bio."""
         if not js_content.bio:
             return None
@@ -164,7 +164,7 @@ class PortfolioMarkdownWriter:
             lines.append(bio_text)
         return Section("About", "\n\n".join(lines))
 
-    def _html_sections(self, content: ExtractedContent) -> list[Section]:
+    def _html_sections(self, content: "ExtractedContent") -> list[Section]:
         """Generate sections extracted from HTML."""
         if not content.sections:
             return []
@@ -172,8 +172,8 @@ class PortfolioMarkdownWriter:
 
     def _fallback_content(
         self,
-        content: ExtractedContent,
-        js_content: JSContent,
+        content: "ExtractedContent",
+        js_content: "JSContent",
     ) -> list[Section]:
         """Use headings/paragraphs if no sections or projects found."""
         if content.sections or js_content.projects:
@@ -194,7 +194,7 @@ class PortfolioMarkdownWriter:
 
         return sections
 
-    def _all_links(self, content: ExtractedContent) -> Section | None:
+    def _all_links(self, content: "ExtractedContent") -> Section | None:
         """Generate all links section."""
         if not content.links:
             return None

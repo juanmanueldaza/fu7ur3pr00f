@@ -91,7 +91,7 @@ class PortfolioFetcher:
         self.timeout = timeout
         self._client: httpx.Client | None = None
 
-    def __enter__(self) -> PortfolioFetcher:
+    def __enter__(self) -> "PortfolioFetcher":
         """Enter context manager, create HTTP client."""
         self._client = httpx.Client(
             timeout=self.timeout,

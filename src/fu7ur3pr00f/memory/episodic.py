@@ -59,7 +59,7 @@ class EpisodicMemory:
         id: str,
         document: str,
         metadata: dict[str, Any],
-    ) -> EpisodicMemory:
+    ) -> "EpisodicMemory":
         """Create from ChromaDB query result."""
         reserved = {"memory_type", "context", "timestamp"}
         return cls(

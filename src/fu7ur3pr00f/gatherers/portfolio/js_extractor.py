@@ -78,7 +78,7 @@ class JSExtractor:
         self,
         html: str,
         base_url: str,
-        fetcher: "PortfolioFetcher",
+        fetcher: PortfolioFetcher,
     ) -> JSContent:
         """Find and extract content from JSON files and HTML.
 

@@ -1,0 +1,21 @@
+name: "Stale issue handler"
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Every Monday at 6am
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-label: "stale"
+          stale-issue-message: "This issue has been inactive for 30 days. It will be closed in 7 days unless there is new activity."
+          close-issue-message: "This issue was closed due to inactivity. Feel free to reopen if it's still relevant."
+          days-before-stale: 30
+          days-before-close: 7
+          exempt-issue-labels: "epic,priority:critical,priority:high,help wanted"

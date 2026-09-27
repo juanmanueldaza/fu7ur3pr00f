@@ -33,7 +33,7 @@ dependencies = [
     # MCP (Model Context Protocol)
     "mcp>=1.26",
     # Generation
-    "weasyprint>=62",
+    "weasyprint>=62,<63",  # 63+ removed weasyprint.urls.default_url_fetcher
     "markdown>=3.10.1",
     "python-jobspy>=1.1.82",
     "chromadb>=1.4.1",
